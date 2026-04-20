@@ -245,26 +245,16 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
   </header>
 
   <div class="content" id="content">
-    <div class="stats" id="stats"></div>
+    <div class="stats" id="stats" style="grid-template-columns:1fr 1fr"></div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Aujourd'hui</div>
+      <div id="today-panel" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none"></div>
+    </div>
     <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
     <div id="view-liste" class="hidden"></div>
   </div>
 
-  <nav class="bnav">
-    <button class="nbtn active" id="nb-planning" onclick="switchView('planning')">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="22"/></svg>Planning
-    </button>
-    <button class="nbtn" id="nb-liste" onclick="switchView('liste')">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>Liste
-    </button>
-    <button class="nfab" onclick="openAdd()">+</button>
-    <button class="nbtn" onclick="sendWhatsApp()">
-      <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Rapport
-    </button>
-    <button class="nbtn" onclick="exportJSON()">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export
-    </button>
-  </nav>
+  <nav class="bnav" id="main-nav"></nav>
 </div>
 
 <!-- ADD/EDIT -->
@@ -487,6 +477,7 @@ function applyRole(){
     if(currentSession.role==='admin')sl.textContent='Admin';
     else if(currentSession.company)sl.textContent=currentSession.company.name;
   }
+  renderNav();
 }
 
 function canEdit(){
@@ -544,6 +535,22 @@ function renderLockBtn(){
 }
 
 const COLORS=[{id:'amber',b:'#F59E0B',bg:'#FFF8EE',t:'#92400E'},{id:'blue',b:'#3B82F6',bg:'#EEF6FF',t:'#1E3A5F'},{id:'gold',b:'#CA8A04',bg:'#FEFCE8',t:'#713F12'},{id:'purple',b:'#8B5CF6',bg:'#F5F3FF',t:'#4C1D95'},{id:'green',b:'#16A34A',bg:'#F0FDF4',t:'#14532D'},{id:'rose',b:'#E11D48',bg:'#FFF1F2',t:'#881337'},{id:'teal',b:'#0D9488',bg:'#F0FDFA',t:'#134E4A'},{id:'orange',b:'#EA580C',bg:'#FFF7ED',t:'#7C2D12'},{id:'indigo',b:'#6366F1',bg:'#EEF2FF',t:'#312E81'},{id:'sky',b:'#0EA5E9',bg:'#F0F9FF',t:'#0C4A6E'}];
+
+const COMPANY_COLORS={
+  'STD':'amber',
+  'ELPHITEC':'blue',
+  'PROST':'green',
+  'AM FRANCE':'rose',
+  'BARRE BOUILLET':'teal',
+  'SOA-A':'purple',
+  'BENE':'indigo'
+};
+function getCompanyColor(companyName){
+  return COMPANY_COLORS[companyName]||'gray';
+}
+function gcByCompany(companyName){
+  return gc(getCompanyColor(companyName));
+}
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
 const SLABEL={arealis:'À réaliser',encours:'En cours',termine:'Terminé',bloque:'Bloqué'};
 const SCOL={arealis:'#9CA3AF',encours:'#2563EB',termine:'#16A34A',bloque:'#DC2626'};
@@ -585,11 +592,12 @@ async function loadProfile(){
 }
 
 function openUserMenu(){
-  const p=currentProfile;
+  const s=currentSession;
+  const co=s.company;
   document.getElementById('user-info').innerHTML=`
-    <div style="font-size:13px;font-weight:600;margin-bottom:4px">${p?.name||'—'}</div>
-    <div style="font-size:12px;color:var(--muted)">${p?.company_name||''}</div>
-    <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px">${p?.phone||currentUser?.email||''}</div>`;
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">${s.name||'—'}</div>
+    <div style="font-size:12px;color:var(--muted)">${co?co.name+' — '+(co.trade_ids||[]).join(', '):(s.role==='admin'?'Administrateur':'')}</div>
+    <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px">${co?co.email||'':''}</div>`;
   document.getElementById('modal-user').classList.remove('hidden');
 }
 function closeUserMenu(){document.getElementById('modal-user').classList.add('hidden');}
@@ -727,12 +735,13 @@ function inDay(iv,day){const s=new Date(iv.start+'T00:00:00'),e=new Date((iv.end
 function injectStyles(){
   document.getElementById('dyn-styles')?.remove();
   const s=document.createElement('style');s.id='dyn-styles';
-  s.textContent=cfg.trades.map(tr=>{const c=gc(tr.color);
-  const bgStrong=c.bg;
-  const border=c.b;
-  const textColor=c.t;
-  return`.ic.t-${tr.id}{background:${bgStrong};border-left:4px solid ${border};color:${textColor};box-shadow:inset 0 0 0 1px ${border}22}`+
-  `.tbadge.t-${tr.id}{background:${bgStrong};border-color:${border};color:${textColor}}`;}).join('\n');
+  // Extract company name from trade name (format: "COMPANY — Trade")
+  s.textContent=cfg.trades.map(tr=>{
+    const parts=tr.name.split(' — ');
+    const compName=parts[0]||'';
+    const c=gcByCompany(compName);
+    return`.ic.t-${tr.id}{background:${c.bg};border-left:4px solid ${c.b};color:${c.t};box-shadow:inset 0 0 0 1px ${c.b}22}`+
+    `.tbadge.t-${tr.id}{background:${c.bg};border-color:${c.b};color:${c.t}}`;}).join('\n');
   document.head.appendChild(s);
 }
 
@@ -740,12 +749,80 @@ function injectStyles(){
 function render(){injectStyles();renderFilters();renderStats();view==='planning'?renderGrid():renderList();}
 function setFilter(el,t){filter=t;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');render();}
 function changeWeek(d){weekOffset+=d;render();}
-function switchView(v){view=v;document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');document.getElementById('view-liste').classList.toggle('hidden',v!=='liste');document.getElementById('nb-planning').classList.toggle('active',v==='planning');document.getElementById('nb-liste').classList.toggle('active',v==='liste');render();}
-function getFiltered(){return filter==='all'?data:data.filter(i=>i.trade===filter);}
+function switchView(v){
+  view=v;
+  document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');
+  document.getElementById('view-liste').classList.toggle('hidden',v!=='liste');
+  const nbp=document.getElementById('nb-planning');
+  const nbl=document.getElementById('nb-liste');
+  if(nbp)nbp.classList.toggle('active',v==='planning');
+  if(nbl)nbl.classList.toggle('active',v==='liste');
+  render();
+}
+function getFiltered(){
+  let d=data;
+  // Companies only see their own tasks
+  if(currentSession.role==='company'&&currentSession.company){
+    d=data.filter(i=>i.company===currentSession.company.name);
+  }
+  return filter==='all'?d:d.filter(i=>i.trade===filter);
+}
 
 function renderFilters(){document.getElementById('filters').innerHTML=`<div class="chip ${filter==='all'?'active':''}" onclick="setFilter(this,'all')">Tous</div>`+cfg.trades.map(tr=>{const c=gc(tr.color);return`<div class="chip ${filter===tr.id?'active':''}" onclick="setFilter(this,'${tr.id}')"><span class="cdot" style="background:${c.b}"></span>${tr.short}</div>`;}).join('');}
 
-function renderStats(){const days=weekDays(weekOffset),fi=getFiltered(),wi=fi.filter(i=>days.some(d=>inDay(i,d)));const n=wi.length,ok=wi.filter(i=>i.status==='termine').length,en=wi.filter(i=>i.status==='cours').length,bl=wi.filter(i=>i.status==='bloque').length;document.getElementById('stats').innerHTML=`<div class="stat"><div class="stat-val">${n}</div><div class="stat-lbl">semaine</div></div><div class="stat"><div class="stat-val" style="color:#16A34A">${ok}</div><div class="stat-lbl">terminées</div></div><div class="stat"><div class="stat-val" style="color:#2563EB">${en}</div><div class="stat-lbl">en cours</div></div><div class="stat"><div class="stat-val" style="color:#DC2626">${bl}</div><div class="stat-lbl">bloquées</div></div>`;}
+function renderStats(){
+  const days=weekDays(weekOffset),fi=getFiltered(),wi=fi.filter(i=>days.some(d=>inDay(i,d)));
+  const en=wi.filter(i=>i.status==='encours').length;
+  const bl=wi.filter(i=>i.status==='bloque').length;
+  document.getElementById('stats').innerHTML=
+    `<div class="stat" style="cursor:pointer" onclick="showStatusList('encours')"><div class="stat-val" style="color:#2563EB">${en}</div><div class="stat-lbl">en cours ↗</div></div>`+
+    `<div class="stat" style="cursor:pointer" onclick="showStatusList('bloque')"><div class="stat-val" style="color:#DC2626">${bl}</div><div class="stat-lbl">bloquées ↗</div></div>`;
+  renderTodayPanel();
+}
+
+function showStatusList(status){
+  const days=weekDays(weekOffset);
+  let fi=data.filter(i=>days.some(d=>inDay(i,d))&&i.status===status);
+  if(currentSession.role==='company'&&currentSession.company){
+    fi=fi.filter(i=>i.company===currentSession.company.name);
+  }
+  const label=status==='encours'?'En cours':'Bloquées';
+  const col=status==='encours'?'#2563EB':'#DC2626';
+  const body=!fi.length
+    ?`<div class="empty">Aucune intervention</div>`
+    :fi.map(i=>{const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);
+      return`<div class="litem" onclick="closeDetail();openDetail('${i.id}')">
+        <div class="li-top"><span class="li-co">${i.company}</span><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div>
+        <div class="li-task">${i.task}</div>
+        <div class="li-meta">${z?z.short:i.zone} · ${tr?tr.name:i.trade} · ${i.start}${i.end&&i.end!==i.start?' → '+i.end:''}</div>
+        ${i.prereq?`<div class="li-pre">⚠ ${i.prereq}</div>`:''}
+      </div>`;}).join('');
+  document.getElementById('detail-body').innerHTML=
+    `<div class="stitle" style="color:${col}">${label} (${fi.length})</div>`+body+
+    `<button class="btn-g" onclick="closeDetail()">Fermer</button>`;
+  document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+function renderTodayPanel(){
+  const el=document.getElementById('today-panel');
+  if(!el)return;
+  let todayTasks=data.filter(i=>inDay(i,new Date()));
+  if(currentSession.role==='company'&&currentSession.company){
+    todayTasks=todayTasks.filter(i=>i.company===currentSession.company.name);
+  }
+  if(!todayTasks.length){
+    el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0;font-style:italic">Aucune tâche aujourd'hui</div>`;
+    return;
+  }
+  el.innerHTML=todayTasks.map(i=>{
+    const tr=cfg.trades.find(t=>t.id===i.trade);
+    const c=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'};
+    return`<div onclick="openDetail('${i.id}')" style="display:inline-flex;flex-direction:column;min-width:130px;max-width:160px;background:${c.bg};border-left:3px solid ${c.b};border-radius:var(--rx);padding:6px 8px;cursor:pointer;flex-shrink:0">
+      <span style="font-size:11px;font-weight:700;color:${c.t};margin-bottom:2px">${i.company}</span>
+      <span style="font-size:10px;color:${c.t};opacity:.75;line-height:1.3">${i.task.slice(0,30)}${i.task.length>30?'…':''}</span>
+    </div>`;
+  }).join('');
+}
 
 
 
@@ -1003,7 +1080,97 @@ async function confirmAddTrade(){const name=document.getElementById('new-trade-n
 function sendWhatsApp(){const days=weekDays(weekOffset),wi=data.filter(i=>days.some(d=>inDay(i,d)));let msg=`📋 *Planning HSF — Av. Marceau*\nSemaine du ${dateFR(days[0])} au ${dateFR(days[4])}\n\n`;const bl=wi.filter(i=>i.status==='bloque');if(bl.length){msg+=`🔴 *BLOCAGES (${bl.length})*\n`;bl.forEach(i=>{msg+=`• ${i.company} — ${i.task} (${(cfg.zones.find(z=>z.id===i.zone)||{short:i.zone}).short})\n`;});msg+='\n';}cfg.zones.forEach(z=>{const zi=wi.filter(i=>i.zone===z.id).sort((a,b)=>(a.priority||3)-(b.priority||3));if(!zi.length)return;msg+=`*${z.name}*\n`;zi.forEach(i=>{const e={arealis:'⏳',encours:'🔵',termine:'✅',bloque:'🔴'}[i.status];msg+=`${e} [P${i.priority||3}] ${i.company} — ${i.task}\n`;});msg+='\n';});window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');}
 function exportJSON(){const blob=new Blob([JSON.stringify({project:'HSF-Marceau',exportedAt:new Date().toISOString(),config:cfg,interventions:data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hsf-'+dateStr(new Date())+'.json';a.click();}
 
+function exportWeek(){
+  const days=weekDays(weekOffset);
+  let wi=data.filter(i=>days.some(d=>inDay(i,d)));
+  if(currentSession.role==='company'&&currentSession.company){
+    wi=wi.filter(i=>i.company===currentSession.company.name);
+  }
+  wi.sort((a,b)=>a.start.localeCompare(b.start));
+  let csv='Entreprise,Tâche,Zone,Début,Fin,Statut,Avancement,Retard\n';
+  wi.forEach(i=>{
+    const z=cfg.zones.find(x=>x.id===i.zone);
+    csv+=`"${i.company}","${i.task}","${z?z.name:i.zone}","${i.start}","${i.end||i.start}","${SLABEL[i.status]||i.status}","${i.progress||0}%","${i.delay||0}j"\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='hsf-semaine-'+dateStr(days[0])+'.csv';
+  a.click();
+}
+
 // ─── LAYOUT ───────────────────────────────────────────────
+
+function renderNav(){
+  const isAdmin=currentSession.role==='admin';
+  const nav=document.getElementById('main-nav');
+  if(isAdmin){
+    nav.innerHTML=`
+      <button class="nbtn active" id="nb-planning" onclick="switchView('planning')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="22"/></svg>Planning
+      </button>
+      <button class="nbtn" id="nb-liste" onclick="switchView('liste')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>Liste
+      </button>
+      <button class="nfab" onclick="openTodayModal()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="12" cy="15" r="2" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button class="nbtn" onclick="sendWhatsApp()">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Rapport
+      </button>
+      <button class="nbtn" onclick="exportJSON()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export
+      </button>`;
+  } else {
+    nav.innerHTML=`
+      <button class="nbtn active" id="nb-planning" onclick="switchView('planning')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="22"/></svg>Planning
+      </button>
+      <button class="nbtn" id="nb-liste" onclick="switchView('liste')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>Liste
+      </button>
+      <button class="nfab" onclick="openTodayModal()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="12" cy="15" r="2" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button class="nbtn" onclick="exportWeek()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export
+      </button>`;
+  }
+}
+
+function openTodayModal(){
+  const today=dateStr(new Date());
+  const isCompany=currentSession.role==='company';
+  const co=currentSession.company;
+  let todayTasks=data.filter(i=>inDay(i,new Date()));
+  if(isCompany&&co)todayTasks=todayTasks.filter(i=>i.company===co.name);
+  todayTasks.sort((a,b)=>(a.priority||3)-(b.priority||3));
+  const title=isCompany?`Mes tâches du jour — ${co?.name||''}`:`Toutes les tâches du jour`;
+  document.getElementById('detail-body').innerHTML=
+    `<div class="stitle">${title}</div>`+
+    (todayTasks.length===0?`<div class="empty">Aucune tâche aujourd'hui</div>`:'') +
+    todayTasks.map(i=>{
+      const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);
+      const parts=(tr?.name||'').split(' — ');
+      const compName=parts[0]||i.company;
+      const c=gcByCompany(compName);
+      return`<div class="litem" onclick="closeDetail();openDetail('${i.id}')" style="border-left:4px solid ${c.b}">
+        <div class="li-top"><span class="li-co" style="color:${c.t}">${i.company}</span><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div>
+        <div class="li-task">${i.task}</div>
+        <div class="li-meta">${z?z.short:i.zone} · ${getTaskNum(i)}</div>
+      </div>`;
+    }).join('')+
+    `<button class="btn-g" onclick="closeDetail()">Fermer</button>`;
+  document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+function exportWeek(){
+  const days=weekDays(weekOffset);
+  const co=currentSession.company;
+  const wi=data.filter(i=>days.some(d=>inDay(i,d))&&i.company===co?.name);
+  const blob=new Blob([JSON.stringify({company:co?.name,week:`${dateFR(days[0])} - ${dateFR(days[4])}`,tasks:wi},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='planning-'+dateStr(new Date())+'.json';a.click();
+}
 function fixH(){const h=document.getElementById('app-hdr').offsetHeight;document.getElementById('content').style.height=`calc(100vh - ${h}px)`;}
 
 function toggleLockBtn(){
