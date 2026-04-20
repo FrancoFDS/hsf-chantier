@@ -568,13 +568,12 @@ function phoneToEmail(phone){
 function showErr(msg){const e=document.getElementById('login-err');e.textContent=msg;e.style.display='block';}
 
 async function doLogout(){
-  await sb.auth.signOut();
-  currentUser=null;currentProfile=null;data=[];cfg={zones:[],trades:[]};
+  clearSession();
+  currentSession={role:null,company:null,name:null};
   closeUserMenu();
   document.getElementById('app').classList.add('hidden');
-  document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('l-phone').value='';
-  document.getElementById('l-pass').value='';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('l-code').value='';
 }
 
 async function loadProfile(){
@@ -895,7 +894,9 @@ async function saveInterv(){
   const company=sel.value==='__new__'||sel.value===''?document.getElementById('f-company').value.trim():sel.value;
   const task=document.getElementById('f-task').value.trim(),zone=document.getElementById('f-zone').value,start=document.getElementById('f-start').value;
   if(!trade||!company||!task||!zone||!start){alert('Merci de remplir les champs obligatoires (*)');return;}
-  const iv={id:editId||Date.now().toString(),trade,company,task,zone,start,end:document.getElementById('f-end').value||start,staff:parseInt(document.getElementById('f-staff').value)||1,status:document.getElementById('f-status').value,priority:selectedPrio,prereq:document.getElementById('f-prereq').value.trim(),notes:document.getElementById('f-notes').value.trim()};
+  const existingIv=editId?data.find(i=>i.id===editId):null;
+  const taskNumber=existingIv?.task_number||generateTaskNumber(company);
+  const iv={id:editId||Date.now().toString(),trade,company,task,zone,start,end:document.getElementById('f-end').value||start,staff:parseInt(document.getElementById('f-staff').value)||1,status:document.getElementById('f-status').value,priority:selectedPrio,prereq:document.getElementById('f-prereq').value.trim(),notes:document.getElementById('f-notes').value.trim(),progress:parseInt(document.getElementById('f-progress').value)||0,delay:parseInt(document.getElementById('f-delay').value)||0,predecessor_id:document.getElementById('f-predecessor').value||null,task_number:taskNumber};
   if(editId){const idx=data.findIndex(i=>i.id===editId);if(idx>=0)data[idx]=iv;}else{data.push(iv);}
   closeAdd();render();
   await dbSave(iv);
@@ -1034,8 +1035,7 @@ function renderCompaniesList(){
 if(editingCompanyId){const c=companies.find(x=>x.id===editingCompanyId);if(c){const colorSwatches=COLORS.map(cl=>`<div class='cswatch${c.color===cl.id?' sel':''}' style='background:${cl.b}' data-cid='${cl.id}' onclick='document.querySelectorAll("#edit-co-colors .cswatch").forEach(s=>s.classList.remove("sel"));this.classList.add("sel")'></div>`).join('');const editDiv=document.createElement('div');editDiv.className='eform';editDiv.id='edit-co-form';editDiv.innerHTML=`<div class='f2' style='margin-bottom:8px'><input class='efi' id='eco-name' value='${c.name}' placeholder='Nom'><input class='efi' id='eco-contact' value='${c.contact_name||''}' placeholder='Contact'></div>`+`<div class='f2' style='margin-bottom:8px'><input class='efi' id='eco-email' value='${c.email||''}' placeholder='Email' type='email'><input class='efi' id='eco-phone' value='${c.phone||''}' placeholder='Tél'></div>`+`<div style='font-size:12px;color:var(--muted);margin-bottom:6px'>Couleur</div><div class='color-grid' id='edit-co-colors'>${colorSwatches}</div>`+`<div style='display:flex;gap:8px;margin-top:10px'><button class='btn-sm' style='flex:1' onclick='saveEditCompany("${c.id}")'>Enregistrer</button><button class='btn-sm' onclick='cancelEditCompany()'>Annuler</button></div>`;el.appendChild(editDiv);}}
 }
 
-async 
-function editCompany(id){editingCompanyId=id;renderCompaniesList();}
+async function editCompany(id){editingCompanyId=id;renderCompaniesList();}
 function cancelEditCompany(){editingCompanyId=null;renderCompaniesList();}
 async function saveEditCompany(id){
   const c=companies.find(x=>x.id===id);if(!c)return;
@@ -1052,9 +1052,9 @@ async function saveEditCompany(id){
   renderCompaniesList();
   updateDL();
 }
-function deleteCompany(id){
+async function deleteCompany(id){
   if(!confirm('Supprimer cette entreprise ?'))return;
-  await sb.from('companies').update({active:false}).eq('id',id);
+  try{if(sb)await sb.from('companies').update({active:false}).eq('id',id);}catch(e){}
   companies=companies.filter(c=>c.id!==id);
   renderCompaniesList();
 }
