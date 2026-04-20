@@ -479,6 +479,14 @@ function applyRole(){
     else if(currentSession.company)sl.textContent=currentSession.company.name;
   }
   renderNav();
+  // Hide add buttons for company
+  const styleId='role-styles';
+  document.getElementById(styleId)?.remove();
+  if(currentSession.role!=='admin'){
+    const s=document.createElement('style');s.id=styleId;
+    s.textContent='.add-mini{display:none!important}.dcell{cursor:default!important}';
+    document.head.appendChild(s);
+  }
 }
 
 function canEdit(){
@@ -955,7 +963,7 @@ function populateFormSelects(){document.getElementById('f-trade').innerHTML=`<op
 function openAdd(){
   if(!canEdit()){alert('Le planning est verrouillé. Seul le responsable peut modifier les tâches.');return;}
   editId=null;selectedPrio=3;document.getElementById('add-title').textContent='Nouvelle intervention';document.getElementById('eid').value='';populateFormSelects();['f-company','f-task','f-prereq','f-notes'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-progress').value=0;document.getElementById('f-delay').value=0;document.getElementById('f-predecessor').value='';document.getElementById('f-trade').value='';document.getElementById('f-zone').value='';document.getElementById('f-company-sel').value='';document.getElementById('f-company').classList.add('hidden');document.getElementById('f-start').value=dateStr(new Date());document.getElementById('f-end').value='';document.getElementById('f-staff').value='';document.getElementById('f-status').value='arealis';updatePrioUI();document.getElementById('btn-del').classList.add('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
-function openAddPre(zone,date){openAdd();document.getElementById('f-zone').value=zone;document.getElementById('f-start').value=date;document.getElementById('f-end').value=date;}
+function openAddPre(zone,date){if(currentSession.role!=='admin')return;openAdd();document.getElementById('f-zone').value=zone;document.getElementById('f-start').value=date;document.getElementById('f-end').value=date;}
 function closeAdd(){document.getElementById('modal-add').classList.add('hidden');}
 function onTradeChange(){updateDL();}
 function updateDL(){
@@ -1007,7 +1015,7 @@ function openDetail(id){
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
         <span class="sbadge ${i.status}">${SLABEL[i.status]}</span>
-        <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span class="pbadge p${i.priority||3}">${i.priority||3}</span> ${PRIO_LABEL[i.priority||3]}</span>
+        ${currentSession.role==='admin'?`<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span class="pbadge p${i.priority||3}">${i.priority||3}</span> ${PRIO_LABEL[i.priority||3]}</span>`:''}
       </div>
     </div>
     <div style="background:var(--bg);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:14px;border:1px solid var(--border)">${i.task}</div>
@@ -1016,14 +1024,13 @@ function openDetail(id){
       <div class="kv"><div class="kv-l">Effectif</div><div class="kv-v">${i.staff||1} compagnon${(i.staff||1)>1?'s':''}</div></div>
       <div class="kv"><div class="kv-l">Début</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${i.start}</div></div>
       <div class="kv"><div class="kv-l">Fin</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${i.end||i.start}</div></div>
-      <div class="kv"><div class="kv-l">Avancement</div><div class="kv-v" style="color:${i.progress>=100?'#16A34A':i.progress>0?'#2563EB':'#6B7280'}">${i.progress||0}%</div></div>
-      <div class="kv"><div class="kv-l">Retard</div><div class="kv-v" style="color:${(i.delay||0)>0?'#DC2626':'#16A34A'}">${(i.delay||0)>0?(i.delay+' j'):'Aucun'}</div></div>
+      ${currentSession.role==='admin'?`<div class="kv"><div class="kv-l">Avancement</div><div class="kv-v" style="color:${i.progress>=100?'#16A34A':i.progress>0?'#2563EB':'#6B7280'}">${i.progress||0}%</div></div><div class="kv"><div class="kv-l">Retard</div><div class="kv-v" style="color:${(i.delay||0)>0?'#DC2626':'#16A34A'}">${(i.delay||0)>0?(i.delay+' j'):'Aucun'}</div></div>`:''}
     </div>
 ${(()=>{const pred=getPredecessor(i);if(!pred)return'';const ps=predState(i);const col=ps==='ok'?'#15803D':ps==='bloque'?'#B91C1C':'#92400E';const bg=ps==='ok'?'#F0FDF4':ps==='bloque'?'#FEF2F2':'#FFFBEB';const statusTxt=ps==='ok'?'Terminée ✅':ps==='bloque'?'Bloquée 🔴':'En attente ⏳';return `<div style='background:${bg};border-left:3px solid ${col};border-radius:0 6px 6px 0;padding:9px 11px;margin-bottom:10px;font-size:12px;color:${col}'>`+`<b>${getTaskNum(pred)} — ${statusTxt}</b><br>`+`${pred.company} : ${pred.task}`+`</div>`;})()}
         ${i.prereq?`<div class="abox"><b>⚠ Prérequis / Blocage</b><br>${i.prereq}</div>`:''}
     ${i.notes?`<div class="nbox"><b>Notes</b><br>${i.notes}</div>`:''}
     ${buildStatusPanel(i)}
-    <button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail('${i.id}')">Modifier</button>
+    ${currentSession.role==='admin'?`<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail('${i.id}')">Modifier</button>`:''}
     <button class="btn-g" onclick="closeDetail()">Fermer</button>`;
   document.getElementById('modal-detail').classList.remove('hidden');
 }
