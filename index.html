@@ -246,10 +246,11 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 
   <div class="content" id="content">
     <div class="stats" id="stats" style="grid-template-columns:1fr 1fr"></div>
-    <div style="margin-bottom:10px">
+    <div id="today-panel-wrap" class="hidden" style="margin-bottom:10px">
       <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Aujourd'hui</div>
       <div id="today-panel" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none"></div>
     </div>
+
     <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
     <div id="view-liste" class="hidden"></div>
   </div>
@@ -746,7 +747,16 @@ function injectStyles(){
 }
 
 // ─── RENDER ───────────────────────────────────────────────
-function render(){injectStyles();renderFilters();renderStats();view==='planning'?renderGrid():renderList();}
+function render(){
+  injectStyles();renderFilters();renderStats();
+  // Today panel: both admin and company
+  const wrap=document.getElementById('today-panel-wrap');
+  if(wrap){
+    wrap.classList.remove('hidden');
+    renderTodayPanel();
+  }
+  view==='planning'?renderGrid():renderList();
+}
 function setFilter(el,t){filter=t;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');render();}
 function changeWeek(d){weekOffset+=d;render();}
 function switchView(v){
@@ -777,7 +787,8 @@ function renderStats(){
   document.getElementById('stats').innerHTML=
     `<div class="stat" style="cursor:pointer" onclick="showStatusList('encours')"><div class="stat-val" style="color:#2563EB">${en}</div><div class="stat-lbl">en cours ↗</div></div>`+
     `<div class="stat" style="cursor:pointer" onclick="showStatusList('bloque')"><div class="stat-val" style="color:#DC2626">${bl}</div><div class="stat-lbl">bloquées ↗</div></div>`;
-  renderTodayPanel();
+
+  // today panel only for companies - rendered in render()
 }
 
 function showStatusList(status){
