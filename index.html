@@ -736,6 +736,7 @@ function dateStr(d){
   return `${y}-${m}-${day}`;
 }
 function dateFR(d){return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
+function fmtDate(s){if(!s)return'—';const p=s.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:s;}
 function isToday(d){return d.toDateString()===new Date().toDateString();}
 function weekDays(off=0){const m=getMonday(off);return Array.from({length:5},(_,i)=>{const d=new Date(m);d.setDate(m.getDate()+i);return d;});}
 function inDay(iv,day){const s=new Date(iv.start+'T00:00:00'),e=new Date((iv.end||iv.start)+'T00:00:00'),d=new Date(day);d.setHours(0,0,0,0);return d>=s&&d<=e;}
@@ -778,12 +779,7 @@ function switchView(v){
   render();
 }
 function getFiltered(){
-  let d=data;
-  // Companies only see their own tasks
-  if(currentSession.role==='company'&&currentSession.company){
-    d=data.filter(i=>i.company===currentSession.company.name);
-  }
-  return filter==='all'?d:d.filter(i=>i.trade===filter);
+  return filter==='all'?data:data.filter(i=>i.trade===filter);
 }
 
 function renderFilters(){document.getElementById('filters').innerHTML=`<div class="chip ${filter==='all'?'active':''}" onclick="setFilter(this,'all')">Tous</div>`+cfg.trades.map(tr=>{const c=gc(tr.color);return`<div class="chip ${filter===tr.id?'active':''}" onclick="setFilter(this,'${tr.id}')"><span class="cdot" style="background:${c.b}"></span>${tr.short}</div>`;}).join('');}
@@ -802,9 +798,6 @@ function renderStats(){
 function showStatusList(status){
   const days=weekDays(weekOffset);
   let fi=data.filter(i=>days.some(d=>inDay(i,d))&&i.status===status);
-  if(currentSession.role==='company'&&currentSession.company){
-    fi=fi.filter(i=>i.company===currentSession.company.name);
-  }
   const label=status==='encours'?'En cours':'Bloquées';
   const col=status==='encours'?'#2563EB':'#DC2626';
   const body=!fi.length
@@ -826,9 +819,6 @@ function renderTodayPanel(){
   const el=document.getElementById('today-panel');
   if(!el)return;
   let todayTasks=data.filter(i=>inDay(i,new Date()));
-  if(currentSession.role==='company'&&currentSession.company){
-    todayTasks=todayTasks.filter(i=>i.company===currentSession.company.name);
-  }
   if(!todayTasks.length){
     el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0;font-style:italic">Aucune tâche aujourd'hui</div>`;
     return;
@@ -948,7 +938,7 @@ function renderList(){
   const wi=fi.filter(i=>days.some(d=>inDay(i,d))).sort((a,b)=>a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3));
   const el=document.getElementById('view-liste');
   if(!wi.length){el.innerHTML=`<div class="empty"><div style="font-size:40px;margin-bottom:12px">📋</div><b>Aucune intervention cette semaine</b></div>`;return;}
-  el.innerHTML=wi.map(i=>{const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);return`<div class="litem" onclick="openDetail('${i.id}')"><div class="li-top"><span class="li-co">${i.company}</span><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div><div class="li-task">${i.task}</div><div class="li-meta">${z?z.short:i.zone} · ${tr?tr.name:i.trade} · ${i.start}${i.end&&i.end!==i.start?' → '+i.end:''} · ${i.staff||1} cpg</div>${i.prereq?`<div class="li-pre">⚠ ${i.prereq.slice(0,80)}${i.prereq.length>80?'…':''}</div>`:''}</div>`;}).join('');
+  el.innerHTML=wi.map(i=>{const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);const dateRange=i.end&&i.end!==i.start?fmtDate(i.start)+' → '+fmtDate(i.end):fmtDate(i.start);return`<div class="litem" onclick="openDetail('${i.id}')"><div class="li-top"><span class="li-co">${i.company}</span><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div><div class="li-task">${i.task}</div><div class="li-meta">${z?z.name:i.zone} · ${tr?tr.name:i.trade} · ${dateRange}</div>${i.prereq?`<div class="li-pre">⚠ ${i.prereq.slice(0,80)}${i.prereq.length>80?'…':''}</div>`:''}</div>`;}).join('');
 }
 
 function openDayModal(zoneId,ds){
@@ -1021,10 +1011,9 @@ function openDetail(id){
     <div style="background:var(--bg);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:14px;border:1px solid var(--border)">${i.task}</div>
     <div class="dkv">
       <div class="kv"><div class="kv-l">Zone</div><div class="kv-v">${z?z.name:i.zone}</div></div>
-      <div class="kv"><div class="kv-l">Effectif</div><div class="kv-v">${i.staff||1} compagnon${(i.staff||1)>1?'s':''}</div></div>
-      <div class="kv"><div class="kv-l">Début</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${i.start}</div></div>
-      <div class="kv"><div class="kv-l">Fin</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${i.end||i.start}</div></div>
-      ${currentSession.role==='admin'?`<div class="kv"><div class="kv-l">Avancement</div><div class="kv-v" style="color:${i.progress>=100?'#16A34A':i.progress>0?'#2563EB':'#6B7280'}">${i.progress||0}%</div></div><div class="kv"><div class="kv-l">Retard</div><div class="kv-v" style="color:${(i.delay||0)>0?'#DC2626':'#16A34A'}">${(i.delay||0)>0?(i.delay+' j'):'Aucun'}</div></div>`:''}
+      <div class="kv"><div class="kv-l">Corps de métier</div><div class="kv-v">${tr?tr.name:i.trade}</div></div>
+      <div class="kv"><div class="kv-l">Début</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${fmtDate(i.start)}</div></div>
+      <div class="kv"><div class="kv-l">Fin</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${fmtDate(i.end||i.start)}</div></div>
     </div>
 ${(()=>{const pred=getPredecessor(i);if(!pred)return'';const ps=predState(i);const col=ps==='ok'?'#15803D':ps==='bloque'?'#B91C1C':'#92400E';const bg=ps==='ok'?'#F0FDF4':ps==='bloque'?'#FEF2F2':'#FFFBEB';const statusTxt=ps==='ok'?'Terminée ✅':ps==='bloque'?'Bloquée 🔴':'En attente ⏳';return `<div style='background:${bg};border-left:3px solid ${col};border-radius:0 6px 6px 0;padding:9px 11px;margin-bottom:10px;font-size:12px;color:${col}'>`+`<b>${getTaskNum(pred)} — ${statusTxt}</b><br>`+`${pred.company} : ${pred.task}`+`</div>`;})()}
         ${i.prereq?`<div class="abox"><b>⚠ Prérequis / Blocage</b><br>${i.prereq}</div>`:''}
@@ -1101,20 +1090,29 @@ function exportJSON(){const blob=new Blob([JSON.stringify({project:'HSF-Marceau'
 function exportWeek(){
   const days=weekDays(weekOffset);
   let wi=data.filter(i=>days.some(d=>inDay(i,d)));
-  if(currentSession.role==='company'&&currentSession.company){
-    wi=wi.filter(i=>i.company===currentSession.company.name);
-  }
   wi.sort((a,b)=>a.start.localeCompare(b.start));
-  let csv='Entreprise,Tâche,Zone,Début,Fin,Statut,Avancement,Retard\n';
+  // Load SheetJS then export
+  if(typeof XLSX==='undefined'){
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload=()=>_doExport(wi,days);
+    document.head.appendChild(script);
+  } else {
+    _doExport(wi,days);
+  }
+}
+function _doExport(wi,days){
+  const rows=[['Entreprise','Tâche','Zone','Corps de métier','Début','Fin','Statut']];
   wi.forEach(i=>{
     const z=cfg.zones.find(x=>x.id===i.zone);
-    csv+=`"${i.company}","${i.task}","${z?z.name:i.zone}","${i.start}","${i.end||i.start}","${SLABEL[i.status]||i.status}","${i.progress||0}%","${i.delay||0}j"\n`;
+    const tr=cfg.trades.find(x=>x.id===i.trade);
+    rows.push([i.company,i.task,z?z.name:i.zone,tr?tr.name:i.trade,fmtDate(i.start),fmtDate(i.end||i.start),SLABEL[i.status]||i.status]);
   });
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='hsf-semaine-'+dateStr(days[0])+'.csv';
-  a.click();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:20},{wch:35},{wch:20},{wch:20},{wch:12},{wch:12},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,'Planning',ws);
+  XLSX.writeFile(wb,'HSF-semaine-'+dateStr(days[0])+'.xlsx');
 }
 
 // ─── LAYOUT ───────────────────────────────────────────────
