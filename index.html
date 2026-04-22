@@ -446,13 +446,7 @@ async function enterApp(){
   applyRole();fixH();render();
 }
 
-function doLogout(){
-  clearSession();
-  currentSession={role:null,company:null,name:null};
-  document.getElementById('app').classList.add('hidden');
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('l-code').value='';
-}
+
 
 function applyRole(){
   const isAdmin=currentSession.role==='admin';
@@ -944,31 +938,15 @@ function openDayModal(zoneId,ds){
 }
 
 // ─── ADD MODAL ────────────────────────────────────────────
-function populateFormSelects(){document.getElementById('f-trade').innerHTML=`<option value="">Sélectionner...</option>`+cfg.trades.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');document.getElementById('f-zone').innerHTML=`<option value="">Sélectionner...</option>`+cfg.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('');const ps=document.getElementById('f-predecessor');
-  const curZone=document.getElementById('f-zone').value;
-  const curStart=document.getElementById('f-start').value;
+function populateFormSelects(){
+  document.getElementById('f-trade').innerHTML='<option value="">Sélectionner...</option>'+cfg.trades.map(t=>'<option value="'+t.id+'">'+t.name+'</option>').join('');
+  document.getElementById('f-zone').innerHTML='<option value="">Sélectionner...</option>'+cfg.zones.map(z=>'<option value="'+z.id+'">'+z.name+'</option>').join('');
+  const ps=document.getElementById('f-predecessor');
   const sorted=[...data].sort((a,b)=>a.start.localeCompare(b.start));
-  const filtered=sorted.filter(i=>i.id!==editId&&(curZone?i.zone===curZone:true)&&(curStart?i.start===curStart:true));
-  ps.innerHTML='<option value="">Aucune</option>'+filtered.map(i=>{const z=cfg.zones.find(x=>x.id===i.zone);return'<option value="'+i.id+'">'+i.task_number+' — '+i.company+' — '+i.task.slice(0,25)+(i.task.length>25?'…':'')+'</option>';}).join('');}
-function openAdd(){
-  if(!canEdit()){alert('Le planning est verrouillé. Seul le responsable peut modifier les tâches.');return;}
-  editId=null;selectedPrio=3;document.getElementById('add-title').textContent='Nouvelle intervention';document.getElementById('eid').value='';populateFormSelects();['f-company','f-task','f-prereq','f-notes'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-predecessor').value='';document.getElementById('f-trade').value='';document.getElementById('f-zone').value='';document.getElementById('f-company-sel').value='';document.getElementById('f-company').classList.add('hidden');document.getElementById('f-start').value=dateStr(new Date());document.getElementById('f-end').value='';document.getElementById('f-status').value='arealis';updatePrioUI();document.getElementById('btn-del').classList.add('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
-function openAddPre(zone,date){if(currentSession.role!=='admin')return;openAdd();document.getElementById('f-zone').value=zone;document.getElementById('f-start').value=date;document.getElementById('f-end').value=date;}
-function closeAdd(){document.getElementById('modal-add').classList.add('hidden');}
-function onTradeChange(){
-  updateDL();
-  // Auto-suggest company based on trade
-  const tradeId=document.getElementById('f-trade').value;
-  if(!tradeId)return;
-  const tr=cfg.trades.find(t=>t.id===tradeId);
-  if(!tr)return;
-  // Find companies that work on this trade
-  const matchCo=companies.filter(c=>(c.trade_ids||[]).includes(tradeId));
-  const sel=document.getElementById('f-company-sel');
-  if(matchCo.length===1&&sel.value===''){
-    sel.value=matchCo[0].name;
-    document.getElementById('f-company').value=matchCo[0].name;
-  }
+  ps.innerHTML='<option value="">Aucune</option>'+sorted.filter(i=>i.id!==editId).map(i=>{
+    const z=cfg.zones.find(x=>x.id===i.zone);
+    return'<option value="'+i.id+'">'+(i.task_number||'?')+' — '+i.company+' — '+i.task.slice(0,25)+'</option>';
+  }).join('');
 }
 function updateDL(){
   const sel=document.getElementById('f-company-sel');
