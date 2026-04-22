@@ -246,10 +246,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 
   <div class="content" id="content">
     <div class="stats" id="stats" style="grid-template-columns:1fr 1fr"></div>
-    <div id="today-panel-wrap" class="hidden" style="margin-bottom:10px">
-      <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Aujourd'hui</div>
-      <div id="today-panel" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none"></div>
-    </div>
+
 
     <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
     <div id="view-liste" class="hidden"></div>
@@ -279,12 +276,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
       <div class="fg"><label class="fl">Date début *</label><input type="date" class="fi" id="f-start"></div>
       <div class="fg"><label class="fl">Date fin</label><input type="date" class="fi" id="f-end"></div>
     </div>
-        <div class="fg"><label class="fl">Effectif (compagnons)</label><input type="number" class="fi" id="f-staff" min="1" placeholder="nb"></div>
-    <input type="hidden" id="f-status" value="arealis">
-        <div class="f2">
-      <div class="fg"><label class="fl">Avancement (%)</label><input type="number" class="fi" id="f-progress" min="0" max="100" placeholder="0" value="0"></div>
-      <div class="fg"><label class="fl">Jours de retard</label><input type="number" class="fi" id="f-delay" min="0" placeholder="0" value="0"></div>
-    </div>
+        <input type="hidden" id="f-status" value="arealis">
     
     <div class="fg"><label class="fl">Prérequis / Point bloquant</label><textarea class="fta" id="f-prereq" placeholder="ex : Zone libérée avant intervention…"></textarea></div>
     <div class="fg"><label class="fl">Notes / Consignes</label><textarea class="fta" id="f-notes" placeholder="Informations complémentaires…"></textarea></div>
@@ -758,12 +750,6 @@ function injectStyles(){
 // ─── RENDER ───────────────────────────────────────────────
 function render(){
   injectStyles();renderFilters();renderStats();
-  // Today panel: both admin and company
-  const wrap=document.getElementById('today-panel-wrap');
-  if(wrap){
-    wrap.classList.remove('hidden');
-    renderTodayPanel();
-  }
   view==='planning'?renderGrid():renderList();
 }
 function setFilter(el,t){filter=t;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');render();}
@@ -937,8 +923,17 @@ function renderList(){
   const days=weekDays(weekOffset),fi=getFiltered();
   const wi=fi.filter(i=>days.some(d=>inDay(i,d))).sort((a,b)=>a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3));
   const el=document.getElementById('view-liste');
-  if(!wi.length){el.innerHTML=`<div class="empty"><div style="font-size:40px;margin-bottom:12px">📋</div><b>Aucune intervention cette semaine</b></div>`;return;}
-  el.innerHTML=wi.map(i=>{const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);const dateRange=i.end&&i.end!==i.start?fmtDate(i.start)+' → '+fmtDate(i.end):fmtDate(i.start);return`<div class="litem" onclick="openDetail('${i.id}')"><div class="li-top"><span class="li-co">${i.company}</span><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div><div class="li-task">${i.task}</div><div class="li-meta">${z?z.name:i.zone} · ${tr?tr.name:i.trade} · ${dateRange}</div>${i.prereq?`<div class="li-pre">⚠ ${i.prereq.slice(0,80)}${i.prereq.length>80?'…':''}</div>`:''}</div>`;}).join('');
+  if(!wi.length){el.innerHTML='<div class="empty"><div style="font-size:40px;margin-bottom:12px">📋</div><b>Aucune intervention cette semaine</b></div>';return;}
+  el.innerHTML=wi.map(i=>{
+    const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);
+    const dateRange=i.end&&i.end!==i.start?fmtDate(i.start)+' → '+fmtDate(i.end):fmtDate(i.start);
+    const prereqHtml=i.prereq?'<div class="li-pre">⚠ '+i.prereq.slice(0,80)+(i.prereq.length>80?'…':'')+'</div>':'';
+    return'<div class="litem" onclick="openDetail(''+i.id+'')">'+
+      '<div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'+
+      '<div class="li-task">'+i.task+'</div>'+
+      '<div class="li-meta">'+(z?z.name:i.zone)+' · '+(tr?tr.name:i.trade)+' · '+dateRange+'</div>'+
+      prereqHtml+'</div>';
+  }).join('');
 }
 
 function openDayModal(zoneId,ds){
@@ -949,13 +944,32 @@ function openDayModal(zoneId,ds){
 }
 
 // ─── ADD MODAL ────────────────────────────────────────────
-function populateFormSelects(){document.getElementById('f-trade').innerHTML=`<option value="">Sélectionner...</option>`+cfg.trades.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');document.getElementById('f-zone').innerHTML=`<option value="">Sélectionner...</option>`+cfg.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('');const ps=document.getElementById('f-predecessor');const sorted=[...data].sort((a,b)=>a.start.localeCompare(b.start));ps.innerHTML=`<option value="">Aucune</option>`+sorted.filter(i=>i.id!==editId).map(i=>{const z=cfg.zones.find(x=>x.id===i.zone);return`<option value="${i.id}">${i.company} — ${i.task.slice(0,28)} (${z?z.short:i.zone})</option>`;}).join('');}
+function populateFormSelects(){document.getElementById('f-trade').innerHTML=`<option value="">Sélectionner...</option>`+cfg.trades.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');document.getElementById('f-zone').innerHTML=`<option value="">Sélectionner...</option>`+cfg.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('');const ps=document.getElementById('f-predecessor');
+  const curZone=document.getElementById('f-zone').value;
+  const curStart=document.getElementById('f-start').value;
+  const sorted=[...data].sort((a,b)=>a.start.localeCompare(b.start));
+  const filtered=sorted.filter(i=>i.id!==editId&&(curZone?i.zone===curZone:true)&&(curStart?i.start===curStart:true));
+  ps.innerHTML='<option value="">Aucune</option>'+filtered.map(i=>{const z=cfg.zones.find(x=>x.id===i.zone);return'<option value="'+i.id+'">'+i.task_number+' — '+i.company+' — '+i.task.slice(0,25)+(i.task.length>25?'…':'')+'</option>';}).join('');}
 function openAdd(){
   if(!canEdit()){alert('Le planning est verrouillé. Seul le responsable peut modifier les tâches.');return;}
-  editId=null;selectedPrio=3;document.getElementById('add-title').textContent='Nouvelle intervention';document.getElementById('eid').value='';populateFormSelects();['f-company','f-task','f-prereq','f-notes'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-progress').value=0;document.getElementById('f-delay').value=0;document.getElementById('f-predecessor').value='';document.getElementById('f-trade').value='';document.getElementById('f-zone').value='';document.getElementById('f-company-sel').value='';document.getElementById('f-company').classList.add('hidden');document.getElementById('f-start').value=dateStr(new Date());document.getElementById('f-end').value='';document.getElementById('f-staff').value='';document.getElementById('f-status').value='arealis';updatePrioUI();document.getElementById('btn-del').classList.add('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
+  editId=null;selectedPrio=3;document.getElementById('add-title').textContent='Nouvelle intervention';document.getElementById('eid').value='';populateFormSelects();['f-company','f-task','f-prereq','f-notes'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-predecessor').value='';document.getElementById('f-trade').value='';document.getElementById('f-zone').value='';document.getElementById('f-company-sel').value='';document.getElementById('f-company').classList.add('hidden');document.getElementById('f-start').value=dateStr(new Date());document.getElementById('f-end').value='';document.getElementById('f-status').value='arealis';updatePrioUI();document.getElementById('btn-del').classList.add('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
 function openAddPre(zone,date){if(currentSession.role!=='admin')return;openAdd();document.getElementById('f-zone').value=zone;document.getElementById('f-start').value=date;document.getElementById('f-end').value=date;}
 function closeAdd(){document.getElementById('modal-add').classList.add('hidden');}
-function onTradeChange(){updateDL();}
+function onTradeChange(){
+  updateDL();
+  // Auto-suggest company based on trade
+  const tradeId=document.getElementById('f-trade').value;
+  if(!tradeId)return;
+  const tr=cfg.trades.find(t=>t.id===tradeId);
+  if(!tr)return;
+  // Find companies that work on this trade
+  const matchCo=companies.filter(c=>(c.trade_ids||[]).includes(tradeId));
+  const sel=document.getElementById('f-company-sel');
+  if(matchCo.length===1&&sel.value===''){
+    sel.value=matchCo[0].name;
+    document.getElementById('f-company').value=matchCo[0].name;
+  }
+}
 function updateDL(){
   const sel=document.getElementById('f-company-sel');
   const cur=sel.value;
@@ -982,7 +996,7 @@ async function saveInterv(){
   if(!trade||!company||!task||!zone||!start){alert('Merci de remplir les champs obligatoires (*)');return;}
   const existingIv=editId?data.find(i=>i.id===editId):null;
   const taskNumber=existingIv?.task_number||generateTaskNumber(company);
-  const iv={id:editId||Date.now().toString(),trade,company,task,zone,start,end:document.getElementById('f-end').value||start,staff:parseInt(document.getElementById('f-staff').value)||1,status:document.getElementById('f-status').value,priority:selectedPrio,prereq:document.getElementById('f-prereq').value.trim(),notes:document.getElementById('f-notes').value.trim(),progress:parseInt(document.getElementById('f-progress').value)||0,delay:parseInt(document.getElementById('f-delay').value)||0,predecessor_id:document.getElementById('f-predecessor').value||null,task_number:taskNumber};
+  const iv={id:editId||Date.now().toString(),trade,company,task,zone,start,end:document.getElementById('f-end').value||start,staff:1,status:document.getElementById('f-status').value,priority:selectedPrio,prereq:document.getElementById('f-prereq').value.trim(),notes:document.getElementById('f-notes').value.trim(),progress:0,delay:0,predecessor_id:document.getElementById('f-predecessor').value||null,task_number:taskNumber};
   if(editId){const idx=data.findIndex(i=>i.id===editId);if(idx>=0)data[idx]=iv;}else{data.push(iv);}
   closeAdd();render();
   await dbSave(iv);
@@ -1035,7 +1049,7 @@ function editFromDetail(id){const i=data.find(x=>x.id===id);if(!i)return;closeDe
   const csel=document.getElementById('f-company-sel');
   const copt=[...csel.options].find(o=>o.value===i.company);
   if(copt){csel.value=i.company;document.getElementById('f-company').value=i.company;document.getElementById('f-company').classList.add('hidden');}
-  else{csel.value='__new__';document.getElementById('f-company').value=i.company;document.getElementById('f-company').classList.remove('hidden');}document.getElementById('f-task').value=i.task;document.getElementById('f-zone').value=i.zone;document.getElementById('f-start').value=i.start;document.getElementById('f-end').value=i.end||'';document.getElementById('f-staff').value=i.staff||1;document.getElementById('f-status').value=i.status;document.getElementById('f-prereq').value=i.prereq||'';document.getElementById('f-notes').value=i.notes||'';document.getElementById('f-progress').value=i.progress||0;document.getElementById('f-delay').value=i.delay||0;document.getElementById('f-predecessor').value=i.predecessor_id||'';updatePrioUI();document.getElementById('btn-del').classList.remove('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
+  else{csel.value='__new__';document.getElementById('f-company').value=i.company;document.getElementById('f-company').classList.remove('hidden');}document.getElementById('f-task').value=i.task;document.getElementById('f-zone').value=i.zone;document.getElementById('f-start').value=i.start;document.getElementById('f-end').value=i.end||'';document.getElementById('f-status').value=i.status;document.getElementById('f-prereq').value=i.prereq||'';document.getElementById('f-notes').value=i.notes||'';document.getElementById('f-predecessor').value=i.predecessor_id||'';updatePrioUI();document.getElementById('btn-del').classList.remove('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
 
 // ─── SETTINGS ─────────────────────────────────────────────
 function openSettings(){editingZoneId=null;editingTradeId=null;renderZonesList();renderTradesList();showTab('zones');document.getElementById('modal-settings').classList.remove('hidden');}
@@ -1089,30 +1103,42 @@ function exportJSON(){const blob=new Blob([JSON.stringify({project:'HSF-Marceau'
 
 function exportWeek(){
   const days=weekDays(weekOffset);
-  let wi=data.filter(i=>days.some(d=>inDay(i,d)));
-  wi.sort((a,b)=>a.start.localeCompare(b.start));
-  // Load SheetJS then export
-  if(typeof XLSX==='undefined'){
-    const script=document.createElement('script');
-    script.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    script.onload=()=>_doExport(wi,days);
-    document.head.appendChild(script);
-  } else {
-    _doExport(wi,days);
-  }
+  const wi=data.filter(i=>days.some(d=>inDay(i,d))).sort((a,b)=>a.start.localeCompare(b.start));
+  const load=cb=>{
+    if(typeof XLSX!=='undefined'){cb();return;}
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=cb;s.onerror=()=>exportCSVFallback(wi,days);
+    document.head.appendChild(s);
+  };
+  load(()=>{
+    const rows=[['Entreprise','Tâche','Zone','Corps de métier','Début','Fin','Statut']];
+    wi.forEach(i=>{
+      const z=cfg.zones.find(x=>x.id===i.zone);
+      const tr=cfg.trades.find(x=>x.id===i.trade);
+      rows.push([i.company,i.task,z?z.name:i.zone,tr?tr.name:i.trade,fmtDate(i.start),fmtDate(i.end||i.start),SLABEL[i.status]||i.status]);
+    });
+    try{
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=[{wch:22},{wch:36},{wch:20},{wch:20},{wch:12},{wch:12},{wch:14}];
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,'Planning',ws);
+      XLSX.writeFile(wb,'HSF-semaine-'+dateStr(days[0])+'.xlsx');
+    }catch(e){exportCSVFallback(wi,days);}
+  });
 }
-function _doExport(wi,days){
-  const rows=[['Entreprise','Tâche','Zone','Corps de métier','Début','Fin','Statut']];
+function exportCSVFallback(wi,days){
+  let csv='﻿Entreprise,Tâche,Zone,Corps de métier,Début,Fin,Statut
+';
   wi.forEach(i=>{
     const z=cfg.zones.find(x=>x.id===i.zone);
     const tr=cfg.trades.find(x=>x.id===i.trade);
-    rows.push([i.company,i.task,z?z.name:i.zone,tr?tr.name:i.trade,fmtDate(i.start),fmtDate(i.end||i.start),SLABEL[i.status]||i.status]);
+    csv+=`"${i.company}","${i.task}","${z?z.name:i.zone}","${tr?tr.name:i.trade}","${fmtDate(i.start)}","${fmtDate(i.end||i.start)}","${SLABEL[i.status]||i.status}"
+`;
   });
-  const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:20},{wch:35},{wch:20},{wch:20},{wch:12},{wch:12},{wch:12}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,'Planning',ws);
-  XLSX.writeFile(wb,'HSF-semaine-'+dateStr(days[0])+'.xlsx');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='HSF-semaine-'+dateStr(days[0])+'.csv';a.click();
 }
 
 // ─── LAYOUT ───────────────────────────────────────────────
