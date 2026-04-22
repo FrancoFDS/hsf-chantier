@@ -922,7 +922,7 @@ function renderList(){
     const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);
     const dateRange=i.end&&i.end!==i.start?fmtDate(i.start)+' → '+fmtDate(i.end):fmtDate(i.start);
     const prereqHtml=i.prereq?'<div class="li-pre">⚠ '+i.prereq.slice(0,80)+(i.prereq.length>80?'…':'')+'</div>':'';
-    return'<div class="litem" onclick="openDetail(''+i.id+'')">'+
+    return'<div class="litem" onclick="openDetail(\''+i.id+'\')">'+
       '<div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'+
       '<div class="li-task">'+i.task+'</div>'+
       '<div class="li-meta">'+(z?z.name:i.zone)+' · '+(tr?tr.name:i.trade)+' · '+dateRange+'</div>'+
@@ -1106,8 +1106,7 @@ function exportWeek(){
   });
 }
 function exportCSVFallback(wi,days){
-  let csv='﻿Entreprise,Tâche,Zone,Corps de métier,Début,Fin,Statut
-';
+  let csv='Entreprise,Tache,Zone,Corps de metier,Debut,Fin,Statut\n';
   wi.forEach(i=>{
     const z=cfg.zones.find(x=>x.id===i.zone);
     const tr=cfg.trades.find(x=>x.id===i.trade);
