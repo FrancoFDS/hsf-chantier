@@ -272,10 +272,8 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
     <div class="fg"><label class="fl">Description de la tâche *</label><input class="fi" id="f-task" placeholder="ex : Pose cloisons R+3 plateau Est"></div>
     <div class="fg"><label class="fl">Zone / Niveau *</label><select class="fs" id="f-zone"><option value="">Sélectionner...</option></select></div>
     <div class="fg"><label class="fl">Tâche prédécesseur <span style="font-size:10px;color:var(--xmuted)">(optionnel)</span></label><select class="fs" id="f-predecessor"><option value="">Aucune</option></select></div>
-    <div class="f2">
-      <div class="fg"><label class="fl">Date début *</label><input type="date" class="fi" id="f-start"></div>
-      <div class="fg"><label class="fl">Date fin</label><input type="date" class="fi" id="f-end"></div>
-    </div>
+    <input type="hidden" id="f-start">
+    <input type="hidden" id="f-end">
         <input type="hidden" id="f-status" value="arealis">
     
     <div class="fg"><label class="fl">Prérequis / Point bloquant</label><textarea class="fta" id="f-prereq" placeholder="ex : Zone libérée avant intervention…"></textarea></div>
