@@ -938,6 +938,35 @@ function openDayModal(zoneId,ds){
 }
 
 // ─── ADD MODAL ────────────────────────────────────────────
+function openAdd(){
+  if(!canEdit()){alert('Le planning est verrouillé. Seul le responsable peut modifier les tâches.');return;}
+  editId=null;selectedPrio=3;
+  document.getElementById('add-title').textContent='Nouvelle intervention';
+  document.getElementById('eid').value='';
+  populateFormSelects();
+  ['f-company','f-task','f-prereq','f-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('f-predecessor').value='';
+  document.getElementById('f-trade').value='';
+  document.getElementById('f-zone').value='';
+  document.getElementById('f-company-sel').value='';
+  document.getElementById('f-company').classList.add('hidden');
+  document.getElementById('f-start').value=dateStr(new Date());
+  document.getElementById('f-end').value='';
+  document.getElementById('f-status').value='arealis';
+  updatePrioUI();
+  document.getElementById('btn-del').classList.add('hidden');
+  document.getElementById('modal-add').classList.remove('hidden');
+  updateDL();
+}
+function openAddPre(zone,date){
+  if(currentSession.role!=='admin')return;
+  openAdd();
+  document.getElementById('f-zone').value=zone;
+  document.getElementById('f-start').value=date;
+  document.getElementById('f-end').value=date;
+}
+function closeAdd(){document.getElementById('modal-add').classList.add('hidden');}
+
 function populateFormSelects(){
   document.getElementById('f-trade').innerHTML='<option value="">Sélectionner...</option>'+cfg.trades.map(t=>'<option value="'+t.id+'">'+t.name+'</option>').join('');
   document.getElementById('f-zone').innerHTML='<option value="">Sélectionner...</option>'+cfg.zones.map(z=>'<option value="'+z.id+'">'+z.name+'</option>').join('');
@@ -1159,13 +1188,7 @@ function openTodayModal(){
   document.getElementById('modal-detail').classList.remove('hidden');
 }
 
-function exportWeek(){
-  const days=weekDays(weekOffset);
-  const co=currentSession.company;
-  const wi=data.filter(i=>days.some(d=>inDay(i,d))&&i.company===co?.name);
-  const blob=new Blob([JSON.stringify({company:co?.name,week:`${dateFR(days[0])} - ${dateFR(days[4])}`,tasks:wi},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='planning-'+dateStr(new Date())+'.json';a.click();
-}
+
 function fixH(){const h=document.getElementById('app-hdr').offsetHeight;document.getElementById('content').style.height=`calc(100vh - ${h}px)`;}
 
 function toggleLockBtn(){
