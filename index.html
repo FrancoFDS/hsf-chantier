@@ -76,19 +76,17 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 .ghead{display:grid;background:#FAFAF8;border-bottom:1px solid var(--border)}
 .ghcell{padding:7px 3px;text-align:center;font-size:10px;font-weight:500;color:var(--muted);font-family:'DM Mono',monospace}
 .ghcell.today{color:var(--primary);font-weight:700}
-.ghcell.ferie{background:#374151;color:#F9FAFB}
 .grow{display:grid;border-bottom:1px solid var(--border)}
 .grow:last-child{border-bottom:none}
 .zlbl{padding:5px 3px;font-size:9px;font-weight:600;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;background:#FAFAF8;border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.3;letter-spacing:.04em;word-break:break-word}
-.dcell{padding:4px 3px;min-height:90px;border-right:1px solid #F0EDE8;cursor:pointer;transition:background .1s;position:relative;overflow:hidden}
+.dcell{padding:3px 2px;min-height:60px;border-right:1px solid #F0EDE8;cursor:pointer;transition:background .1s;position:relative;overflow:hidden}
 .dcell:last-child{border-right:none}
 .dcell:hover{background:#FAFAF8}
 .dcell.today-col{background:rgba(33,82,200,.03)}
-.dcell.ferie-col{background:#F3F4F6}
-.ic{border-radius:var(--rx);padding:5px 7px;margin-bottom:3px;font-size:11px;line-height:1.4;cursor:pointer;border:none;transition:opacity .1s;opacity:.93}
-.ic:hover{opacity:1;transform:scale(1.01)}
-.ic .co{font-weight:700;display:block;font-size:13px;margin-bottom:2px}
-.ic .tk{display:block;font-size:10px;opacity:.8;line-height:1.35;white-space:normal;word-break:break-word}
+.ic{border-radius:var(--rx);padding:2px 4px;margin-bottom:2px;font-size:9.5px;line-height:1.35;cursor:pointer;border-left:2.5px solid;transition:opacity .1s}
+.ic:hover{opacity:.8}
+.ic .co{font-weight:600;display:block}
+.ic .tk{opacity:.65;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pbadge{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;font-size:8px;font-weight:700;font-family:'DM Mono',monospace;margin-right:2px;flex-shrink:0;vertical-align:middle}
 .p1{background:#DC2626;color:#fff}.p2{background:#EA580C;color:#fff}.p3{background:#CA8A04;color:#fff}.p4{background:#6B7280;color:#fff}.p5{background:#D1D5DB;color:#6B7280}
 .more-badge{font-size:9px;color:var(--muted);padding:1px 3px;font-family:'DM Mono',monospace;cursor:pointer}
@@ -156,8 +154,8 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 .popt{padding:7px 3px;border-radius:var(--rx);border:1.5px solid var(--border);background:var(--surface);text-align:center;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s}
 .popt.sel{border-color:var(--primary);background:var(--primary-l);color:var(--primary)}
 .sbadge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;font-family:'DM Mono',monospace}
-.sbadge.arealis{background:#F3F4F6;color:#6B7280}
-.sbadge.encours{background:#DBEAFE;color:#1D4ED8}
+.sbadge.attente{background:#F3F4F6;color:#6B7280}
+.sbadge.cours{background:#DBEAFE;color:#1D4ED8}
 .sbadge.termine{background:#D1FAE5;color:#065F46}
 .sbadge.bloque{background:#FEE2E2;color:#991B1B}
 .dkv{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
@@ -190,35 +188,17 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 </div>
 
 <!-- LOGIN SCREEN -->
-
-
-<!-- LOGIN SCREEN -->
-<div id="login-screen" style="position:fixed;inset:0;background:#1A1A1A;display:flex;align-items:center;justify-content:center;z-index:200;padding:20px">
-  <div style="background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#999;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">HSF — 66 Av. Marceau</div>
-    <div style="font-size:22px;font-weight:600;margin-bottom:4px;color:#1A1A1A">Accès chantier</div>
-    <div style="font-size:13px;color:#7A7872;margin-bottom:24px">Sélectionnez votre profil et entrez votre code</div>
-    <div id="login-err" style="background:#FEF2F2;color:#991B1B;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;display:none"></div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:12px;font-weight:500;color:#7A7872;display:block;margin-bottom:5px">Profil</label>
-      <select id="l-company" style="width:100%;padding:12px;border:1px solid #E8E6E0;border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;color:#1A1A1A;background:#fff;-webkit-appearance:none">
-        <option value="">Sélectionner...</option>
-        <option value="__admin__">Responsable de projet</option>
-        <option value="std">STD — Tibor Salak</option>
-        <option value="elphitec_cvc">ELPHITEC — Laurent Testa</option>
-        <option value="elphitec_elec">ELPHITEC — Thibault Brousseau</option>
-        <option value="amfrance">AM FRANCE — Ahmed El Sabbagh</option>
-        <option value="prost">PROST — Bruno Machado</option>
-        <option value="soaa">SOA-A — Antoine Delalande</option>
-        <option value="barrebouillet">BARRE BOUILLET — Cyrille Mazaleyrat</option>
-        <option value="bene">BENE — Francois Corbin</option>
-      </select>
-    </div>
-    <div style="margin-bottom:20px">
-      <label style="font-size:12px;font-weight:500;color:#7A7872;display:block;margin-bottom:5px">Code d'accès (4 chiffres)</label>
-      <input id="l-code" type="password" inputmode="numeric" maxlength="4" placeholder="••••" style="width:100%;padding:12px;border:1px solid #E8E6E0;border-radius:8px;font-size:24px;letter-spacing:.5em;text-align:center;font-family:'DM Mono',monospace;color:#1A1A1A">
-    </div>
-    <button onclick="doLogin()" style="width:100%;padding:14px;background:#2152C8;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Se connecter</button>
+<div id="login-screen" class="login-screen hidden">
+  <div class="login-card">
+    <div class="login-logo">HSF — 66 Av. Marceau</div>
+    <div class="login-title">Connexion</div>
+    <div class="login-sub">Entrez votre numéro de téléphone et votre mot de passe</div>
+    <div class="login-err" id="login-err"></div>
+    <label class="login-label">Numéro de téléphone</label>
+    <input class="login-input" id="l-phone" type="tel" placeholder="06 12 34 56 78" autocomplete="tel">
+    <label class="login-label">Mot de passe</label>
+    <input class="login-input" id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+    <button class="login-btn" id="l-btn" onclick="doLogin()">Se connecter</button>
   </div>
 </div>
 
@@ -226,8 +206,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 <div id="app" class="hidden">
   <header class="hdr" id="app-hdr">
     <div class="hdr-top">
-      <div><div class="proj-badge">Chantier actif</div><div class="proj-name">HSF — Av. Marceau</div>
-      <div id="session-label" style="font-size:10px;color:rgba(255,255,255,.5);font-family:'DM Mono',monospace;letter-spacing:.04em;margin-top:1px"></div></div>
+      <div><div class="proj-badge">Chantier actif</div><div class="proj-name">HSF — Av. Marceau</div></div>
       <div class="hdr-right">
         <div class="week-nav">
           <button class="wbtn" onclick="changeWeek(-1)">&#8249;</button>
@@ -246,8 +225,6 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 
   <div class="content" id="content">
     <div class="stats" id="stats" style="grid-template-columns:1fr 1fr"></div>
-
-
     <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
     <div id="view-liste" class="hidden"></div>
   </div>
@@ -262,20 +239,25 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
     <div class="stitle" id="add-title">Nouvelle intervention</div>
     <input type="hidden" id="eid">
     <div class="fg"><label class="fl">Corps de métier *</label><select class="fs" id="f-trade" onchange="onTradeChange()"><option value="">Sélectionner...</option></select></div>
-    <div class="fg"><label class="fl">Entreprise *</label>
-      <select class="fs" id="f-company-sel" onchange="onCompanyChange(this)">
-        <option value="">Sélectionner une entreprise...</option>
-        <option value="__new__">+ Ajouter une nouvelle entreprise</option>
-      </select>
-      <input class="fi hidden" id="f-company" placeholder="Nom de la nouvelle entreprise" style="margin-top:6px">
-    </div>
+    <div class="fg"><label class="fl">Entreprise *</label><input class="fi" id="f-company" placeholder="Nom de l'entreprise" list="dl-co" autocomplete="off"><datalist id="dl-co"></datalist></div>
     <div class="fg"><label class="fl">Description de la tâche *</label><input class="fi" id="f-task" placeholder="ex : Pose cloisons R+3 plateau Est"></div>
-    <div class="fg"><label class="fl">Zone / Niveau *</label><select class="fs" id="f-zone"><option value="">Sélectionner...</option></select></div>
-    <div class="fg"><label class="fl">Tâche prédécesseur <span style="font-size:10px;color:var(--xmuted)">(optionnel)</span></label><select class="fs" id="f-predecessor"><option value="">Aucune</option></select></div>
+    <input type="hidden" id="f-zone">
     <input type="hidden" id="f-start">
     <input type="hidden" id="f-end">
-        <input type="hidden" id="f-status" value="arealis">
-    
+    <div class="f2">
+      <div class="fg"><label class="fl">Effectif (compagnons)</label><input type="number" class="fi" id="f-staff" min="1" placeholder="nb"></div>
+      <div class="fg"><label class="fl">Statut</label><select class="fs" id="f-status"><option value="attente">À planifier</option><option value="cours">En cours</option><option value="termine">Terminé</option><option value="bloque">Bloqué</option></select></div>
+    </div>
+    <div class="fg">
+      <label class="fl">Priorité dans la journée</label>
+      <div class="prio-row" id="prio-row">
+        <div class="popt sel" data-p="1" onclick="selPrio(this)"><span class="pbadge p1">1</span><br>Urgente</div>
+        <div class="popt" data-p="2" onclick="selPrio(this)"><span class="pbadge p2">2</span><br>Haute</div>
+        <div class="popt" data-p="3" onclick="selPrio(this)"><span class="pbadge p3">3</span><br>Normale</div>
+        <div class="popt" data-p="4" onclick="selPrio(this)"><span class="pbadge p4">4</span><br>Basse</div>
+        <div class="popt" data-p="5" onclick="selPrio(this)"><span class="pbadge p5">5</span><br>À conf.</div>
+      </div>
+    </div>
     <div class="fg"><label class="fl">Prérequis / Point bloquant</label><textarea class="fta" id="f-prereq" placeholder="ex : Zone libérée avant intervention…"></textarea></div>
     <div class="fg"><label class="fl">Notes / Consignes</label><textarea class="fta" id="f-notes" placeholder="Informations complémentaires…"></textarea></div>
     <button class="btn-p" onclick="saveInterv()">Enregistrer</button>
@@ -305,17 +287,9 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
   <div class="sheet" onclick="event.stopPropagation()">
     <div class="handle"></div>
     <div class="stitle">Paramètres du projet</div>
-    <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)" id="lock-status">Planning déverrouillé</div>
-        <div style="font-size:11px;color:var(--color-text-secondary)">Contrôle l'accès en modification des entreprises</div>
-      </div>
-      <button id="lock-btn" onclick="toggleLockBtn()" class="admin-only" style="padding:7px 14px;border:none;border-radius:var(--border-radius-md);color:#fff;font-size:12px;font-weight:500;cursor:pointer;background:#16A34A;font-family:'DM Sans',sans-serif">Verrouiller</button>
-    </div>
     <div class="tabs">
       <button class="tab active" id="tab-btn-zones" onclick="showTab('zones')">Zones</button>
       <button class="tab" id="tab-btn-trades" onclick="showTab('trades')">Corps de métier</button>
-      <button class="tab admin-only" id="tab-btn-companies" onclick="showTab('companies')">Entreprises</button>
     </div>
     <div id="tab-zones">
       <p style="font-size:12px;color:var(--muted);margin-bottom:12px">↑↓ réordonner · ✎ renommer · impossible de supprimer une zone avec interventions.</p>
@@ -349,29 +323,6 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
         </div>
       </div>
     </div>
-    <div id="tab-companies" class="hidden">
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Profils des entreprises intervenantes sur le chantier.</p>
-      <div id="companies-list"></div>
-      <button class="add-row-btn" onclick="startAddCompany()"><span style="font-size:20px;line-height:1">+</span> Ajouter une entreprise</button>
-      <div id="add-company-form" class="hidden" style="margin-top:8px">
-        <div class="eform">
-          <div class="f2" style="margin-bottom:8px">
-            <input class="efi" id="nc-name" placeholder="Nom entreprise">
-            <input class="efi" id="nc-contact" placeholder="Nom du responsable">
-          </div>
-          <div class="f2" style="margin-bottom:8px">
-            <input class="efi" id="nc-email" placeholder="Email" type="email">
-            <input class="efi" id="nc-phone" placeholder="Téléphone">
-          </div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Couleur</div>
-          <div class="color-grid" id="nc-colors"></div>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <button class="btn-sm" style="flex:1" onclick="confirmAddCompany()">Ajouter</button>
-            <button class="btn-sm" onclick="cancelAddCompany()">Annuler</button>
-          </div>
-        </div>
-      </div>
-    </div>
     <hr class="divider">
     <button class="btn-g" onclick="closeSettings()">Fermer</button>
   </div>
@@ -379,8 +330,8 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 
 <script>
 // ══ CONFIGURATION — MODIFIE CES 2 LIGNES ══════════════════
-const SUPABASE_URL     = 'https://xrfqlbhaxhraneflrfez.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
+const SUPABASE_URL     = 'VOTRE_URL_SUPABASE';
+const SUPABASE_ANON_KEY = 'VOTRE_CLÉ_ANON';
 // ══════════════════════════════════════════════════════════
 
 const CONFIGURED = !SUPABASE_URL.includes('VOTRE');
@@ -391,162 +342,10 @@ if (CONFIGURED) {
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────
-let companies=[];
-let planningLocked=false;
-let editingCompanyId=null;
-let currentSession={role:null,company:null,name:null};
-
-function saveSession(s){try{sessionStorage.setItem('hsf-session',JSON.stringify(s));}catch(e){}}
-function loadSession(){try{const s=sessionStorage.getItem('hsf-session');return s?JSON.parse(s):null;}catch(e){return null;}}
-function clearSession(){try{sessionStorage.removeItem('hsf-session');}catch(e){}}
-
-async function doLogin(){
-  const sel=document.getElementById('l-company');
-  const code=document.getElementById('l-code').value.trim();
-  const errEl=document.getElementById('login-err');
-  errEl.style.display='none';
-  if(!sel.value||!code){showLoginErr('Sélectionnez votre entreprise et entrez votre code.');return;}
-
-  if(sel.value==='__admin__'){
-    if(code==='1234'){
-      currentSession={role:'admin',company:null,name:'Responsable de projet'};
-      saveSession(currentSession);
-      await enterApp();
-    } else {
-      showLoginErr('Code incorrect.');
-    }
-    return;
-  }
-  const co=companies.find(c=>c.id===sel.value);
-  if(!co){showLoginErr('Entreprise introuvable.');return;}
-  const coCode=String(co.access_code||'0000');
-  const enteredCode=String(code);
-  if(coCode===enteredCode){
-    currentSession={role:'company',company:co,name:co.contact_name||co.name};
-    saveSession(currentSession);await enterApp();
-  } else {
-    showLoginErr('Code incorrect — contactez le responsable de projet.');
-  }
-}
-
-function showLoginErr(msg){const e=document.getElementById('login-err');e.textContent=msg;e.style.display='block';}
-
-async function enterApp(){
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app').classList.remove('hidden');
-  try{
-    await Promise.all([loadAllData(),loadSettings()]);
-    renderLockBtn();
-    const ls=document.getElementById('lock-status');
-    if(ls)ls.textContent=planningLocked?'Planning verrouillé':'Planning déverrouillé';
-    subscribeRealtime();
-  }catch(e){console.log('enterApp data load error:',e);}
-  applyRole();fixH();render();
-}
-
-
-
-function applyRole(){
-  const isAdmin=currentSession.role==='admin';
-  // Show/hide admin-only elements
-  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin?'':'none');
-  // Update user button label
-  const ub=document.getElementById('user-btn');
-  if(ub){
-    const initials=(currentSession.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    ub.textContent=initials;
-    ub.title=currentSession.name;
-  }
-  const sl=document.getElementById('session-label');
-  if(sl){
-    if(currentSession.role==='admin')sl.textContent='Admin';
-    else if(currentSession.company)sl.textContent=currentSession.company.name;
-  }
-  renderNav();
-  // Hide add buttons for company
-  const styleId='role-styles';
-  document.getElementById(styleId)?.remove();
-  if(currentSession.role!=='admin'){
-    const s=document.createElement('style');s.id=styleId;
-    s.textContent='.add-mini{display:none!important}.dcell{cursor:default!important}';
-    document.head.appendChild(s);
-  }
-}
-
-function canEdit(){
-  if(currentSession.role==='admin')return true;
-  return !planningLocked;
-}
-
-const FALLBACK_COMPANIES=[
-  {id:'std',name:'STD',contact_name:'Tibor Salak',email:'std.construction91@gmail.com',phone:'06 24 07 23 24',color:'amber',access_code:'1001',active:true},
-  {id:'elphitec_cvc',name:'ELPHITEC',contact_name:'Laurent Testa',email:'Laurent.testa@vinci-energies.com',phone:'07 64 76 17 82',color:'blue',access_code:'2002',active:true},
-  {id:'elphitec_elec',name:'ELPHITEC',contact_name:'Thibault Brousseau',email:'thibault.brousseau@vinci-energies.com',phone:'07 64 25 99 90',color:'gold',access_code:'3003',active:true},
-  {id:'amfrance',name:'AM FRANCE',contact_name:'Ahmed El Sabbagh',email:'amfrance.ah@gmail.com',phone:'06 07 14 55 88',color:'rose',access_code:'4004',active:true},
-  {id:'prost',name:'PROST',contact_name:'Bruno Machado',email:'bmachado@eprost.fr',phone:'06 23 25 54 46',color:'green',access_code:'5005',active:true},
-  {id:'soaa',name:'SOA-A',contact_name:'Antoine Delalande',email:'antoine@soa-a.fr',phone:'06 75 94 33 86',color:'purple',access_code:'6006',active:true},
-  {id:'barrebouillet',name:'BARRE BOUILLET',contact_name:'Cyrille Mazaleyrat',email:'c.mazaleyrat@barre-bouillet.fr',phone:'06 26 70 29 86',color:'teal',access_code:'7007',active:true},
-  {id:'bene',name:'BENE',contact_name:'Francois Corbin',email:'francois.corbin@bene.com',phone:'07 85 90 75 38',color:'indigo',access_code:'8008',active:true}
-];
-
-async function loadCompanies(){
-  // Always set fallback first so login screen works instantly
-  companies=FALLBACK_COMPANIES;
-  // Then try to get fresh data from DB
-  try{
-    const {data,error}=await sb.from('companies').select('*').eq('active',true).order('name');
-    if(!error&&data&&data.length>0){
-      companies=data;
-    }
-  }catch(e){}
-}
-
-async function loadSettings(){
-  if(!sb)return;
-  try{
-    const {data}=await sb.from('settings').select('*');
-    if(data){
-      const lockSetting=data.find(s=>s.key==='planning_locked');
-      if(lockSetting)planningLocked=lockSetting.value==='true';
-    }
-  }catch(e){}
-}
-
-async function saveLock(val){
-  planningLocked=val;
-  if(!sb){renderLockBtn();return;}
-  try{await sb.from('settings').upsert({key:'planning_locked',value:String(val),updated_at:new Date().toISOString()});}
-  catch(e){console.log('lock save err',e);}
-  renderLockBtn();
-}
-
-function renderLockBtn(){
-  const btn=document.getElementById('lock-btn');
-  if(!btn)return;
-  btn.textContent=planningLocked?'Déverrouiller le planning':'Verrouiller le planning';
-  btn.style.background=planningLocked?'#DC2626':'#16A34A';
-}
-
 const COLORS=[{id:'amber',b:'#F59E0B',bg:'#FFF8EE',t:'#92400E'},{id:'blue',b:'#3B82F6',bg:'#EEF6FF',t:'#1E3A5F'},{id:'gold',b:'#CA8A04',bg:'#FEFCE8',t:'#713F12'},{id:'purple',b:'#8B5CF6',bg:'#F5F3FF',t:'#4C1D95'},{id:'green',b:'#16A34A',bg:'#F0FDF4',t:'#14532D'},{id:'rose',b:'#E11D48',bg:'#FFF1F2',t:'#881337'},{id:'teal',b:'#0D9488',bg:'#F0FDFA',t:'#134E4A'},{id:'orange',b:'#EA580C',bg:'#FFF7ED',t:'#7C2D12'},{id:'indigo',b:'#6366F1',bg:'#EEF2FF',t:'#312E81'},{id:'sky',b:'#0EA5E9',bg:'#F0F9FF',t:'#0C4A6E'}];
-
-const COMPANY_COLORS={
-  'STD':'amber',
-  'ELPHITEC':'blue',
-  'PROST':'green',
-  'AM FRANCE':'rose',
-  'BARRE BOUILLET':'teal',
-  'SOA-A':'purple',
-  'BENE':'indigo'
-};
-function getCompanyColor(companyName){
-  return COMPANY_COLORS[companyName]||'gray';
-}
-function gcByCompany(companyName){
-  return gc(getCompanyColor(companyName));
-}
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
-const SLABEL={arealis:'À réaliser',encours:'En cours',termine:'Terminé',bloque:'Bloqué'};
-const SCOL={arealis:'#9CA3AF',encours:'#2563EB',termine:'#16A34A',bloque:'#DC2626'};
+const SLABEL={attente:'À planifier',cours:'En cours',termine:'Terminé',bloque:'Bloqué'};
+const SCOL={attente:'#9CA3AF',cours:'#2563EB',termine:'#16A34A',bloque:'#DC2626'};
 const DAYS_FR=['Lun','Mar','Mer','Jeu','Ven'];
 const PRIO_LABEL=['','Urgente','Haute','Normale','Basse','À conf.'];
 
@@ -564,16 +363,32 @@ function phoneToEmail(phone){
 }
 
 // ─── AUTH ─────────────────────────────────────────────────
-// doLogin handled above
+async function doLogin(){
+  const phone=document.getElementById('l-phone').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  const btn=document.getElementById('l-btn');
+  const err=document.getElementById('login-err');
+  if(!phone||!pass){showErr('Numéro et mot de passe requis');return;}
+  btn.disabled=true;btn.textContent='Connexion...';err.style.display='none';
+  const email=phoneToEmail(phone);
+  const {data:d,error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){showErr('Numéro ou mot de passe incorrect');btn.disabled=false;btn.textContent='Se connecter';return;}
+  currentUser=d.user;
+  await loadProfile();
+  showApp();
+  await loadAllData();
+  subscribeRealtime();
+}
 function showErr(msg){const e=document.getElementById('login-err');e.textContent=msg;e.style.display='block';}
 
 async function doLogout(){
-  clearSession();
-  currentSession={role:null,company:null,name:null};
+  await sb.auth.signOut();
+  currentUser=null;currentProfile=null;data=[];cfg={zones:[],trades:[]};
   closeUserMenu();
   document.getElementById('app').classList.add('hidden');
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('l-code').value='';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('l-phone').value='';
+  document.getElementById('l-pass').value='';
 }
 
 async function loadProfile(){
@@ -585,12 +400,11 @@ async function loadProfile(){
 }
 
 function openUserMenu(){
-  const s=currentSession;
-  const co=s.company;
+  const p=currentProfile;
   document.getElementById('user-info').innerHTML=`
-    <div style="font-size:13px;font-weight:600;margin-bottom:4px">${s.name||'—'}</div>
-    <div style="font-size:12px;color:var(--muted)">${co?co.name+' — '+(co.trade_ids||[]).join(', '):(s.role==='admin'?'Administrateur':'')}</div>
-    <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px">${co?co.email||'':''}</div>`;
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">${p?.name||'—'}</div>
+    <div style="font-size:12px;color:var(--muted)">${p?.company_name||''}</div>
+    <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px">${p?.phone||currentUser?.email||''}</div>`;
   document.getElementById('modal-user').classList.remove('hidden');
 }
 function closeUserMenu(){document.getElementById('modal-user').classList.add('hidden');}
@@ -614,7 +428,6 @@ function setSyncErr(){const d=document.getElementById('sync-dot');if(d){d.classN
 
 // ─── DATA LAYER ───────────────────────────────────────────
 async function loadAllData(){
-  if(!sb){console.log('sb null, skipping loadAllData');return;}
   setSyncing();
   try{
     const [{data:zones},{data:trades},{data:intervs}]=await Promise.all([
@@ -630,8 +443,8 @@ async function loadAllData(){
   }catch(e){setSyncErr();console.error(e);}
 }
 
-function dbToApp(r){return{id:r.id,trade:r.trade,company:r.company,task:r.task,zone:r.zone,start:r.start_date,end:r.end_date,staff:r.staff,status:r.status,priority:r.priority,prereq:r.prereq||'',notes:r.notes||'',progress:r.progress||0,delay:r.delay||0,predecessor_id:r.predecessor_id||null,task_number:r.task_number||null,ts:r.created_at};}
-function appToDB(iv){return{id:iv.id,trade:iv.trade,company:iv.company,task:iv.task,zone:iv.zone,start_date:iv.start,end_date:iv.end||iv.start,staff:iv.staff||1,status:iv.status,priority:iv.priority||3,prereq:iv.prereq||'',notes:iv.notes||'',progress:iv.progress||0,delay:iv.delay||0,predecessor_id:iv.predecessor_id||null,task_number:iv.task_number||null,updated_at:new Date().toISOString()};}
+function dbToApp(r){return{id:r.id,trade:r.trade,company:r.company,task:r.task,zone:r.zone,start:r.start_date,end:r.end_date,staff:r.staff,status:r.status,priority:r.priority,prereq:r.prereq||'',notes:r.notes||'',ts:r.created_at};}
+function appToDB(iv){return{id:iv.id,trade:iv.trade,company:iv.company,task:iv.task,zone:iv.zone,start_date:iv.start,end_date:iv.end||iv.start,staff:iv.staff||1,status:iv.status,priority:iv.priority||3,prereq:iv.prereq||'',notes:iv.notes||'',created_by:currentUser?.id,updated_at:new Date().toISOString()};}
 
 async function dbSave(iv){
   setSyncing();
@@ -682,7 +495,6 @@ async function dbReorderTrades(){
 
 // ─── REALTIME ─────────────────────────────────────────────
 function subscribeRealtime(){
-  if(!sb)return;
   sb.channel('hsf-realtime')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'interventions'},p=>{
       if(!data.find(d=>d.id===p.new.id))data.push(dbToApp(p.new));render();
@@ -698,29 +510,10 @@ function subscribeRealtime(){
 }
 
 // ─── DATE UTILS ───────────────────────────────────────────
-
-const JOURS_FERIES={
-  '2025-01-01':'Jour de l\'An','2025-04-21':'Lundi de Pâques','2025-05-01':'Fête du Travail',
-  '2025-05-08':'Victoire 1945','2025-05-29':'Ascension','2025-06-09':'Lundi de Pentecôte',
-  '2025-07-14':'Fête Nationale','2025-08-15':'Assomption','2025-11-01':'Toussaint',
-  '2025-11-11':'Armistice','2025-12-25':'Noël',
-  '2026-01-01':'Jour de l\'An','2026-04-06':'Lundi de Pâques','2026-05-01':'Fête du Travail',
-  '2026-05-08':'Victoire 1945','2026-05-14':'Ascension','2026-05-25':'Lundi de Pentecôte',
-  '2026-07-14':'Fête Nationale','2026-08-15':'Assomption','2026-11-01':'Toussaint',
-  '2026-11-11':'Armistice','2026-12-25':'Noël',
-  '2027-01-01':'Jour de l\'An','2027-03-29':'Lundi de Pâques','2027-05-01':'Fête du Travail',
-  '2027-05-08':'Victoire 1945','2027-05-06':'Ascension','2027-05-17':'Lundi de Pentecôte',
-  '2027-07-14':'Fête Nationale','2027-08-15':'Assomption','2027-11-01':'Toussaint',
-  '2027-11-11':'Armistice','2027-12-25':'Noël'
-};
-function isFerie(d){return JOURS_FERIES[dateStr(d)]||null;}
 function getMonday(off=0){const t=new Date(),d=t.getDay(),diff=d===0?-6:1-d,m=new Date(t);m.setDate(t.getDate()+diff+off*7);m.setHours(0,0,0,0);return m;}
-function dateStr(d){
-  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
+function dateStr(d){return d.toISOString().split('T')[0];}
 function dateFR(d){return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
-function fmtDate(s){if(!s)return'—';const p=s.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:s;}
+function fmtDate(s){if(!s)return'';var p=s.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:s;}
 function isToday(d){return d.toDateString()===new Date().toDateString();}
 function weekDays(off=0){const m=getMonday(off);return Array.from({length:5},(_,i)=>{const d=new Date(m);d.setDate(m.getDate()+i);return d;});}
 function inDay(iv,day){const s=new Date(iv.start+'T00:00:00'),e=new Date((iv.end||iv.start)+'T00:00:00'),d=new Date(day);d.setHours(0,0,0,0);return d>=s&&d<=e;}
@@ -729,180 +522,57 @@ function inDay(iv,day){const s=new Date(iv.start+'T00:00:00'),e=new Date((iv.end
 function injectStyles(){
   document.getElementById('dyn-styles')?.remove();
   const s=document.createElement('style');s.id='dyn-styles';
-  // Extract company name from trade name (format: "COMPANY — Trade")
-  s.textContent=cfg.trades.map(tr=>{
-    const parts=tr.name.split(' — ');
-    const compName=parts[0]||'';
-    const c=gcByCompany(compName);
-    return`.ic.t-${tr.id}{background:${c.bg};border-left:4px solid ${c.b};color:${c.t};box-shadow:inset 0 0 0 1px ${c.b}22}`+
-    `.tbadge.t-${tr.id}{background:${c.bg};border-color:${c.b};color:${c.t}}`;}).join('\n');
+  s.textContent=cfg.trades.map(tr=>{const c=gc(tr.color);return`.ic.t-${tr.id}{background:${c.bg};border-color:${c.b};color:${c.t}}.tbadge.t-${tr.id}{background:${c.bg};border-color:${c.b};color:${c.t}}`;}).join('\n');
   document.head.appendChild(s);
 }
 
 // ─── RENDER ───────────────────────────────────────────────
-function render(){
-  injectStyles();renderFilters();renderStats();
-  view==='planning'?renderGrid():renderList();
-}
+function render(){injectStyles();renderFilters();renderStats();view==='planning'?renderGrid():renderList();}
 function setFilter(el,t){filter=t;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');render();}
 function changeWeek(d){weekOffset+=d;render();}
-function switchView(v){
-  view=v;
-  document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');
-  document.getElementById('view-liste').classList.toggle('hidden',v!=='liste');
-  const nbp=document.getElementById('nb-planning');
-  const nbl=document.getElementById('nb-liste');
-  if(nbp)nbp.classList.toggle('active',v==='planning');
-  if(nbl)nbl.classList.toggle('active',v==='liste');
-  render();
-}
-function getFiltered(){
-  return filter==='all'?data:data.filter(i=>i.trade===filter);
-}
+function switchView(v){view=v;document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');document.getElementById('view-liste').classList.toggle('hidden',v!=='liste');document.getElementById('nb-planning').classList.toggle('active',v==='planning');document.getElementById('nb-liste').classList.toggle('active',v==='liste');render();}
+function getFiltered(){return filter==='all'?data:data.filter(i=>i.trade===filter);}
 
 function renderFilters(){document.getElementById('filters').innerHTML=`<div class="chip ${filter==='all'?'active':''}" onclick="setFilter(this,'all')">Tous</div>`+cfg.trades.map(tr=>{const c=gc(tr.color);return`<div class="chip ${filter===tr.id?'active':''}" onclick="setFilter(this,'${tr.id}')"><span class="cdot" style="background:${c.b}"></span>${tr.short}</div>`;}).join('');}
 
 function renderStats(){
-  const days=weekDays(weekOffset),fi=getFiltered(),wi=fi.filter(i=>days.some(d=>inDay(i,d)));
-  const en=wi.filter(i=>i.status==='encours').length;
-  const bl=wi.filter(i=>i.status==='bloque').length;
+  var days=weekDays(weekOffset),fi=getFiltered(),wi=fi.filter(function(i){return days.some(function(d){return inDay(i,d);});});
+  var en=wi.filter(function(i){return i.status==='encours';}).length;
+  var bl=wi.filter(function(i){return i.status==='bloque';}).length;
   document.getElementById('stats').innerHTML=
-    `<div class="stat" style="cursor:pointer" onclick="showStatusList('encours')"><div class="stat-val" style="color:#2563EB">${en}</div><div class="stat-lbl">en cours ↗</div></div>`+
-    `<div class="stat" style="cursor:pointer" onclick="showStatusList('bloque')"><div class="stat-val" style="color:#DC2626">${bl}</div><div class="stat-lbl">bloquées ↗</div></div>`;
-
-  // today panel only for companies - rendered in render()
+    '<div class="stat" style="cursor:pointer" onclick="showStatusList('+"'encours'"+')">'+'<div class="stat-val" style="color:#2563EB">'+en+'</div><div class="stat-lbl">En cours</div></div>'+
+    '<div class="stat" style="cursor:pointer" onclick="showStatusList('+"'bloque'"+')">'+'<div class="stat-val" style="color:#DC2626">'+bl+'</div><div class="stat-lbl">Bloquées</div></div>';
 }
 
 function showStatusList(status){
-  const days=weekDays(weekOffset);
-  let fi=data.filter(i=>days.some(d=>inDay(i,d))&&i.status===status);
-  const label=status==='encours'?'En cours':'Bloquées';
-  const col=status==='encours'?'#2563EB':'#DC2626';
-  const body=!fi.length
-    ?`<div class="empty">Aucune intervention</div>`
-    :fi.map(i=>{const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);
-      return`<div class="litem" onclick="closeDetail();openDetail('${i.id}')">
-        <div class="li-top"><span class="li-co">${i.company}</span><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div>
-        <div class="li-task">${i.task}</div>
-        <div class="li-meta">${z?z.short:i.zone} · ${tr?tr.name:i.trade} · ${i.start}${i.end&&i.end!==i.start?' → '+i.end:''}</div>
-        ${i.prereq?`<div class="li-pre">⚠ ${i.prereq}</div>`:''}
-      </div>`;}).join('');
-  document.getElementById('detail-body').innerHTML=
-    `<div class="stitle" style="color:${col}">${label} (${fi.length})</div>`+body+
-    `<button class="btn-g" onclick="closeDetail()">Fermer</button>`;
+  var days=weekDays(weekOffset);
+  var fi=data.filter(function(i){return days.some(function(d){return inDay(i,d);}) && i.status===status;});
+  var label=status==='encours'?'En cours':'Bloquées';
+  var col=status==='encours'?'#2563EB':'#DC2626';
+  var body=fi.length?fi.map(function(i){
+    var tr=cfg.trades.find(function(t){return t.id===i.trade;}),z=cfg.zones.find(function(x){return x.id===i.zone;});
+    return '<div class="litem" onclick="closeDetail();openDetail('+"'"+i.id+"'"+')">'+'<div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'+'<div class="li-task">'+i.task+'</div>'+'<div class="li-meta">'+(z?z.name:i.zone)+'</div>'+(i.prereq?'<div class="li-pre">'+i.prereq+'</div>':'')+'</div>';
+  }).join(''):'<div class="empty">Aucune intervention</div>';
+  document.getElementById('detail-body').innerHTML='<div class="stitle" style="color:'+col+'">'+label+'</div>'+body+'<button class="btn-g" onclick="closeDetail()">Fermer</button>';
   document.getElementById('modal-detail').classList.remove('hidden');
 }
 
-function renderTodayPanel(){
-  const el=document.getElementById('today-panel');
-  if(!el)return;
-  let todayTasks=data.filter(i=>inDay(i,new Date()));
-  if(!todayTasks.length){
-    el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0;font-style:italic">Aucune tâche aujourd'hui</div>`;
-    return;
-  }
-  el.innerHTML=todayTasks.map(i=>{
-    const tr=cfg.trades.find(t=>t.id===i.trade);
-    const c=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'};
-    return`<div onclick="openDetail('${i.id}')" style="display:inline-flex;flex-direction:column;min-width:130px;max-width:160px;background:${c.bg};border-left:3px solid ${c.b};border-radius:var(--rx);padding:6px 8px;cursor:pointer;flex-shrink:0">
-      <span style="font-size:11px;font-weight:700;color:${c.t};margin-bottom:2px">${i.company}</span>
-      <span style="font-size:10px;color:${c.t};opacity:.75;line-height:1.3">${i.task.slice(0,30)}${i.task.length>30?'…':''}</span>
-    </div>`;
-  }).join('');
-}
-
-
-
-function companyPrefix(name){
-  return (name||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
-}
-function generateTaskNumber(company){
-  const prefix=companyPrefix(company);
-  const existing=data.filter(i=>i.company===company&&i.task_number);
-  const nums=existing.map(i=>{
-    const n=parseInt((i.task_number||'').replace(/[^0-9]/g,''));
-    return isNaN(n)?0:n;
-  });
-  const next=(nums.length?Math.max(...nums):0)+1;
-  return prefix+'-'+String(next).padStart(3,'0');
-}
-function getTaskNum(iv){return iv.task_number||'?';}
-
-let draggedId=null;
-function dragStart(e,id){
-  if(currentSession.role!=='admin')return;
-  draggedId=id;
-  e.dataTransfer.effectAllowed='move';
-  e.dataTransfer.setData('text/plain',id);
-}
-function dragOver(e,zoneId,ds){
-  if(currentSession.role!=='admin')return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect='move';
-  e.currentTarget.style.background='rgba(33,82,200,.08)';
-}
-function dragLeave(e){e.currentTarget.style.background='';}
-async function dropOnCell(e,zoneId,ds){
-  if(currentSession.role!=='admin')return;
-  e.preventDefault();
-  e.currentTarget.style.background='';
-  const id=draggedId||e.dataTransfer.getData('text/plain');
-  if(!id)return;
-  const iv=data.find(x=>x.id===id);
-  if(!iv)return;
-  // Calculate duration
-  const orig=new Date(iv.start+'T00:00:00');
-  const dest=new Date(ds+'T00:00:00');
-  const dur=new Date(iv.end+'T00:00:00')-orig;
-  const newEnd=new Date(dest.getTime()+dur);
-  iv.start=ds;
-  iv.zone=zoneId;
-  iv.end=dateStr(newEnd);
-  render();
-  // Save to DB
-  setSyncing();
-  try{
-    await sb.from('interventions').update({start_date:iv.start,end_date:iv.end,zone:iv.zone,updated_at:new Date().toISOString()}).eq('id',id);
-    setSynced();
-  }catch(err){setSyncErr();}
-  draggedId=null;
-}
-
-function buildStatusPanel(i){
-  const isAdmin=currentSession.role==='admin';
-  const co=currentSession.company;
-  const isOwner=isAdmin||(co&&i.company===co.name);
-  if(!isOwner)return'';
-  const allowed=isAdmin?['arealis','encours','termine','bloque']:['encours','termine','bloque'];
-  let html='<p style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:\'DM Mono\',monospace">METTRE À JOUR LE STATUT</p>';
-  html+='<div class="status-row">';
-  allowed.forEach(k=>{
-    const v=SLABEL[k];
-    html+=`<div class="sopt2" style="border-color:${i.status===k?SCOL[k]:'var(--border)'};background:${i.status===k?SCOL[k]+'18':'var(--surface)'};color:${i.status===k?SCOL[k]:'var(--text)'}" onclick="quickStatus('${i.id}','${k}')">`;
-    html+=`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SCOL[k]};margin-right:4px;vertical-align:middle"></span>${v}</div>`;
-  });
-  html+='</div>';
-  return html;
-}
-function getPredecessor(iv){if(!iv.predecessor_id)return null;return data.find(d=>d.id===iv.predecessor_id)||null;}
-function predOk(iv){const p=getPredecessor(iv);if(!p)return true;return p.status==='termine';}
-function predState(iv){const p=getPredecessor(iv);if(!p)return'none';if(p.status==='termine')return'ok';if(p.status==='bloque')return'bloque';return'pending';}
 function renderGrid(){
   const days=weekDays(weekOffset),fi=getFiltered(),cols=`56px repeat(5,1fr)`;
   document.getElementById('wlbl').textContent=`${dateFR(days[0])} – ${dateFR(days[4])}`;
   document.getElementById('ghead').style.gridTemplateColumns=cols;
-  document.getElementById('ghead').innerHTML=`<div class="ghcell"></div>`+days.map((d,i)=>{
-    const f=isFerie(d);
-    return`<div class="ghcell${isToday(d)?' today':''}${f?' ferie':''}">
-      ${DAYS_FR[i]}<br><span style="font-size:9px">${d.getDate()}/${d.getMonth()+1}</span>
-      ${f?`<br><span style="font-size:8px;color:#D1D5DB;font-style:italic">${f}</span>`:''}
-    </div>`}).join('');
+  document.getElementById('ghead').innerHTML=`<div class="ghcell"></div>`+days.map((d,i)=>`<div class="ghcell${isToday(d)?' today':''}">
+    ${DAYS_FR[i]}<br><span style="font-size:9px">${d.getDate()}/${d.getMonth()+1}</span></div>`).join('');
   document.getElementById('gbody').innerHTML=cfg.zones.map(z=>{
     const cells=days.map(day=>{
       const ds=dateStr(day),cards=fi.filter(i=>i.zone===z.id&&inDay(i,day)).sort((a,b)=>(a.priority||3)-(b.priority||3));
       const visible=cards.slice(0,2),extra=cards.length-2;
-      return `<div class="dcell${isToday(day)?' today-col':''}${isFerie(day)?' ferie-col':''}" onclick="openAddPre('${z.id}','${ds}')">
-        ${visible.map(i=>{const pred=getPredecessor(i);const ps=predState(i);const predNumTxt=pred?getTaskNum(pred):'';const predCol=ps==='ok'?'#15803D':ps==='bloque'?'#B91C1C':'#92400E';const predBg=ps==='ok'?'rgba(22,163,74,.18)':ps==='bloque'?'rgba(220,38,38,.18)':'rgba(217,119,6,.18)';const predIcon=ps==='ok'?'\u2713':ps==='bloque'?'\u2717':'!';const isAdmin=currentSession.role==='admin';return`<div class='ic t-${i.trade}' data-id='${i.id}' draggable='${isAdmin}' onclick='event.stopPropagation();openDetail("${i.id}")'><div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px'><span style='font-size:9px;font-family:"DM Mono",monospace;opacity:.55'>${getTaskNum(i)}</span>${pred?`<span style='font-size:9px;padding:1px 5px;border-radius:10px;background:${predBg};color:${predCol};font-weight:700'>${predIcon} ${predNumTxt}</span>`:''}</div><span style='font-size:13px;font-weight:700;display:block;margin-bottom:2px;line-height:1.2'>${i.company}</span><span style='font-size:11px;opacity:.72;display:block;line-height:1.35'>${i.task}</span></div>`;}).join('')}
+      return `<div class="dcell${isToday(day)?' today-col':''}" onclick="openAddPre('${z.id}','${ds}')">
+        ${visible.map(i=>`<div class="ic t-${i.trade}" onclick="event.stopPropagation();openDetail('${i.id}')">
+          <span class="pbadge p${i.priority||3}">${i.priority||3}</span>
+          <span class="co">${i.company.split(' ')[0]}</span>
+          <span class="tk">${i.task.slice(0,16)}${i.task.length>16?'…':''}</span>
+        </div>`).join('')}
         ${extra>0?`<div class="more-badge" onclick="event.stopPropagation();openDayModal('${z.id}','${ds}')">+${extra} autre${extra>1?'s':''}</div>`:''}
         <button class="add-mini" onclick="event.stopPropagation();openAddPre('${z.id}','${ds}')">+</button>
       </div>`;
@@ -915,17 +585,8 @@ function renderList(){
   const days=weekDays(weekOffset),fi=getFiltered();
   const wi=fi.filter(i=>days.some(d=>inDay(i,d))).sort((a,b)=>a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3));
   const el=document.getElementById('view-liste');
-  if(!wi.length){el.innerHTML='<div class="empty"><div style="font-size:40px;margin-bottom:12px">📋</div><b>Aucune intervention cette semaine</b></div>';return;}
-  el.innerHTML=wi.map(i=>{
-    const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);
-    const dateRange=i.end&&i.end!==i.start?fmtDate(i.start)+' → '+fmtDate(i.end):fmtDate(i.start);
-    const prereqHtml=i.prereq?'<div class="li-pre">⚠ '+i.prereq.slice(0,80)+(i.prereq.length>80?'…':'')+'</div>':'';
-    return'<div class="litem" onclick="openDetail(\''+i.id+'\')">'+
-      '<div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'+
-      '<div class="li-task">'+i.task+'</div>'+
-      '<div class="li-meta">'+(z?z.name:i.zone)+' · '+(tr?tr.name:i.trade)+' · '+dateRange+'</div>'+
-      prereqHtml+'</div>';
-  }).join('');
+  if(!wi.length){el.innerHTML=`<div class="empty"><div style="font-size:40px;margin-bottom:12px">📋</div><b>Aucune intervention cette semaine</b></div>`;return;}
+  el.innerHTML=wi.map(i=>{const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);return`<div class="litem" onclick="openDetail('${i.id}')"><div class="li-top"><div style="display:flex;align-items:center;gap:7px"><span class="pbadge p${i.priority||3}">${i.priority||3}</span><span class="li-co">${i.company}</span></div><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div><div class="li-task">${i.task}</div><div class="li-meta">${z?z.short:i.zone} · ${tr?tr.name:i.trade} · ${i.start}${i.end&&i.end!==i.start?' → '+i.end:''} · ${i.staff||1} cpg</div>${i.prereq?`<div class="li-pre">⚠ ${i.prereq.slice(0,80)}${i.prereq.length>80?'…':''}</div>`:''}</div>`;}).join('');
 }
 
 function openDayModal(zoneId,ds){
@@ -936,72 +597,47 @@ function openDayModal(zoneId,ds){
 }
 
 // ─── ADD MODAL ────────────────────────────────────────────
+function populateFormSelects(){document.getElementById('f-trade').innerHTML=`<option value="">Sélectionner...</option>`+cfg.trades.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');document.getElementById('f-zone').innerHTML=`<option value="">Sélectionner...</option>`+cfg.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('');}
 function openAdd(){
-  if(!canEdit()){alert('Le planning est verrouillé. Seul le responsable peut modifier les tâches.');return;}
+  if(!canEdit()){alert('Le planning est verrouille.');return;}
   editId=null;selectedPrio=3;
   document.getElementById('add-title').textContent='Nouvelle intervention';
   document.getElementById('eid').value='';
   populateFormSelects();
-  ['f-company','f-task','f-prereq','f-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['f-company','f-task','f-prereq','f-notes'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('f-predecessor').value='';
   document.getElementById('f-trade').value='';
-  document.getElementById('f-zone').value='';
   document.getElementById('f-company-sel').value='';
   document.getElementById('f-company').classList.add('hidden');
   document.getElementById('f-start').value=dateStr(new Date());
-  document.getElementById('f-end').value='';
+  document.getElementById('f-end').value=dateStr(new Date());
   document.getElementById('f-status').value='arealis';
   updatePrioUI();
   document.getElementById('btn-del').classList.add('hidden');
   document.getElementById('modal-add').classList.remove('hidden');
   updateDL();
 }
-function openAddPre(zone,date){
-  if(currentSession.role!=='admin')return;
-  openAdd();
-  document.getElementById('f-zone').value=zone;
-  document.getElementById('f-start').value=date;
-  document.getElementById('f-end').value=date;
-}
-function closeAdd(){document.getElementById('modal-add').classList.add('hidden');}
 
-function populateFormSelects(){
-  document.getElementById('f-trade').innerHTML='<option value="">Sélectionner...</option>'+cfg.trades.map(t=>'<option value="'+t.id+'">'+t.name+'</option>').join('');
-  document.getElementById('f-zone').innerHTML='<option value="">Sélectionner...</option>'+cfg.zones.map(z=>'<option value="'+z.id+'">'+z.name+'</option>').join('');
-  const ps=document.getElementById('f-predecessor');
-  const sorted=[...data].sort((a,b)=>a.start.localeCompare(b.start));
-  ps.innerHTML='<option value="">Aucune</option>'+sorted.filter(i=>i.id!==editId).map(i=>{
-    const z=cfg.zones.find(x=>x.id===i.zone);
-    return'<option value="'+i.id+'">'+(i.task_number||'?')+' — '+i.company+' — '+i.task.slice(0,25)+'</option>';
-  }).join('');
+function openAddPre(zone,date){if(currentSession.role!=='admin')return;openAdd();document.getElementById('f-zone').value=zone;document.getElementById('f-start').value=date;document.getElementById('f-end').value=date;}
+function closeAdd(){document.getElementById('modal-add').classList.add('hidden');}
+function onTradeChange(){
+  updateDL();
+  var tid=document.getElementById('f-trade').value;if(!tid)return;
+  var tr=cfg.trades.find(function(t){return t.id===tid;});if(!tr)return;
+  var parts=tr.name.split(' — ');if(parts.length<2)return;
+  var co=parts[0].trim();
+  var sel=document.getElementById('f-company-sel');
+  var opt=Array.from(sel.options).find(function(o){return o.value===co;});
+  if(opt){sel.value=co;document.getElementById('f-company').value=co;document.getElementById('f-company').classList.add('hidden');}
 }
-function updateDL(){
-  const sel=document.getElementById('f-company-sel');
-  const cur=sel.value;
-  const cos=[...new Set(data.map(i=>i.company))].filter(Boolean).sort();
-  sel.innerHTML=`<option value="">Sélectionner une entreprise...</option>`+
-    cos.map(c=>`<option value="${c}">${c}</option>`).join('')+
-    `<option value="__new__">+ Ajouter une nouvelle entreprise</option>`;
-  if(cur&&cur!=='__new__')sel.value=cur;
-}
-function onCompanyChange(sel){
-  const inp=document.getElementById('f-company');
-  if(sel.value==='__new__'){inp.classList.remove('hidden');inp.value='';inp.focus();}
-  else{inp.classList.add('hidden');inp.value=sel.value;}
-}
+function updateDL(){const t=document.getElementById('f-trade').value;const cos=[...new Set(data.filter(i=>!t||i.trade===t).map(i=>i.company))];document.getElementById('dl-co').innerHTML=cos.map(c=>`<option value="${c}">`).join('');}
 function selPrio(el){selectedPrio=parseInt(el.dataset.p);updatePrioUI();}
 function updatePrioUI(){document.querySelectorAll('.popt').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.p)===selectedPrio));}
 
 async function saveInterv(){
-  if(!canEdit()){alert('Le planning est verrouillé.');closeAdd();return;}
-  const trade=document.getElementById('f-trade').value;
-  const sel=document.getElementById('f-company-sel');
-  const company=sel.value==='__new__'||sel.value===''?document.getElementById('f-company').value.trim():sel.value;
-  const task=document.getElementById('f-task').value.trim(),zone=document.getElementById('f-zone').value,start=document.getElementById('f-start').value;
-  if(!trade||!company||!task||!zone||!start){alert('Merci de remplir les champs obligatoires (*)');return;}
-  const existingIv=editId?data.find(i=>i.id===editId):null;
-  const taskNumber=existingIv?.task_number||generateTaskNumber(company);
-  const iv={id:editId||Date.now().toString(),trade,company,task,zone,start,end:document.getElementById('f-end').value||start,staff:1,status:document.getElementById('f-status').value,priority:selectedPrio,prereq:document.getElementById('f-prereq').value.trim(),notes:document.getElementById('f-notes').value.trim(),progress:0,delay:0,predecessor_id:document.getElementById('f-predecessor').value||null,task_number:taskNumber};
+  const trade=document.getElementById('f-trade').value,company=document.getElementById('f-company').value.trim(),task=document.getElementById('f-task').value.trim(),zone=document.getElementById('f-zone').value,start=document.getElementById('f-start').value;
+  if(!trade||!company||!task){alert('Merci de remplir Corps de metier, Entreprise et Description.');return;}
+  const iv={id:editId||Date.now().toString(),trade,company,task,zone,start,end:document.getElementById('f-end').value||start,staff:parseInt(document.getElementById('f-staff').value)||1,status:document.getElementById('f-status').value,priority:selectedPrio,prereq:document.getElementById('f-prereq').value.trim(),notes:document.getElementById('f-notes').value.trim()};
   if(editId){const idx=data.findIndex(i=>i.id===editId);if(idx>=0)data[idx]=iv;}else{data.push(iv);}
   closeAdd();render();
   await dbSave(iv);
@@ -1019,26 +655,29 @@ function openDetail(id){
   const tr=cfg.trades.find(x=>x.id===i.trade),c=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'},z=cfg.zones.find(x=>x.id===i.zone);
   document.getElementById('detail-body').innerHTML=`
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-      <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div style="font-size:17px;font-weight:600">${i.company}</div><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${getTaskNum(i)}</div></div>
+      <div><div style="font-size:17px;font-weight:600;margin-bottom:4px">${i.company}</div>
         <span class="tbadge t-${i.trade}" style="background:${c.bg};border-color:${c.b};color:${c.t}">${tr?tr.name:i.trade}</span>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
         <span class="sbadge ${i.status}">${SLABEL[i.status]}</span>
-        ${currentSession.role==='admin'?`<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span class="pbadge p${i.priority||3}">${i.priority||3}</span> ${PRIO_LABEL[i.priority||3]}</span>`:''}
+        <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span class="pbadge p${i.priority||3}">${i.priority||3}</span> ${PRIO_LABEL[i.priority||3]}</span>
       </div>
     </div>
     <div style="background:var(--bg);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:14px;border:1px solid var(--border)">${i.task}</div>
     <div class="dkv">
       <div class="kv"><div class="kv-l">Zone</div><div class="kv-v">${z?z.name:i.zone}</div></div>
-      <div class="kv"><div class="kv-l">Corps de métier</div><div class="kv-v">${tr?tr.name:i.trade}</div></div>
-      <div class="kv"><div class="kv-l">Début</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${fmtDate(i.start)}</div></div>
-      <div class="kv"><div class="kv-l">Fin</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${fmtDate(i.end||i.start)}</div></div>
+      <div class="kv"><div class="kv-l">Effectif</div><div class="kv-v">${i.staff||1} compagnon${(i.staff||1)>1?'s':''}</div></div>
+      <div class="kv"><div class="kv-l">Début</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${i.start}</div></div>
+      <div class="kv"><div class="kv-l">Fin</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${i.end||i.start}</div></div>
     </div>
-${(()=>{const pred=getPredecessor(i);if(!pred)return'';const ps=predState(i);const col=ps==='ok'?'#15803D':ps==='bloque'?'#B91C1C':'#92400E';const bg=ps==='ok'?'#F0FDF4':ps==='bloque'?'#FEF2F2':'#FFFBEB';const statusTxt=ps==='ok'?'Terminée ✅':ps==='bloque'?'Bloquée 🔴':'En attente ⏳';return `<div style='background:${bg};border-left:3px solid ${col};border-radius:0 6px 6px 0;padding:9px 11px;margin-bottom:10px;font-size:12px;color:${col}'>`+`<b>${getTaskNum(pred)} — ${statusTxt}</b><br>`+`${pred.company} : ${pred.task}`+`</div>`;})()}
-        ${i.prereq?`<div class="abox"><b>⚠ Prérequis / Blocage</b><br>${i.prereq}</div>`:''}
+    ${i.prereq?`<div class="abox"><b>⚠ Prérequis / Blocage</b><br>${i.prereq}</div>`:''}
     ${i.notes?`<div class="nbox"><b>Notes</b><br>${i.notes}</div>`:''}
-    ${buildStatusPanel(i)}
-    ${currentSession.role==='admin'?`<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail('${i.id}')">Modifier</button>`:''}
+    <p style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:'DM Mono',monospace">METTRE À JOUR LE STATUT</p>
+    <div class="status-row">
+      ${Object.entries(SLABEL).map(([k,v])=>`<div class="sopt2" style="border-color:${i.status===k?SCOL[k]:'var(--border)'};background:${i.status===k?SCOL[k]+'18':'var(--surface)'};color:${i.status===k?SCOL[k]:'var(--text)'}" onclick="quickStatus('${i.id}','${k}')">
+        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SCOL[k]};margin-right:4px;vertical-align:middle"></span>${v}</div>`).join('')}
+    </div>
+    <button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail('${i.id}')">Modifier</button>
     <button class="btn-g" onclick="closeDetail()">Fermer</button>`;
   document.getElementById('modal-detail').classList.remove('hidden');
 }
@@ -1049,23 +688,12 @@ async function quickStatus(id,s){
   await sb.from('interventions').update({status:s,updated_at:new Date().toISOString()}).eq('id',id);
 }
 function closeDetail(){document.getElementById('modal-detail').classList.add('hidden');}
-function editFromDetail(id){const i=data.find(x=>x.id===id);if(!i)return;closeDetail();editId=id;selectedPrio=i.priority||3;document.getElementById('add-title').textContent='Modifier';populateFormSelects();document.getElementById('f-trade').value=i.trade;
-  updateDL();
-  const csel=document.getElementById('f-company-sel');
-  const copt=[...csel.options].find(o=>o.value===i.company);
-  if(copt){csel.value=i.company;document.getElementById('f-company').value=i.company;document.getElementById('f-company').classList.add('hidden');}
-  else{csel.value='__new__';document.getElementById('f-company').value=i.company;document.getElementById('f-company').classList.remove('hidden');}document.getElementById('f-task').value=i.task;document.getElementById('f-zone').value=i.zone;document.getElementById('f-start').value=i.start;document.getElementById('f-end').value=i.end||'';document.getElementById('f-status').value=i.status;document.getElementById('f-prereq').value=i.prereq||'';document.getElementById('f-notes').value=i.notes||'';document.getElementById('f-predecessor').value=i.predecessor_id||'';updatePrioUI();document.getElementById('btn-del').classList.remove('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
+function editFromDetail(id){const i=data.find(x=>x.id===id);if(!i)return;closeDetail();editId=id;selectedPrio=i.priority||3;document.getElementById('add-title').textContent='Modifier';populateFormSelects();document.getElementById('f-trade').value=i.trade;document.getElementById('f-company').value=i.company;document.getElementById('f-task').value=i.task;document.getElementById('f-zone').value=i.zone;document.getElementById('f-start').value=i.start;document.getElementById('f-end').value=i.end||'';document.getElementById('f-staff').value=i.staff||1;document.getElementById('f-status').value=i.status;document.getElementById('f-prereq').value=i.prereq||'';document.getElementById('f-notes').value=i.notes||'';updatePrioUI();document.getElementById('btn-del').classList.remove('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
 
 // ─── SETTINGS ─────────────────────────────────────────────
 function openSettings(){editingZoneId=null;editingTradeId=null;renderZonesList();renderTradesList();showTab('zones');document.getElementById('modal-settings').classList.remove('hidden');}
 function closeSettings(){document.getElementById('modal-settings').classList.add('hidden');}
-function showTab(t){settingsTab=t;
-  ['zones','trades','companies'].forEach(tab=>{
-    document.getElementById('tab-'+tab).classList.toggle('hidden',t!==tab);
-    document.getElementById('tab-btn-'+tab).classList.toggle('active',t===tab);
-  });
-  if(t==='companies')renderCompaniesList();
-}
+function showTab(t){settingsTab=t;document.getElementById('tab-zones').classList.toggle('hidden',t!=='zones');document.getElementById('tab-trades').classList.toggle('hidden',t!=='trades');document.getElementById('tab-btn-zones').classList.toggle('active',t==='zones');document.getElementById('tab-btn-trades').classList.toggle('active',t==='trades');}
 
 function renderZonesList(){
   const el=document.getElementById('zones-list');if(!cfg.zones.length){el.innerHTML='<p style="font-size:13px;color:var(--muted);padding:12px 0">Aucune zone définie.</p>';return;}
@@ -1103,189 +731,44 @@ function cancelAddTrade(){document.getElementById('add-trade-form').classList.ad
 async function confirmAddTrade(){const name=document.getElementById('new-trade-name').value.trim(),short=document.getElementById('new-trade-short').value.trim();if(!name||!short){alert('Requis');return;}const sel=document.querySelector('#add-trade-colors .cswatch.sel');if(sel)newTradeColor=sel.dataset.cid;const tr={id:'tr_'+Date.now(),name,short,color:newTradeColor,display_order:cfg.trades.length};cfg.trades.push(tr);document.getElementById('new-trade-name').value='';document.getElementById('new-trade-short').value='';document.getElementById('add-trade-form').classList.add('hidden');renderTradesList();render();await dbSaveTrade(tr,true);}
 
 // ─── WHATSAPP ─────────────────────────────────────────────
-function sendWhatsApp(){const days=weekDays(weekOffset),wi=data.filter(i=>days.some(d=>inDay(i,d)));let msg=`📋 *Planning HSF — Av. Marceau*\nSemaine du ${dateFR(days[0])} au ${dateFR(days[4])}\n\n`;const bl=wi.filter(i=>i.status==='bloque');if(bl.length){msg+=`🔴 *BLOCAGES (${bl.length})*\n`;bl.forEach(i=>{msg+=`• ${i.company} — ${i.task} (${(cfg.zones.find(z=>z.id===i.zone)||{short:i.zone}).short})\n`;});msg+='\n';}cfg.zones.forEach(z=>{const zi=wi.filter(i=>i.zone===z.id).sort((a,b)=>(a.priority||3)-(b.priority||3));if(!zi.length)return;msg+=`*${z.name}*\n`;zi.forEach(i=>{const e={arealis:'⏳',encours:'🔵',termine:'✅',bloque:'🔴'}[i.status];msg+=`${e} [P${i.priority||3}] ${i.company} — ${i.task}\n`;});msg+='\n';});window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');}
+function sendWhatsApp(){const days=weekDays(weekOffset),wi=data.filter(i=>days.some(d=>inDay(i,d)));let msg=`📋 *Planning HSF — Av. Marceau*\nSemaine du ${dateFR(days[0])} au ${dateFR(days[4])}\n\n`;const bl=wi.filter(i=>i.status==='bloque');if(bl.length){msg+=`🔴 *BLOCAGES (${bl.length})*\n`;bl.forEach(i=>{msg+=`• ${i.company} — ${i.task} (${(cfg.zones.find(z=>z.id===i.zone)||{short:i.zone}).short})\n`;});msg+='\n';}cfg.zones.forEach(z=>{const zi=wi.filter(i=>i.zone===z.id).sort((a,b)=>(a.priority||3)-(b.priority||3));if(!zi.length)return;msg+=`*${z.name}*\n`;zi.forEach(i=>{const e={attente:'⏳',cours:'🔵',termine:'✅',bloque:'🔴'}[i.status];msg+=`${e} [P${i.priority||3}] ${i.company} — ${i.task}\n`;});msg+='\n';});window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');}
 function exportJSON(){const blob=new Blob([JSON.stringify({project:'HSF-Marceau',exportedAt:new Date().toISOString(),config:cfg,interventions:data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hsf-'+dateStr(new Date())+'.json';a.click();}
 
-function exportWeek(){
-  const days=weekDays(weekOffset);
-  const wi=data.filter(i=>days.some(d=>inDay(i,d))).sort((a,b)=>a.start.localeCompare(b.start));
-  const load=cb=>{
-    if(typeof XLSX!=='undefined'){cb();return;}
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload=cb;s.onerror=()=>exportCSVFallback(wi,days);
-    document.head.appendChild(s);
-  };
-  load(()=>{
-    const rows=[['Entreprise','Tâche','Zone','Corps de métier','Début','Fin','Statut']];
-    wi.forEach(i=>{
-      const z=cfg.zones.find(x=>x.id===i.zone);
-      const tr=cfg.trades.find(x=>x.id===i.trade);
-      rows.push([i.company,i.task,z?z.name:i.zone,tr?tr.name:i.trade,fmtDate(i.start),fmtDate(i.end||i.start),SLABEL[i.status]||i.status]);
-    });
-    try{
-      const ws=XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols']=[{wch:22},{wch:36},{wch:20},{wch:20},{wch:12},{wch:12},{wch:14}];
-      const wb=XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb,'Planning',ws);
-      XLSX.writeFile(wb,'HSF-semaine-'+dateStr(days[0])+'.xlsx');
-    }catch(e){exportCSVFallback(wi,days);}
-  });
-}
-function exportCSVFallback(wi,days){
-  let csv='Entreprise,Tache,Zone,Corps de metier,Debut,Fin,Statut\n';
-  wi.forEach(i=>{
-    const z=cfg.zones.find(x=>x.id===i.zone);
-    const tr=cfg.trades.find(x=>x.id===i.trade);
-    csv+=`"${i.company}","${i.task}","${z?z.name:i.zone}","${tr?tr.name:i.trade}","${fmtDate(i.start)}","${fmtDate(i.end||i.start)}","${SLABEL[i.status]||i.status}"
-`;
-  });
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='HSF-semaine-'+dateStr(days[0])+'.csv';a.click();
-}
-
 // ─── LAYOUT ───────────────────────────────────────────────
-
-function renderNav(){
-  const nav=document.getElementById('main-nav');
-  if(!nav)return;
-  const planSvg=`<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="22"/></svg>`;
-  const listSvg=`<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>`;
-  const expSvg=`<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-  nav.innerHTML=
-    `<button class="nbtn active" id="nb-planning" onclick="switchView('planning')">${planSvg}Planning</button>`+
-    `<button class="nbtn" id="nb-liste" onclick="switchView('liste')">${listSvg}Liste</button>`+
-    `<button class="nbtn" onclick="exportWeek()">${expSvg}Export</button>`;
-}
-
-
-function openTodayModal(){
-  const today=dateStr(new Date());
-  const isCompany=currentSession.role==='company';
-  const co=currentSession.company;
-  let todayTasks=data.filter(i=>inDay(i,new Date()));
-  if(isCompany&&co)todayTasks=todayTasks.filter(i=>i.company===co.name);
-  todayTasks.sort((a,b)=>(a.priority||3)-(b.priority||3));
-  const title=isCompany?`Mes tâches du jour — ${co?.name||''}`:`Toutes les tâches du jour`;
-  document.getElementById('detail-body').innerHTML=
-    `<div class="stitle">${title}</div>`+
-    (todayTasks.length===0?`<div class="empty">Aucune tâche aujourd'hui</div>`:'') +
-    todayTasks.map(i=>{
-      const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);
-      const parts=(tr?.name||'').split(' — ');
-      const compName=parts[0]||i.company;
-      const c=gcByCompany(compName);
-      return`<div class="litem" onclick="closeDetail();openDetail('${i.id}')" style="border-left:4px solid ${c.b}">
-        <div class="li-top"><span class="li-co" style="color:${c.t}">${i.company}</span><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div>
-        <div class="li-task">${i.task}</div>
-        <div class="li-meta">${z?z.short:i.zone} · ${getTaskNum(i)}</div>
-      </div>`;
-    }).join('')+
-    `<button class="btn-g" onclick="closeDetail()">Fermer</button>`;
-  document.getElementById('modal-detail').classList.remove('hidden');
-}
-
-
 function fixH(){const h=document.getElementById('app-hdr').offsetHeight;document.getElementById('content').style.height=`calc(100vh - ${h}px)`;}
 
-function toggleLockBtn(){
-  saveLock(!planningLocked);
-  const ls=document.getElementById('lock-status');
-  if(ls)ls.textContent=planningLocked?'Planning verrouillé':'Planning déverrouillé';
-  renderLockBtn();
+function renderNav(){
+  var nav=document.getElementById('main-nav');if(!nav)return;
+  var planSvg='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="22"/></svg>';
+  var listSvg='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>';
+  var expSvg='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+  nav.innerHTML='<button class="nbtn active" id="nb-planning" onclick="switchView(&quot;planning&quot;)">'+planSvg+'Planning</button>'
+    +'<button class="nbtn" id="nb-liste" onclick="switchView(&quot;liste&quot;)">'+listSvg+'Liste</button>'
+    +'<button class="nbtn" onclick="exportWeek()">'+expSvg+'Export</button>';
 }
 
-function renderCompaniesList(){
-  const el=document.getElementById('companies-list');
-  if(!el)return;
-  if(!companies.length){el.innerHTML='<p style="font-size:13px;color:var(--muted);padding:10px 0">Aucune entreprise enregistrée.</p>';return;}
-  const TRADE_NAMES={demo:'Démolition',platr:'Plâtrerie',rsm:'Rev. sol/mur',peint:'Peinture',menuis:'Menuiserie',elec:'Électricité',cvc:'PL/CVC',cloison:'Cloison amov.'};
-  el.innerHTML=companies.map(c=>`
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)">
-      <div style="width:32px;height:32px;border-radius:50%;background:${gc(c.color||'gray').bg};color:${gc(c.color||'gray').t};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">${c.name.slice(0,3).toUpperCase()}</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:500;color:var(--text)">${c.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${c.contact_name||''}</div>
-        <div style="font-size:11px;color:var(--xmuted);font-family:'DM Mono',monospace">${c.email||''} · ${c.phone||''}</div>
-      </div>
-      <div style="display:flex;gap:5px">
-        <button class="ibtn" onclick="editCompany('${c.id}')" title="Modifier">✎</button>
-        <button class="ibtn del" onclick="deleteCompany('${c.id}')" title="Supprimer">✕</button>
-      </div>
-    </div>`).join('');
-// Show edit form if active
-if(editingCompanyId){const c=companies.find(x=>x.id===editingCompanyId);if(c){const colorSwatches=COLORS.map(cl=>`<div class='cswatch${c.color===cl.id?' sel':''}' style='background:${cl.b}' data-cid='${cl.id}' onclick='document.querySelectorAll("#edit-co-colors .cswatch").forEach(s=>s.classList.remove("sel"));this.classList.add("sel")'></div>`).join('');const editDiv=document.createElement('div');editDiv.className='eform';editDiv.id='edit-co-form';editDiv.innerHTML=`<div class='f2' style='margin-bottom:8px'><input class='efi' id='eco-name' value='${c.name}' placeholder='Nom'><input class='efi' id='eco-contact' value='${c.contact_name||''}' placeholder='Contact'></div>`+`<div class='f2' style='margin-bottom:8px'><input class='efi' id='eco-email' value='${c.email||''}' placeholder='Email' type='email'><input class='efi' id='eco-phone' value='${c.phone||''}' placeholder='Tél'></div>`+`<div style='font-size:12px;color:var(--muted);margin-bottom:6px'>Couleur</div><div class='color-grid' id='edit-co-colors'>${colorSwatches}</div>`+`<div style='display:flex;gap:8px;margin-top:10px'><button class='btn-sm' style='flex:1' onclick='saveEditCompany("${c.id}")'>Enregistrer</button><button class='btn-sm' onclick='cancelEditCompany()'>Annuler</button></div>`;el.appendChild(editDiv);}}
+function exportWeek(){
+  var days=weekDays(weekOffset);
+  var wi=data.filter(function(i){return days.some(function(d){return inDay(i,d);});}).sort(function(a,b){return a.start.localeCompare(b.start);});
+  function doRows(){var rows=[['Entreprise','Tache','Zone','Corps de metier','Debut','Fin','Statut']];wi.forEach(function(i){var z=cfg.zones.find(function(x){return x.id===i.zone;});var tr=cfg.trades.find(function(x){return x.id===i.trade;});rows.push([i.company,i.task,z?z.name:i.zone,tr?tr.name:i.trade,fmtDate(i.start),fmtDate(i.end||i.start),SLABEL[i.status]||i.status]);});return rows;}
+  function doExp(){var ws=XLSX.utils.aoa_to_sheet(doRows());ws['!cols']=[{wch:22},{wch:36},{wch:20},{wch:20},{wch:12},{wch:12},{wch:14}];var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,'Planning',ws);XLSX.writeFile(wb,'HSF-'+dateStr(days[0])+'.xlsx');}
+  function fallback(){var rows=doRows();var csv=rows.map(function(r){return r.map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='HSF-'+dateStr(days[0])+'.csv';a.click();}
+  if(typeof XLSX!=='undefined'){try{doExp();}catch(e){fallback();}}else{var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=function(){try{doExp();}catch(e){fallback();}};s.onerror=fallback;document.head.appendChild(s);}
 }
 
-async function editCompany(id){editingCompanyId=id;renderCompaniesList();}
-function cancelEditCompany(){editingCompanyId=null;renderCompaniesList();}
-async function saveEditCompany(id){
-  const c=companies.find(x=>x.id===id);if(!c)return;
-  const name=document.getElementById('eco-name').value.trim();
-  const contact=document.getElementById('eco-contact').value.trim();
-  const email=document.getElementById('eco-email').value.trim();
-  const phone=document.getElementById('eco-phone').value.trim();
-  const sel=document.querySelector('#edit-co-colors .cswatch.sel');
-  const color=sel?sel.dataset.cid:c.color;
-  Object.assign(c,{name,contact_name:contact,email,phone,color});
-  try{await sb.from('companies').update({name,contact_name:contact,email,phone,color}).eq('id',id);}
-  catch(e){console.log('save co err',e);}
-  editingCompanyId=null;
-  renderCompaniesList();
-  updateDL();
-}
-async function deleteCompany(id){
-  if(!confirm('Supprimer cette entreprise ?'))return;
-  try{if(sb)await sb.from('companies').update({active:false}).eq('id',id);}catch(e){}
-  companies=companies.filter(c=>c.id!==id);
-  renderCompaniesList();
-}
-
-let newCompanyColor='teal';
-function startAddCompany(){
-  newCompanyColor='teal';
-  document.getElementById('nc-colors').innerHTML=COLORS.map(c=>`<div class="cswatch${c.id==='teal'?' sel':''}" style="background:${c.b}" data-cid="${c.id}" onclick="document.querySelectorAll('#nc-colors .cswatch').forEach(s=>s.classList.remove('sel'));this.classList.add('sel');newCompanyColor=this.dataset.cid"></div>`).join('');
-  document.getElementById('add-company-form').classList.remove('hidden');
-  document.getElementById('nc-name').focus();
-}
-function cancelAddCompany(){document.getElementById('add-company-form').classList.add('hidden');}
-async function confirmAddCompany(){
-  const name=document.getElementById('nc-name').value.trim();
-  const contact=document.getElementById('nc-contact').value.trim();
-  const email=document.getElementById('nc-email').value.trim();
-  const phone=document.getElementById('nc-phone').value.trim();
-  if(!name){alert('Nom requis');return;}
-  const sel=document.querySelector('#nc-colors .cswatch.sel');
-  if(sel)newCompanyColor=sel.dataset.cid;
-  const id='co_'+Date.now();
-  const co={id,name,contact_name:contact,email,phone,color:newCompanyColor,active:true};
-  await sb.from('companies').insert(co);
-  companies.push(co);
-  ['nc-name','nc-contact','nc-email','nc-phone'].forEach(f=>document.getElementById(f).value='');
-  document.getElementById('add-company-form').classList.add('hidden');
-  renderCompaniesList();
-}
 
 // ─── INIT ─────────────────────────────────────────────────
 async function init(){
   if(!CONFIGURED){document.getElementById('config-screen').classList.remove('hidden');return;}
-  // Show login immediately with fallback companies, then load fresh data
-  companies=FALLBACK_COMPANIES;
-  populateLoginCompanies();
-  clearSession();
-  document.getElementById('login-screen').style.display='flex';
-  // Load fresh companies in background
-  loadCompanies().then(()=>populateLoginCompanies());
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){currentUser=session.user;await loadProfile();showApp();await loadAllData();subscribeRealtime();}
+  else{showLoginScreen();}
+  sb.auth.onAuthStateChange((event,session)=>{
+    if(event==='SIGNED_IN'&&session){currentUser=session.user;showApp();}
+    else if(event==='SIGNED_OUT'){showLoginScreen();}
+  });
+  document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   window.addEventListener('resize',fixH);
-  document.getElementById('l-code').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-}
-
-function populateLoginCompanies(){
-  const sel=document.getElementById('l-company');
-  sel.innerHTML='<option value="">Sélectionner...</option>'
-    +'<option value="__admin__">Responsable de projet</option>'
-    +companies.map(co=>`<option value="${co.id}">${co.name} — ${co.contact_name||''}</option>`).join('');
 }
 
 init().then(()=>{if(CONFIGURED&&document.getElementById('app').classList.contains('hidden')===false)fixH();});
