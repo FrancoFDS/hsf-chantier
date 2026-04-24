@@ -692,8 +692,7 @@ function renderGrid(){
       const visible=cards.slice(0,2),extra=cards.length-2;
       return `<div class="dcell${isToday(day)?' today-col':''}" onclick="openAddPre('${z.id}','${ds}')">
         ${visible.map(i=>`<div class="ic t-${i.trade}" onclick="event.stopPropagation();openDetail('${i.id}')">
-          <span class="pbadge p${i.priority||3}">${i.priority||3}</span>
-          <span class="co">${i.company.split(' ')[0]}</span>
+             <span class="co">${i.company.split(' ')[0]}</span>
           <span class="tk">${i.task.slice(0,16)}${i.task.length>16?'…':''}</span>
         </div>`).join('')}
         ${extra>0?`<div class="more-badge" onclick="event.stopPropagation();openDayModal('${z.id}','${ds}')">+${extra} autre${extra>1?'s':''}</div>`:''}
@@ -710,15 +709,16 @@ function renderList(){
   var el=document.getElementById('view-liste');
   if(!wi.length){el.innerHTML='<div class="empty"><div style="font-size:40px;margin-bottom:12px">&#128203;</div><b>Aucune intervention cette semaine</b></div>';return;}
   el.innerHTML=wi.map(function(i){
-    var tr=cfg.trades.find(function(t){return t.id===i.trade;});
     var z=cfg.zones.find(function(x){return x.id===i.zone;});
     var dr=fmtDate(i.start)+(i.end&&i.end!==i.start?' &rarr; '+fmtDate(i.end):'');
-    var pre=i.prereq?'<div class="li-pre">&#9888; '+i.prereq.slice(0,80)+(i.prereq.length>80?'&hellip;':'')+'</div>':'';
+    var pre=i.prereq?'<div class="li-pre" style="margin-top:5px">&#9888; '+i.prereq+'</div>':'';
+    var note=i.notes?'<div class="nbox" style="margin-top:5px;margin-bottom:0">'+i.notes+'</div>':'';
     return '<div class="litem" onclick="openDetail(&quot;'+i.id+'&quot;)">'
+      +'<div class="li-meta" style="margin-bottom:4px">'+dr+'</div>'
       +'<div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'
+      +'<div class="li-meta" style="margin-bottom:3px">'+(z?z.name:i.zone)+'</div>'
       +'<div class="li-task">'+i.task+'</div>'
-      +'<div class="li-meta">'+(z?z.name:i.zone)+' &middot; '+(tr?tr.name:i.trade)+' &middot; '+dr+'</div>'
-      +pre+'</div>';
+      +pre+note+'</div>';
   }).join('');
 }
 
