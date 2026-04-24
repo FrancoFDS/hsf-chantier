@@ -349,6 +349,77 @@ if (CONFIGURED) {
   sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+
+let companies=[];
+let planningLocked=false;
+let editingCompanyId=null;
+let currentSession={role:null,company:null,name:null};
+
+function saveSession(s){try{sessionStorage.setItem('hsf-session',JSON.stringify(s));}catch(e){}}
+function loadSession(){try{var s=sessionStorage.getItem('hsf-session');return s?JSON.parse(s):null;}catch(e){return null;}}
+function clearSession(){try{sessionStorage.removeItem('hsf-session');}catch(e){}}
+
+const FALLBACK_COMPANIES=[
+  {id:'std',name:'STD',contact_name:'Tibor Salak',email:'std.construction91@gmail.com',phone:'06 24 07 23 24',color:'amber',access_code:'1001',active:true},
+  {id:'elphitec_cvc',name:'ELPHITEC',contact_name:'Laurent Testa',email:'Laurent.testa@vinci-energies.com',phone:'07 64 76 17 82',color:'blue',access_code:'2002',active:true},
+  {id:'elphitec_elec',name:'ELPHITEC',contact_name:'Thibault Brousseau',email:'thibault.brousseau@vinci-energies.com',phone:'07 64 25 99 90',color:'gold',access_code:'3003',active:true},
+  {id:'amfrance',name:'AM FRANCE',contact_name:'Ahmed El Sabbagh',email:'amfrance.ah@gmail.com',phone:'06 07 14 55 88',color:'rose',access_code:'4004',active:true},
+  {id:'prost',name:'PROST',contact_name:'Bruno Machado',email:'bmachado@eprost.fr',phone:'06 23 25 54 46',color:'green',access_code:'5005',active:true},
+  {id:'soaa',name:'SOA-A',contact_name:'Antoine Delalande',email:'antoine@soa-a.fr',phone:'06 75 94 33 86',color:'purple',access_code:'6006',active:true},
+  {id:'barrebouillet',name:'BARRE BOUILLET',contact_name:'Cyrille Mazaleyrat',email:'c.mazaleyrat@barre-bouillet.fr',phone:'06 26 70 29 86',color:'teal',access_code:'7007',active:true},
+  {id:'bene',name:'BENE',contact_name:'Francois Corbin',email:'francois.corbin@bene.com',phone:'07 85 90 75 38',color:'indigo',access_code:'8008',active:true}
+];
+
+async function loadCompanies(){
+  companies=FALLBACK_COMPANIES;
+  try{
+    var res=await sb.from('companies').select('*').eq('active',true).order('name');
+    if(!res.error&&res.data&&res.data.length>0)companies=res.data;
+  }catch(e){}
+}
+
+async function loadSettings(){
+  if(!sb)return;
+  try{
+    var res=await sb.from('settings').select('*');
+    if(res.data){var ls=res.data.find(function(s){return s.key==='planning_locked';});if(ls)planningLocked=ls.value==='true';}
+  }catch(e){}
+}
+
+async function enterApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').classList.remove('hidden');
+  try{await Promise.all([loadAllData(),loadSettings()]);subscribeRealtime();}catch(e){console.log('enterApp error:',e);}
+  applyRole();fixH();render();
+}
+
+function doLogout(){
+  clearSession();
+  currentSession={role:null,company:null,name:null};
+  closeUserMenu();
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('l-code').value='';
+}
+
+function applyRole(){
+  var ub=document.getElementById('user-btn');
+  if(ub){
+    var initials=(currentSession.name||'?').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
+    ub.textContent=initials;ub.title=currentSession.name||'';
+  }
+  var sl=document.getElementById('session-label');
+  if(sl){
+    if(currentSession.role==='admin')sl.textContent='Admin';
+    else if(currentSession.company)sl.textContent=currentSession.company.name;
+  }
+  renderNav();
+  var sid='role-styles';var os=document.getElementById(sid);if(os)os.remove();
+  if(currentSession.role!=='admin'){var rs=document.createElement('style');rs.id=sid;rs.textContent='.add-mini{display:none!important}';document.head.appendChild(rs);}
+}
+
+function canEdit(){return currentSession.role==='admin'||!planningLocked;}
+
 // ─── CONSTANTS ────────────────────────────────────────────
 const COLORS=[{id:'amber',b:'#F59E0B',bg:'#FFF8EE',t:'#92400E'},{id:'blue',b:'#3B82F6',bg:'#EEF6FF',t:'#1E3A5F'},{id:'gold',b:'#CA8A04',bg:'#FEFCE8',t:'#713F12'},{id:'purple',b:'#8B5CF6',bg:'#F5F3FF',t:'#4C1D95'},{id:'green',b:'#16A34A',bg:'#F0FDF4',t:'#14532D'},{id:'rose',b:'#E11D48',bg:'#FFF1F2',t:'#881337'},{id:'teal',b:'#0D9488',bg:'#F0FDFA',t:'#134E4A'},{id:'orange',b:'#EA580C',bg:'#FFF7ED',t:'#7C2D12'},{id:'indigo',b:'#6366F1',bg:'#EEF2FF',t:'#312E81'},{id:'sky',b:'#0EA5E9',bg:'#F0F9FF',t:'#0C4A6E'}];
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
@@ -402,16 +473,7 @@ function showLoginErr(msg){var e=document.getElementById('login-err');e.textCont
 
 
 
-async function doLogout(){
-  await sb.auth.signOut();
-  currentUser=null;currentProfile=null;data=[];cfg={zones:[],trades:[]};
-  closeUserMenu();
-  document.getElementById('app').classList.add('hidden');
-  document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('l-phone').value='';
-  document.getElementById('l-pass').value='';
-}
-
+async 
 async function loadProfile(){
   if(!currentUser)return;
   const {data:p}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
