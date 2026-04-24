@@ -820,22 +820,19 @@ async function deleteInterv(){
 function openDetail(id){
   const i=data.find(x=>x.id===id);if(!i)return;
   const tr=cfg.trades.find(x=>x.id===i.trade),c=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'},z=cfg.zones.find(x=>x.id===i.zone);
+  const isAdmin=currentSession.role==='admin';
   document.getElementById('detail-body').innerHTML=`
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-      <div><div style="font-size:17px;font-weight:600;margin-bottom:4px">${i.company}</div>
+      <div>
+        <div style="font-size:17px;font-weight:600;margin-bottom:4px">${i.company}</div>
         <span class="tbadge t-${i.trade}" style="background:${c.bg};border-color:${c.b};color:${c.t}">${tr?tr.name:i.trade}</span>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-        <span class="sbadge ${i.status}">${SLABEL[i.status]}</span>
-        <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span class="pbadge p${i.priority||3}">${i.priority||3}</span> ${PRIO_LABEL[i.priority||3]}</span>
-      </div>
+      <span class="sbadge ${i.status}">${SLABEL[i.status]}</span>
     </div>
     <div style="background:var(--bg);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:14px;border:1px solid var(--border)">${i.task}</div>
     <div class="dkv">
-      <div class="kv"><div class="kv-l">Zone</div><div class="kv-v">${z?z.name:i.zone}</div></div>
-      <div class="kv"><div class="kv-l">Effectif</div><div class="kv-v">${i.staff||1} compagnon${(i.staff||1)>1?'s':''}</div></div>
-      <div class="kv"><div class="kv-l">Début</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${i.start}</div></div>
-      <div class="kv"><div class="kv-l">Fin</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${i.end||i.start}</div></div>
+      <div class="kv"><div class="kv-l">Zone</div><div class="kv-v">${z?z.name:(i.zone||'—')}</div></div>
+      <div class="kv"><div class="kv-l">Date</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${fmtDate(i.start)}${i.end&&i.end!==i.start?' → '+fmtDate(i.end):''}</div></div>
     </div>
     ${i.prereq?`<div class="abox"><b>⚠ Prérequis / Blocage</b><br>${i.prereq}</div>`:''}
     ${i.notes?`<div class="nbox"><b>Notes</b><br>${i.notes}</div>`:''}
@@ -844,10 +841,11 @@ function openDetail(id){
       ${Object.entries(SLABEL).map(([k,v])=>`<div class="sopt2" style="border-color:${i.status===k?SCOL[k]:'var(--border)'};background:${i.status===k?SCOL[k]+'18':'var(--surface)'};color:${i.status===k?SCOL[k]:'var(--text)'}" onclick="quickStatus('${i.id}','${k}')">
         <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SCOL[k]};margin-right:4px;vertical-align:middle"></span>${v}</div>`).join('')}
     </div>
-    <button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail('${i.id}')">Modifier</button>
+    ${isAdmin?`<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail('${i.id}')">Modifier</button>`:''}
     <button class="btn-g" onclick="closeDetail()">Fermer</button>`;
   document.getElementById('modal-detail').classList.remove('hidden');
 }
+
 
 async function quickStatus(id,s){
   const i=data.find(x=>x.id===id);if(!i)return;
