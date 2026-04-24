@@ -188,20 +188,28 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 </div>
 
 <!-- LOGIN SCREEN -->
-<div id="login-screen" class="login-screen hidden">
-  <div class="login-card">
-    <div class="login-logo">HSF — 66 Av. Marceau</div>
-    <div class="login-title">Connexion</div>
-    <div class="login-sub">Entrez votre numéro de téléphone et votre mot de passe</div>
-    <div class="login-err" id="login-err"></div>
-    <label class="login-label">Numéro de téléphone</label>
-    <input class="login-input" id="l-phone" type="tel" placeholder="06 12 34 56 78" autocomplete="tel">
-    <label class="login-label">Mot de passe</label>
-    <input class="login-input" id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password">
-    <button class="login-btn" id="l-btn" onclick="doLogin()">Se connecter</button>
+<div id="login-screen" style="position:fixed;inset:0;background:#1A1A1A;display:flex;align-items:center;justify-content:center;z-index:200;padding:20px">
+  <div style="background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#999;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">HSF — 66 Av. Marceau</div>
+    <div style="font-size:22px;font-weight:600;margin-bottom:4px;color:#1A1A1A">Acces chantier</div>
+    <div style="font-size:13px;color:#7A7872;margin-bottom:24px">Selectionnez votre profil et entrez votre code</div>
+    <div id="login-err" style="background:#FEF2F2;color:#991B1B;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;display:none"></div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:500;color:#7A7872;display:block;margin-bottom:5px">Profil</label>
+      <select id="l-company" style="width:100%;padding:12px;border:1px solid #E8E6E0;border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;color:#1A1A1A;background:#fff;-webkit-appearance:none">
+        <option value="">Selectionner...</option>
+        <option value="__admin__">Responsable de projet</option>
+      </select>
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:12px;font-weight:500;color:#7A7872;display:block;margin-bottom:5px">Code d acces (4 chiffres)</label>
+      <input id="l-code" type="password" inputmode="numeric" maxlength="4" placeholder="&bull;&bull;&bull;&bull;" style="width:100%;padding:12px;border:1px solid #E8E6E0;border-radius:8px;font-size:24px;letter-spacing:.5em;text-align:center;font-family:'DM Mono',monospace;color:#1A1A1A">
+    </div>
+    <button onclick="doLogin()" style="width:100%;padding:14px;background:#2152C8;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Se connecter</button>
   </div>
 </div>
 
+<!-- MAIN APP -->
 <!-- MAIN APP -->
 <div id="app" class="hidden">
   <header class="hdr" id="app-hdr">
@@ -364,22 +372,35 @@ function phoneToEmail(phone){
 
 // ─── AUTH ─────────────────────────────────────────────────
 async function doLogin(){
-  const phone=document.getElementById('l-phone').value.trim();
-  const pass=document.getElementById('l-pass').value;
-  const btn=document.getElementById('l-btn');
-  const err=document.getElementById('login-err');
-  if(!phone||!pass){showErr('Numéro et mot de passe requis');return;}
-  btn.disabled=true;btn.textContent='Connexion...';err.style.display='none';
-  const email=phoneToEmail(phone);
-  const {data:d,error}=await sb.auth.signInWithPassword({email,password:pass});
-  if(error){showErr('Numéro ou mot de passe incorrect');btn.disabled=false;btn.textContent='Se connecter';return;}
-  currentUser=d.user;
-  await loadProfile();
-  showApp();
-  await loadAllData();
-  subscribeRealtime();
+  var sel=document.getElementById('l-company');
+  var code=document.getElementById('l-code').value.trim();
+  var errEl=document.getElementById('login-err');
+  errEl.style.display='none';
+  if(!sel.value||!code){showLoginErr('Selectionnez votre entreprise et entrez votre code.');return;}
+  if(sel.value==='__admin__'){
+    if(code==='1234'){
+      currentSession={role:'admin',company:null,name:'Responsable de projet'};
+      saveSession(currentSession);
+      await enterApp();
+    } else {
+      showLoginErr('Code incorrect.');
+    }
+    return;
+  }
+  var co=companies.find(function(c){return c.id===sel.value;});
+  if(!co){showLoginErr('Entreprise introuvable.');return;}
+  if(String(co.access_code||'0000')===String(code)){
+    currentSession={role:'company',company:co,name:co.contact_name||co.name};
+    saveSession(currentSession);
+    await enterApp();
+  } else {
+    showLoginErr('Code incorrect.');
+  }
 }
-function showErr(msg){const e=document.getElementById('login-err');e.textContent=msg;e.style.display='block';}
+
+function showLoginErr(msg){var e=document.getElementById('login-err');e.textContent=msg;e.style.display='block';}
+
+
 
 async function doLogout(){
   await sb.auth.signOut();
@@ -763,7 +784,7 @@ async function init(){
   companies=FALLBACK_COMPANIES;
   populateLoginCompanies();
   clearSession();
-  document.getElementById('login-screen').style.display='flex';
+  var ls=document.getElementById('login-screen');if(ls){ls.classList.remove('hidden');ls.style.display='flex';}
   loadCompanies().then(function(){populateLoginCompanies();});
   window.addEventListener('resize',fixH);
   document.getElementById('l-code').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
