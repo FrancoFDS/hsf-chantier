@@ -200,6 +200,14 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
       <select id="l-company" style="width:100%;padding:12px;border:1px solid #E8E6E0;border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;color:#1A1A1A;background:#fff;-webkit-appearance:none">
         <option value="">Selectionner...</option>
         <option value="__admin__">Responsable de projet</option>
+        <option value="std">STD &mdash; Tibor Salak</option>
+        <option value="elphitec_cvc">ELPHITEC &mdash; Laurent Testa (CVC)</option>
+        <option value="elphitec_elec">ELPHITEC &mdash; Thibault Brousseau (Elec)</option>
+        <option value="amfrance">AM FRANCE &mdash; Ahmed El Sabbagh</option>
+        <option value="prost">PROST &mdash; Bruno Machado</option>
+        <option value="soaa">SOA-A &mdash; Antoine Delalande</option>
+        <option value="barrebouillet">BARRE BOUILLET &mdash; Cyrille Mazaleyrat</option>
+        <option value="bene">BENE &mdash; Francois Corbin</option>
       </select>
     </div>
     <div style="margin-bottom:20px">
@@ -666,11 +674,21 @@ function renderGrid(){
 }
 
 function renderList(){
-  const days=weekDays(weekOffset),fi=getFiltered();
-  const wi=fi.filter(i=>days.some(d=>inDay(i,d))).sort((a,b)=>a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3));
-  const el=document.getElementById('view-liste');
-  if(!wi.length){el.innerHTML=`<div class="empty"><div style="font-size:40px;margin-bottom:12px">📋</div><b>Aucune intervention cette semaine</b></div>`;return;}
-  el.innerHTML=wi.map(i=>{const tr=cfg.trades.find(t=>t.id===i.trade),z=cfg.zones.find(x=>x.id===i.zone);return`<div class="litem" onclick="openDetail('${i.id}')"><div class="li-top"><div style="display:flex;align-items:center;gap:7px"><span class="pbadge p${i.priority||3}">${i.priority||3}</span><span class="li-co">${i.company}</span></div><span class="sbadge ${i.status}">${SLABEL[i.status]}</span></div><div class="li-task">${i.task}</div><div class="li-meta">${z?z.short:i.zone} · ${tr?tr.name:i.trade} · ${i.start}${i.end&&i.end!==i.start?' → '+i.end:''} · ${i.staff||1} cpg</div>${i.prereq?`<div class="li-pre">⚠ ${i.prereq.slice(0,80)}${i.prereq.length>80?'…':''}</div>`:''}</div>`;}).join('');
+  var days=weekDays(weekOffset),fi=getFiltered();
+  var wi=fi.filter(function(i){return days.some(function(d){return inDay(i,d);});}).sort(function(a,b){return a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3);});
+  var el=document.getElementById('view-liste');
+  if(!wi.length){el.innerHTML='<div class="empty"><div style="font-size:40px;margin-bottom:12px">&#128203;</div><b>Aucune intervention cette semaine</b></div>';return;}
+  el.innerHTML=wi.map(function(i){
+    var tr=cfg.trades.find(function(t){return t.id===i.trade;});
+    var z=cfg.zones.find(function(x){return x.id===i.zone;});
+    var dr=fmtDate(i.start)+(i.end&&i.end!==i.start?' &rarr; '+fmtDate(i.end):'');
+    var pre=i.prereq?'<div class="li-pre">&#9888; '+i.prereq.slice(0,80)+(i.prereq.length>80?'&hellip;':'')+'</div>':'';
+    return '<div class="litem" onclick="openDetail(&quot;'+i.id+'&quot;)">'
+      +'<div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'
+      +'<div class="li-task">'+i.task+'</div>'
+      +'<div class="li-meta">'+(z?z.name:i.zone)+' &middot; '+(tr?tr.name:i.trade)+' &middot; '+dr+'</div>'
+      +pre+'</div>';
+  }).join('');
 }
 
 function openDayModal(zoneId,ds){
@@ -823,12 +841,14 @@ function fixH(){const h=document.getElementById('app-hdr').offsetHeight;document
 
 function renderNav(){
   var nav=document.getElementById('main-nav');if(!nav)return;
-  var planSvg='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="22"/></svg>';
-  var listSvg='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>';
-  var expSvg='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
-  nav.innerHTML='<button class="nbtn active" id="nb-planning" onclick="switchView(&quot;planning&quot;)">'+planSvg+'Planning</button>'
-    +'<button class="nbtn" id="nb-liste" onclick="switchView(&quot;liste&quot;)">'+listSvg+'Liste</button>'
-    +'<button class="nbtn" onclick="exportWeek()">'+expSvg+'Export</button>';
+  var p='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="22"/></svg>';
+  var l='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>';
+  var e='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+  var isAdm=currentSession&&currentSession.role==='admin';
+  nav.innerHTML='<button class="nbtn active" id="nb-planning" onclick="switchView(&quot;planning&quot;)">'+p+'Planning</button>'
+    +'<button class="nbtn" id="nb-liste" onclick="switchView(&quot;liste&quot;)">'+l+'Liste</button>'
+    +(isAdm?'<button class="nfab" onclick="openAdd()" style="margin-top:-18px">+</button>':'')
+    +'<button class="nbtn" onclick="exportWeek()">'+e+'Export</button>';
 }
 
 function exportWeek(){
