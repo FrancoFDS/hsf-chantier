@@ -330,8 +330,8 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 
 <script>
 // ══ CONFIGURATION — MODIFIE CES 2 LIGNES ══════════════════
-const SUPABASE_URL     = 'VOTRE_URL_SUPABASE';
-const SUPABASE_ANON_KEY = 'VOTRE_CLÉ_ANON';
+const SUPABASE_URL     = 'https://xrfqlbhaxhraneflrfez.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
 // ══════════════════════════════════════════════════════════
 
 const CONFIGURED = !SUPABASE_URL.includes('VOTRE');
@@ -760,15 +760,18 @@ function exportWeek(){
 // ─── INIT ─────────────────────────────────────────────────
 async function init(){
   if(!CONFIGURED){document.getElementById('config-screen').classList.remove('hidden');return;}
-  const {data:{session}}=await sb.auth.getSession();
-  if(session){currentUser=session.user;await loadProfile();showApp();await loadAllData();subscribeRealtime();}
-  else{showLoginScreen();}
-  sb.auth.onAuthStateChange((event,session)=>{
-    if(event==='SIGNED_IN'&&session){currentUser=session.user;showApp();}
-    else if(event==='SIGNED_OUT'){showLoginScreen();}
-  });
-  document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  companies=FALLBACK_COMPANIES;
+  populateLoginCompanies();
+  clearSession();
+  document.getElementById('login-screen').style.display='flex';
+  loadCompanies().then(function(){populateLoginCompanies();});
   window.addEventListener('resize',fixH);
+  document.getElementById('l-code').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+}
+
+function populateLoginCompanies(){
+  var sel=document.getElementById('l-company');
+  sel.innerHTML='<option value="">Sélectionner...</option>'+'<option value="__admin__">Responsable de projet</option>'+companies.map(function(co){return'<option value="'+co.id+'">'+co.name+' — '+(co.contact_name||'')+'</option>';}).join('');
 }
 
 init().then(()=>{if(CONFIGURED&&document.getElementById('app').classList.contains('hidden')===false)fixH();});
