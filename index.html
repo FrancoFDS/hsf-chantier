@@ -232,7 +232,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
         </div>
         <div class="hdr-actions">
           <span class="sync-dot" id="sync-dot" title="Synchronisé"></span>
-          <button class="settings-btn" onclick="openSettings()" title="Paramètres">&#9881;</button>
+          <button class="settings-btn admin-only" onclick="openSettings()" title="Paramètres">&#9881;</button>
           <button class="user-btn" id="user-btn" onclick="openUserMenu()" title="Mon compte">—</button>
         </div>
       </div>
@@ -544,15 +544,38 @@ async function loadAllData(){
 }
 
 function dbToApp(r){return{id:r.id,trade:r.trade,company:r.company,task:r.task,zone:r.zone,start:r.start_date,end:r.end_date,staff:r.staff,status:r.status,priority:r.priority,prereq:r.prereq||'',notes:r.notes||'',ts:r.created_at};}
-function appToDB(iv){return{id:iv.id,trade:iv.trade,company:iv.company,task:iv.task,zone:iv.zone,start_date:iv.start,end_date:iv.end||iv.start,staff:iv.staff||1,status:iv.status,priority:iv.priority||3,prereq:iv.prereq||'',notes:iv.notes||'',created_by:currentUser?.id,updated_at:new Date().toISOString()};}
+function appToDB(iv){
+  return {
+    id:iv.id,
+    trade:iv.trade,
+    company:iv.company,
+    task:iv.task,
+    zone:iv.zone,
+    start_date:iv.start,
+    end_date:iv.end||iv.start,
+    staff:iv.staff||1,
+    status:iv.status||'arealis',
+    priority:iv.priority||3,
+    prereq:iv.prereq||'',
+    notes:iv.notes||'',
+    progress:iv.progress||0,
+    delay:iv.delay||0,
+    predecessor_id:iv.predecessor_id||null,
+    task_number:iv.task_number||null,
+    updated_at:new Date().toISOString()
+  };
+}
 
 async function dbSave(iv){
   setSyncing();
   try{
     if(editId){await sb.from('interventions').update(appToDB(iv)).eq('id',editId);}
-    else{await sb.from('interventions').insert(appToDB(iv));}
+    else{await sb.from('interventions').insert([appToDB(iv)]);}
     setSynced();
-  }catch(e){setSyncErr();alert('Erreur de sauvegarde. Vérifie ta connexion.');}
+  }catch(e){
+    setSyncErr();
+    console.warn('DB save error (local save OK):', e);
+  }
 }
 
 async function dbDelete(id){
@@ -723,7 +746,6 @@ function populateFormSelects(){
 function openAdd(){
   if(!canEdit()){alert('Le planning est verrouille.');return;}
   editId=null;selectedPrio=3;
-  document.getElementById('add-title').textContent='Nouvelle intervention';
   document.getElementById('eid').value='';
   populateFormSelects();
   ['f-company','f-task','f-prereq','f-notes'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
