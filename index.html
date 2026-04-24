@@ -242,9 +242,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 
   <div class="content" id="content">
     <div class="stats" id="stats" style="grid-template-columns:1fr 1fr"></div>
-    <div id="admin-add-btn-wrap" style="margin-bottom:10px;display:none">
-      <button onclick="openAdd()" style="width:100%;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">+ Nouvelle intervention</button>
-    </div>
+
     <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
     <div id="view-liste" class="hidden"></div>
   </div>
@@ -258,28 +256,34 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
     <div class="handle"></div>
     <div class="stitle" id="add-title">Nouvelle intervention</div>
     <input type="hidden" id="eid">
-    <div class="fg"><label class="fl">Corps de métier *</label><select class="fs" id="f-trade" onchange="onTradeChange()"><option value="">Sélectionner...</option></select></div>
-    <div class="fg"><label class="fl">Entreprise *</label><input class="fi" id="f-company" placeholder="Nom de l'entreprise" list="dl-co" autocomplete="off"><datalist id="dl-co"></datalist></div>
-    <div class="fg"><label class="fl">Description de la tâche *</label><input class="fi" id="f-task" placeholder="ex : Pose cloisons R+3 plateau Est"></div>
     <input type="hidden" id="f-zone">
     <input type="hidden" id="f-start">
     <input type="hidden" id="f-end">
-    <div class="f2">
-      <div class="fg"><label class="fl">Effectif (compagnons)</label><input type="number" class="fi" id="f-staff" min="1" placeholder="nb"></div>
-      <div class="fg"><label class="fl">Statut</label><select class="fs" id="f-status"><option value="attente">À planifier</option><option value="cours">En cours</option><option value="termine">Terminé</option><option value="bloque">Bloqué</option></select></div>
+    <input type="hidden" id="f-predecessor">
+    <input type="hidden" id="f-status" value="arealis">
+    <div class="fg">
+      <label class="fl">Corps de metier *</label>
+      <select class="fs" id="f-trade" onchange="onTradeChange()"><option value="">Selectionner...</option></select>
     </div>
     <div class="fg">
-      <label class="fl">Priorité dans la journée</label>
-      <div class="prio-row" id="prio-row">
-        <div class="popt sel" data-p="1" onclick="selPrio(this)"><span class="pbadge p1">1</span><br>Urgente</div>
-        <div class="popt" data-p="2" onclick="selPrio(this)"><span class="pbadge p2">2</span><br>Haute</div>
-        <div class="popt" data-p="3" onclick="selPrio(this)"><span class="pbadge p3">3</span><br>Normale</div>
-        <div class="popt" data-p="4" onclick="selPrio(this)"><span class="pbadge p4">4</span><br>Basse</div>
-        <div class="popt" data-p="5" onclick="selPrio(this)"><span class="pbadge p5">5</span><br>À conf.</div>
-      </div>
+      <label class="fl">Entreprise *</label>
+      <select class="fs" id="f-company-sel" onchange="onCompanyChange(this)">
+        <option value="">Selectionner une entreprise...</option>
+      </select>
+      <input class="fi hidden" id="f-company" placeholder="Nouvelle entreprise" style="margin-top:6px">
     </div>
-    <div class="fg"><label class="fl">Prérequis / Point bloquant</label><textarea class="fta" id="f-prereq" placeholder="ex : Zone libérée avant intervention…"></textarea></div>
-    <div class="fg"><label class="fl">Notes / Consignes</label><textarea class="fta" id="f-notes" placeholder="Informations complémentaires…"></textarea></div>
+    <div class="fg">
+      <label class="fl">Description *</label>
+      <input class="fi" id="f-task" placeholder="ex : Pose cloisons R+3 plateau Est">
+    </div>
+    <div class="fg">
+      <label class="fl">Prerequis / Point bloquant</label>
+      <textarea class="fta" id="f-prereq" placeholder="ex : Zone liberee avant intervention..."></textarea>
+    </div>
+    <div class="fg">
+      <label class="fl">Notes / Consignes</label>
+      <textarea class="fta" id="f-notes" placeholder="Informations complementaires..."></textarea>
+    </div>
     <button class="btn-p" onclick="saveInterv()">Enregistrer</button>
     <button class="btn-d hidden" id="btn-del" onclick="deleteInterv()">Supprimer cette intervention</button>
     <button class="btn-g" onclick="closeAdd()">Annuler</button>
@@ -427,8 +431,6 @@ function applyRole(){
   }
   renderNav();
   var sid='role-styles';var os=document.getElementById(sid);if(os)os.remove();
-  var aab=document.getElementById('admin-add-btn-wrap');
-  if(aab)aab.style.display=currentSession.role==='admin'?'block':'none';
   if(currentSession.role!=='admin'){var rs=document.createElement('style');rs.id=sid;rs.textContent='.add-mini{display:none!important}';document.head.appendChild(rs);}
 }
 
@@ -706,7 +708,19 @@ function openDayModal(zoneId,ds){
 }
 
 // ─── ADD MODAL ────────────────────────────────────────────
-function populateFormSelects(){document.getElementById('f-trade').innerHTML=`<option value="">Sélectionner...</option>`+cfg.trades.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');document.getElementById('f-zone').innerHTML=`<option value="">Sélectionner...</option>`+cfg.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('');}
+function populateFormSelects(){
+  document.getElementById('f-trade').innerHTML='<option value="">Selectionner...</option>'+cfg.trades.map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
+  var cs=document.getElementById('f-company-sel');
+  if(cs){
+    var names=[...new Set(FALLBACK_COMPANIES.map(function(co){return co.name;}))].sort();
+    cs.innerHTML='<option value="">Selectionner une entreprise...</option>'+names.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('')+'<option value="__new__">+ Ajouter une nouvelle entreprise</option>';
+  }
+  var ps=document.getElementById('f-predecessor');
+  if(ps&&ps.tagName==='SELECT'){
+    var sorted=[...data].sort(function(a,b){return a.start.localeCompare(b.start);});
+    ps.innerHTML='<option value="">Aucune</option>'+sorted.filter(function(i){return i.id!==editId;}).map(function(i){var z=cfg.zones.find(function(x){return x.id===i.zone;});return'<option value="'+i.id+'">'+(i.task_number||'?')+' - '+i.company+' - '+i.task.slice(0,25)+'</option>';}).join('');
+  }
+}
 function openAdd(){
   if(!canEdit()){alert('Le planning est verrouille.');return;}
   editId=null;selectedPrio=3;
