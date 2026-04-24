@@ -693,7 +693,7 @@ function renderGrid(){
       return `<div class="dcell${isToday(day)?' today-col':''}" onclick="openAddPre('${z.id}','${ds}')">
         ${visible.map(i=>`<div class="ic t-${i.trade}" onclick="event.stopPropagation();openDetail('${i.id}')">
              <span class="co">${i.company.split(' ')[0]}</span>
-          <span class="tk">${i.task.slice(0,16)}${i.task.length>16?'…':''}</span>
+          <span class="tk">${i.task}</span>
         </div>`).join('')}
         ${extra>0?`<div class="more-badge" onclick="event.stopPropagation();openDayModal('${z.id}','${ds}')">+${extra} autre${extra>1?'s':''}</div>`:''}
         <button class="add-mini" onclick="event.stopPropagation();openAddPre('${z.id}','${ds}')">+</button>
