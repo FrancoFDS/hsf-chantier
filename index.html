@@ -254,7 +254,6 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 <div class="overlay hidden" id="modal-add" onclick="if(event.target===this)closeAdd()">
   <div class="sheet" onclick="event.stopPropagation()">
     <div class="handle"></div>
-    <div class="stitle" id="add-title">Nouvelle intervention</div>
     <input type="hidden" id="eid">
     <input type="hidden" id="f-zone">
     <input type="hidden" id="f-start">
@@ -753,12 +752,34 @@ function onTradeChange(){
   var opt=Array.from(sel.options).find(function(o){return o.value===co;});
   if(opt){sel.value=co;document.getElementById('f-company').value=co;document.getElementById('f-company').classList.add('hidden');}
 }
-function updateDL(){const t=document.getElementById('f-trade').value;const cos=[...new Set(data.filter(i=>!t||i.trade===t).map(i=>i.company))];document.getElementById('dl-co').innerHTML=cos.map(c=>`<option value="${c}">`).join('');}
+function updateDL(){
+  var sel=document.getElementById('f-company-sel');
+  if(!sel)return;
+  var cur=sel.value;
+  var names=[...new Set(FALLBACK_COMPANIES.map(function(x){return x.name;}))].sort();
+  sel.innerHTML='<option value="">Selectionner...</option>'+names.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('')+'<option value="__new__">+ Ajouter</option>';
+  if(cur&&cur!=='__new__')sel.value=cur;
+}
+function onCompanyChange(sel){
+  var inp=document.getElementById('f-company');
+  if(!inp)return;
+  if(sel.value==='__new__'){inp.classList.remove('hidden');inp.value='';inp.focus();}
+  else{inp.classList.add('hidden');inp.value=sel.value;}
+}
+
 function selPrio(el){selectedPrio=parseInt(el.dataset.p);updatePrioUI();}
 function updatePrioUI(){document.querySelectorAll('.popt').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.p)===selectedPrio));}
 
+function generateTaskNumber(company){
+  var prefix=(company||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
+  var existing=data.filter(function(i){return i.company===company&&i.task_number;});
+  var nums=existing.map(function(i){var n=parseInt((i.task_number||'').replace(/[^0-9]/g,''));return isNaN(n)?0:n;});
+  var next=(nums.length?Math.max.apply(null,nums):0)+1;
+  return prefix+'-'+String(next).padStart(3,'0');
+}
+
 async function saveInterv(){
-  const trade=document.getElementById('f-trade').value,company=document.getElementById('f-company').value.trim(),task=document.getElementById('f-task').value.trim(),zone=document.getElementById('f-zone').value,start=document.getElementById('f-start').value;
+  const trade=document.getElementById('f-trade').value,company=(function(){var sel=document.getElementById('f-company-sel');var inp=document.getElementById('f-company');if(sel&&sel.value&&sel.value!=='__new__')return sel.value;return inp?inp.value.trim():'';})().trim(),task=document.getElementById('f-task').value.trim(),zone=document.getElementById('f-zone').value,start=document.getElementById('f-start').value;
   if(!trade||!company||!task){alert('Merci de remplir Corps de metier, Entreprise et Description.');return;}
   var tn=editId?((data.find(function(i){return i.id===editId;})||{}).task_number||generateTaskNumber(company)):generateTaskNumber(company);
   const iv={id:editId||Date.now().toString(),trade,company,task,zone,start,end:document.getElementById('f-end').value||start,staff:1,status:document.getElementById('f-status').value,priority:selectedPrio,prereq:document.getElementById('f-prereq').value.trim(),notes:document.getElementById('f-notes').value.trim(),progress:0,delay:0,predecessor_id:document.getElementById('f-predecessor').value||null,task_number:tn};
