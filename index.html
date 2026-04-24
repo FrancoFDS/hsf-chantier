@@ -172,6 +172,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 .divider{border:none;border-top:1px solid var(--border);margin:12px 0}
 .loading{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -214,7 +215,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 <div id="app" class="hidden">
   <header class="hdr" id="app-hdr">
     <div class="hdr-top">
-      <div><div class="proj-badge">Chantier actif</div><div class="proj-name">HSF — Av. Marceau</div></div>
+      <div><div class="proj-badge">Chantier actif</div><div class="proj-name">HSF — Av. Marceau</div><div id="session-label" style="font-size:10px;color:rgba(255,255,255,.5);font-family:'DM Mono',monospace;letter-spacing:.04em;margin-top:1px"></div></div>
       <div class="hdr-right">
         <div class="week-nav">
           <button class="wbtn" onclick="changeWeek(-1)">&#8249;</button>
@@ -423,8 +424,8 @@ function canEdit(){return currentSession.role==='admin'||!planningLocked;}
 // ─── CONSTANTS ────────────────────────────────────────────
 const COLORS=[{id:'amber',b:'#F59E0B',bg:'#FFF8EE',t:'#92400E'},{id:'blue',b:'#3B82F6',bg:'#EEF6FF',t:'#1E3A5F'},{id:'gold',b:'#CA8A04',bg:'#FEFCE8',t:'#713F12'},{id:'purple',b:'#8B5CF6',bg:'#F5F3FF',t:'#4C1D95'},{id:'green',b:'#16A34A',bg:'#F0FDF4',t:'#14532D'},{id:'rose',b:'#E11D48',bg:'#FFF1F2',t:'#881337'},{id:'teal',b:'#0D9488',bg:'#F0FDFA',t:'#134E4A'},{id:'orange',b:'#EA580C',bg:'#FFF7ED',t:'#7C2D12'},{id:'indigo',b:'#6366F1',bg:'#EEF2FF',t:'#312E81'},{id:'sky',b:'#0EA5E9',bg:'#F0F9FF',t:'#0C4A6E'}];
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
-const SLABEL={attente:'À planifier',cours:'En cours',termine:'Terminé',bloque:'Bloqué'};
-const SCOL={attente:'#9CA3AF',cours:'#2563EB',termine:'#16A34A',bloque:'#DC2626'};
+const SLABEL={arealis:'A realiser',encours:'En cours',termine:'Termine',bloque:'Bloque'};
+const SCOL={arealis:'#9CA3AF',encours:'#2563EB',termine:'#16A34A',bloque:'#DC2626'};
 const DAYS_FR=['Lun','Mar','Mer','Jeu','Ven'];
 const PRIO_LABEL=['','Urgente','Haute','Normale','Basse','À conf.'];
 
@@ -814,7 +815,7 @@ function cancelAddTrade(){document.getElementById('add-trade-form').classList.ad
 async function confirmAddTrade(){const name=document.getElementById('new-trade-name').value.trim(),short=document.getElementById('new-trade-short').value.trim();if(!name||!short){alert('Requis');return;}const sel=document.querySelector('#add-trade-colors .cswatch.sel');if(sel)newTradeColor=sel.dataset.cid;const tr={id:'tr_'+Date.now(),name,short,color:newTradeColor,display_order:cfg.trades.length};cfg.trades.push(tr);document.getElementById('new-trade-name').value='';document.getElementById('new-trade-short').value='';document.getElementById('add-trade-form').classList.add('hidden');renderTradesList();render();await dbSaveTrade(tr,true);}
 
 // ─── WHATSAPP ─────────────────────────────────────────────
-function sendWhatsApp(){const days=weekDays(weekOffset),wi=data.filter(i=>days.some(d=>inDay(i,d)));let msg=`📋 *Planning HSF — Av. Marceau*\nSemaine du ${dateFR(days[0])} au ${dateFR(days[4])}\n\n`;const bl=wi.filter(i=>i.status==='bloque');if(bl.length){msg+=`🔴 *BLOCAGES (${bl.length})*\n`;bl.forEach(i=>{msg+=`• ${i.company} — ${i.task} (${(cfg.zones.find(z=>z.id===i.zone)||{short:i.zone}).short})\n`;});msg+='\n';}cfg.zones.forEach(z=>{const zi=wi.filter(i=>i.zone===z.id).sort((a,b)=>(a.priority||3)-(b.priority||3));if(!zi.length)return;msg+=`*${z.name}*\n`;zi.forEach(i=>{const e={attente:'⏳',cours:'🔵',termine:'✅',bloque:'🔴'}[i.status];msg+=`${e} [P${i.priority||3}] ${i.company} — ${i.task}\n`;});msg+='\n';});window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');}
+function sendWhatsApp(){const days=weekDays(weekOffset),wi=data.filter(i=>days.some(d=>inDay(i,d)));let msg=`📋 *Planning HSF — Av. Marceau*\nSemaine du ${dateFR(days[0])} au ${dateFR(days[4])}\n\n`;const bl=wi.filter(i=>i.status==='bloque');if(bl.length){msg+=`🔴 *BLOCAGES (${bl.length})*\n`;bl.forEach(i=>{msg+=`• ${i.company} — ${i.task} (${(cfg.zones.find(z=>z.id===i.zone)||{short:i.zone}).short})\n`;});msg+='\n';}cfg.zones.forEach(z=>{const zi=wi.filter(i=>i.zone===z.id).sort((a,b)=>(a.priority||3)-(b.priority||3));if(!zi.length)return;msg+=`*${z.name}*\n`;zi.forEach(i=>{const e={arealis:'⏳',encours:'🔵',termine:'✅',bloque:'🔴'}[i.status];msg+=`${e} [P${i.priority||3}] ${i.company} — ${i.task}\n`;});msg+='\n';});window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');}
 function exportJSON(){const blob=new Blob([JSON.stringify({project:'HSF-Marceau',exportedAt:new Date().toISOString(),config:cfg,interventions:data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hsf-'+dateStr(new Date())+'.json';a.click();}
 
 // ─── LAYOUT ───────────────────────────────────────────────
