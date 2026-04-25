@@ -243,7 +243,9 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
   <div class="content" id="content">
     <div class="stats" id="stats" style="grid-template-columns:1fr 1fr"></div>
 
-    <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
+    <div id="view-planning">
+    <div id="zone-filter-bar" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;padding:2px 0"></div>
+    <div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
     <div id="view-liste" class="hidden"></div>
   </div>
 
@@ -444,7 +446,7 @@ const DAYS_FR=['Lun','Mar','Mer','Jeu','Ven'];
 const PRIO_LABEL=['','Urgente','Haute','Normale','Basse','À conf.'];
 
 // ─── STATE ────────────────────────────────────────────────
-let weekOffset=0,filter='all',view='planning',editId=null,selectedPrio=3;
+let weekOffset=0,filter='all',view='planning',editId=null,selectedPrio=3,zoneFilter=[];
 let data=[],cfg={zones:[],trades:[]};
 let settingsTab='zones',editingZoneId=null,editingTradeId=null,newTradeColor='amber';
 let currentUser=null,currentProfile=null;
@@ -684,6 +686,27 @@ function showStatusList(status){
   }).join(''):'<div class="empty">Aucune intervention</div>';
   document.getElementById('detail-body').innerHTML='<div class="stitle" style="color:'+col+'">'+label+'</div>'+body+'<button class="btn-g" onclick="closeDetail()">Fermer</button>';
   document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+function renderZoneFilter(){
+  var bar=document.getElementById('zone-filter-bar');
+  if(!bar||!cfg.zones.length)return;
+  var allActive=zoneFilter.length===0;
+  var base='padding:4px 10px;border-radius:20px;font-size:12px;cursor:pointer;font-family:sans-serif;border:1px solid ';
+  var html='<button style="'+base+(allActive?'var(--primary);background:var(--primary);color:#fff':'var(--border);background:var(--surface);color:var(--muted)')+'" onclick="zoneFilter=[];renderZoneFilter();renderGrid()">Toutes</button>';
+  cfg.zones.forEach(function(z){
+    var active=zoneFilter.includes(z.id);
+    html+='<button style="'+base+(active?'var(--primary);background:var(--primary-l);color:var(--primary)':'var(--border);background:var(--surface);color:var(--muted)')+'" onclick="toggleZoneFilter(&quot;'+z.id+'&quot;)">'+z.name+'</button>';
+  });
+  bar.innerHTML=html;
+}
+
+function toggleZoneFilter(zid){
+  var i=zoneFilter.indexOf(zid);
+  if(i>=0)zoneFilter.splice(i,1);
+  else zoneFilter.push(zid);
+  renderZoneFilter();
+  renderGrid();
 }
 
 function renderGrid(){
