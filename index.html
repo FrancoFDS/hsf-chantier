@@ -696,6 +696,13 @@ function toggleZoneDropdown(){
   var hidden=d.classList.contains('hidden');
   if(hidden){
     fillZoneDropdown();
+    // Position below zone-btn
+    var btn=document.getElementById('zone-btn');
+    if(btn){
+      var rect=btn.getBoundingClientRect();
+      d.style.top=(rect.bottom+4)+'px';
+      d.style.left=rect.left+'px';
+    }
     d.classList.remove('hidden');
     setTimeout(function(){document.addEventListener('click',function h(e){if(!d.contains(e.target)&&e.target.id!=='zone-btn'){d.classList.add('hidden');}document.removeEventListener('click',h);},true);},0);
   } else {
@@ -736,10 +743,10 @@ function renderGrid(){
   var days=weekDays(weekOffset),fi=getFiltered();
   var cols='56px repeat(5,1fr)';
   document.getElementById('wlbl').textContent=dateFR(days[0])+' – '+dateFR(days[4]);
+  var zoneBtnLabel='Zones'+(zoneFilter.length>0?' ('+zoneFilter.length+')':'');
+  var zoneBtnHtml='<div class="ghcell" style="padding:3px"><button id="zone-btn" onclick="toggleZoneDropdown()" style="width:100%;height:100%;padding:3px 5px;border-radius:4px;border:1px solid var(--border-s);background:var(--primary);color:#fff;font-size:10px;font-weight:600;cursor:pointer;font-family:sans-serif">'+zoneBtnLabel+'</button></div>';
   document.getElementById('ghead').style.gridTemplateColumns=cols;
-  document.getElementById('ghead').innerHTML='<div class="ghcell" style="position:relative;padding:2px">'
-    +(currentSession.role!=='company'?'<button id="zone-btn" onclick="toggleZoneDropdown()" style="width:100%;padding:3px 4px;border-radius:4px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:10px;cursor:pointer;font-family:sans-serif">Zones '+(zoneFilter.length>0?'('+zoneFilter.length+')':'&#9660;')+'</button>':'<span style="font-size:9px;color:var(--muted)">Zone</span>')
-    +'</div>'+days.map(function(d,i){
+  document.getElementById('ghead').innerHTML=zoneBtnHtml+days.map(function(d,i){
     return '<div class="ghcell'+(isToday(d)?' today':'')+'">'+DAYS_FR[i]+'<br><span style="font-size:9px">'+d.getDate()+'/'+(d.getMonth()+1)+'</span></div>';
   }).join('');
   var zones=zoneFilter.length>0?cfg.zones.filter(function(z){return zoneFilter.includes(z.id);}):cfg.zones;
