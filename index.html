@@ -223,12 +223,24 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 <div class="overlay hidden" id="modal-add" onclick="if(event.target===this)closeAdd()">
   <div class="sheet" onclick="event.stopPropagation()">
     <div class="handle"></div>
+    <div id="add-title" class="stitle">Nouvelle intervention</div>
     <input type="hidden" id="eid">
-    <input type="hidden" id="f-zone">
-    <input type="hidden" id="f-start">
-    <input type="hidden" id="f-end">
-    <div class="fg"><label class="fl">Prédécesseur <span style="font-size:10px;color:var(--xmuted)">(optionnel)</span></label><select class="fs" id="f-predecessor"><option value="">Aucun</option></select></div>
     <input type="hidden" id="f-status" value="arealis">
+
+    <div class="fg">
+      <label class="fl">Zone *</label>
+      <select class="fs" id="f-zone-sel"><option value="">Sélectionner...</option></select>
+    </div>
+    <div class="f2" style="margin-bottom:12px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Date début *</label>
+        <input class="fi" type="date" id="f-start">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Date fin</label>
+        <input class="fi" type="date" id="f-end">
+      </div>
+    </div>
     <div class="fg"><label class="fl">Corps de métier *</label><select class="fs" id="f-trade" onchange="onTradeChange()"><option value="">Sélectionner...</option></select></div>
     <div class="fg">
       <label class="fl">Entreprise *</label>
@@ -236,6 +248,12 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
       <input class="fi hidden" id="f-company" placeholder="Nouvelle entreprise" style="margin-top:6px">
     </div>
     <div class="fg"><label class="fl">Description *</label><input class="fi" id="f-task" placeholder="ex : Pose cloisons R+3 plateau Est"></div>
+
+    <div class="fg">
+      <label class="fl">Prédécesseur <span style="font-size:10px;color:var(--xmuted)">(optionnel)</span></label>
+      <select class="fs" id="f-predecessor"><option value="">Aucun</option></select>
+    </div>
+
     <div class="fg"><label class="fl">Prérequis / Point bloquant</label><textarea class="fta" id="f-prereq" placeholder="ex : Zone libérée avant intervention..."></textarea></div>
     <div class="fg"><label class="fl">Notes / Consignes</label><textarea class="fta" id="f-notes" placeholder="Informations complémentaires..."></textarea></div>
     <button class="btn-p" onclick="saveInterv()">Enregistrer</button>
@@ -703,13 +721,26 @@ function renderList(){
 }
 
 function populateFormSelects(){
+  // Zones
+  var zsel=document.getElementById('f-zone-sel');
+  if(zsel){
+    zsel.innerHTML='<option value="">Sélectionner une zone...</option>'+
+      cfg.zones.map(function(z){return'<option value="'+z.id+'">'+z.name+'</option>';}).join('');
+  }
+  // Corps de métier
   document.getElementById('f-trade').innerHTML='<option value="">Sélectionner...</option>'+
     cfg.trades.map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
   updateDL();
+  // Prédécesseurs
   var ps=document.getElementById('f-predecessor');
-  if(ps&&ps.tagName==='SELECT'){
-    var list=data.filter(function(i){return i.id!==editId&&i.task_number;}).sort(function(a,b){return(a.task_number||'').localeCompare(b.task_number||'');});
-    ps.innerHTML='<option value="">Aucun</option>'+list.map(function(i){return'<option value="'+i.id+'">'+(i.task_number)+'  —  '+i.company+'  —  '+i.task.slice(0,28)+'</option>';}).join('');
+  if(ps){
+    var list=data.filter(function(i){return i.id!==editId&&i.task_number;})
+      .sort(function(a,b){return(a.task_number||'').localeCompare(b.task_number||'');});
+    ps.innerHTML='<option value="">Aucun prédécesseur</option>'+
+      list.map(function(i){
+        var z=cfg.zones.find(function(x){return x.id===i.zone;});
+        return'<option value="'+i.id+'">'+i.task_number+' — '+i.company+' — '+i.task.slice(0,35)+(z?' ('+z.short+')':'')+'</option>';
+      }).join('');
     var cur=editId?(data.find(function(i){return i.id===editId;})||{}).predecessor_id:null;
     if(cur)ps.value=cur;
   }
@@ -719,22 +750,30 @@ function openAdd(){
   if(!canEdit()){alert('Le planning est verrouillé.');return;}
   editId=null;selectedPrio=3;
   document.getElementById('eid').value='';
+  document.getElementById('add-title').textContent='Nouvelle intervention';
   populateFormSelects();
   ['f-company','f-task','f-prereq','f-notes'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('f-predecessor').value='';
   document.getElementById('f-trade').value='';
+  document.getElementById('f-zone-sel').value='';
   document.getElementById('f-company-sel').value='';
   document.getElementById('f-company').classList.add('hidden');
   document.getElementById('f-start').value=dateStr(new Date());
   document.getElementById('f-end').value=dateStr(new Date());
   document.getElementById('f-status').value='arealis';
-  updatePrioUI();
   document.getElementById('btn-del').classList.add('hidden');
   document.getElementById('modal-add').classList.remove('hidden');
   updateDL();
 }
 
-function openAddPre(zone,date){if(currentSession.role!=='admin')return;openAdd();document.getElementById('f-zone').value=zone;document.getElementById('f-start').value=date;document.getElementById('f-end').value=date;}
+function openAddPre(zone,date){
+  if(currentSession.role!=='admin')return;
+  openAdd();
+  var zsel=document.getElementById('f-zone-sel');
+  if(zsel)zsel.value=zone;
+  document.getElementById('f-start').value=date;
+  document.getElementById('f-end').value=date;
+}
 function closeAdd(){document.getElementById('modal-add').classList.add('hidden');}
 function onTradeChange(){updateDL();}
 function updateDL(){
@@ -767,7 +806,7 @@ async function saveInterv(){
   var cinp=document.getElementById('f-company');
   var company=(csel&&csel.value&&csel.value!=='__new__')?csel.value:(cinp?cinp.value.trim():'');
   var task=document.getElementById('f-task').value.trim();
-  var zone=document.getElementById('f-zone').value;
+  var zone=document.getElementById('f-zone-sel').value;
   var start=document.getElementById('f-start').value||dateStr(new Date());
   if(!trade||!company||!task){alert('Corps de métier, Entreprise et Description requis.');return;}
   var predEl=document.getElementById('f-predecessor');
@@ -816,9 +855,9 @@ function openDetail(id){
     +(i.notes?'<div class="nbox"><b>Notes</b><br>'+i.notes+'</div>':'')
     +'<p style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:\'DM Mono\',monospace">METTRE À JOUR LE STATUT</p>'
     +'<div class="status-row">'
-    +Object.keys(SLABEL).map(function(k){return'<div class="sopt2" style="border-color:'+(i.status===k?SCOL[k]:'var(--border)')+';background:'+(i.status===k?SCOL[k]+'18':'var(--surface)')+';color:'+(i.status===k?SCOL[k]:'var(--text)')+'" onclick="quickStatus(\"'+id+'\",\"'+k+'\")"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+SCOL[k]+';margin-right:4px;vertical-align:middle"></span>'+SLABEL[k]+'</div>';}).join('')
+    +Object.keys(SLABEL).map(function(k){return'<div class="sopt2" style="border-color:'+(i.status===k?SCOL[k]:'var(--border)')+';background:'+(i.status===k?SCOL[k]+'18':'var(--surface)')+';color:'+(i.status===k?SCOL[k]:'var(--text)')+'" onclick="quickStatus(&quot;'+id+'&quot;,&quot;'+k+'&quot;)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+SCOL[k]+';margin-right:4px;vertical-align:middle"></span>'+SLABEL[k]+'</div>';}).join('')
     +'</div>'
-    +(isAdmin?'<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail(\"'+id+'\")">Modifier</button>':'')
+    +(isAdmin?'<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail(&quot;'+id+'&quot;)">Modifier</button>':'')
     +'<button class="btn-g" onclick="closeDetail()">Fermer</button>';
   document.getElementById('detail-body').innerHTML=html;
   document.getElementById('modal-detail').classList.remove('hidden');
@@ -831,22 +870,48 @@ async function quickStatus(id,s){
 }
 function closeDetail(){document.getElementById('modal-detail').classList.add('hidden');}
 function editFromDetail(id){
-  const i=data.find(x=>x.id===id);if(!i)return;
-  closeDetail();editId=id;selectedPrio=i.priority||3;
+  var i=data.find(function(x){return x.id===id;});if(!i)return;
+  closeDetail();
+  editId=id;
+  selectedPrio=i.priority||3;
+  document.getElementById('add-title').textContent="Modifier l'intervention";
   populateFormSelects();
-  document.getElementById('f-trade').value=i.trade;
-  document.getElementById('f-company').value=i.company;
-  document.getElementById('f-task').value=i.task;
-  document.getElementById('f-zone').value=i.zone;
-  document.getElementById('f-start').value=i.start;
+  // Zone
+  var zsel=document.getElementById('f-zone-sel');
+  if(zsel)zsel.value=i.zone;
+  // Dates
+  document.getElementById('f-start').value=i.start||'';
   document.getElementById('f-end').value=i.end||'';
-  document.getElementById('f-status').value=i.status;
+  // Corps de métier
+  document.getElementById('f-trade').value=i.trade||'';
+  onTradeChange();
+  // Entreprise
+  updateDL();
+  var csel=document.getElementById('f-company-sel');
+  var cinp=document.getElementById('f-company');
+  if(csel){
+    csel.value=i.company||'';
+    if(!csel.value){
+      // Company not in list, show free input
+      csel.value='__new__';
+      cinp.classList.remove('hidden');
+      cinp.value=i.company||'';
+    } else {
+      cinp.classList.add('hidden');
+      cinp.value=i.company||'';
+    }
+  }
+  // Description, notes, prereq
+  document.getElementById('f-task').value=i.task||'';
   document.getElementById('f-prereq').value=i.prereq||'';
   document.getElementById('f-notes').value=i.notes||'';
-  updatePrioUI();
+  // Prédécesseur
+  var ps=document.getElementById('f-predecessor');
+  if(ps)ps.value=i.predecessor_id||'';
+  // Status
+  document.getElementById('f-status').value=i.status||'arealis';
   document.getElementById('btn-del').classList.remove('hidden');
   document.getElementById('modal-add').classList.remove('hidden');
-  updateDL();
 }
 
 function openSettings(){editingZoneId=null;editingTradeId=null;renderZonesList();renderTradesList();showTab('zones');document.getElementById('modal-settings').classList.remove('hidden');}
