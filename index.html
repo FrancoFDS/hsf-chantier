@@ -12,22 +12,8 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
-
-/* LOGIN SCREEN */
 .login-screen{position:fixed;inset:0;background:var(--header);display:flex;align-items:center;justify-content:center;z-index:200;padding:24px}
 .login-card{background:#fff;border-radius:20px;padding:32px 24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-.login-logo{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
-.login-title{font-size:24px;font-weight:600;margin-bottom:4px}
-.login-sub{font-size:13px;color:var(--muted);margin-bottom:28px}
-.login-label{font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:5px}
-.login-input{width:100%;padding:13px 14px;border:1px solid var(--border);border-radius:var(--rs);font-size:16px;font-family:'DM Sans',sans-serif;color:var(--text);transition:border-color .15s;margin-bottom:12px;-webkit-appearance:none}
-.login-input:focus{outline:none;border-color:var(--primary)}
-.login-btn{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;margin-top:4px}
-.login-btn:hover{background:#1a42a8}
-.login-btn:disabled{background:#9CA3AF;cursor:not-allowed}
-.login-err{background:#FEF2F2;color:#991B1B;border-radius:var(--rs);padding:10px 12px;font-size:13px;margin-bottom:12px;display:none}
-
-/* CONFIG SCREEN */
 .config-screen{position:fixed;inset:0;background:var(--header);display:flex;align-items:center;justify-content:center;z-index:200;padding:24px}
 .config-card{background:#fff;border-radius:20px;padding:32px 24px;width:100%;max-width:440px}
 .config-title{font-size:20px;font-weight:600;margin-bottom:8px}
@@ -35,8 +21,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .config-step{display:flex;gap:10px;margin-bottom:14px;font-size:13px;line-height:1.5}
 .step-num{width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',monospace;font-size:12px}
-
-/* HEADER */
 .hdr{background:var(--header);color:#fff;padding:12px 16px 0;z-index:50}
 .hdr-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
 .proj-badge{font-family:'DM Mono',monospace;font-size:10px;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
@@ -50,28 +34,20 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 .settings-btn,.user-btn{width:28px;height:28px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:var(--rx);color:rgba(255,255,255,.7);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:background .15s}
 .settings-btn:hover,.user-btn:hover{background:rgba(255,255,255,.18)}
 .user-btn{font-family:'DM Mono',monospace;font-weight:600;min-width:28px;padding:0 6px;font-size:10px;letter-spacing:.05em}
-
-/* SYNC INDICATOR */
 .sync-dot{width:7px;height:7px;border-radius:50%;background:#10B981;margin-left:2px;flex-shrink:0;transition:background .3s}
 .sync-dot.syncing{background:#F59E0B;animation:pulse .8s ease-in-out infinite}
 .sync-dot.error{background:#DC2626}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-
-/* FILTERS */
 .filters{display:flex;gap:5px;overflow-x:auto;padding:0 0 12px;scrollbar-width:none}
 .filters::-webkit-scrollbar{display:none}
 .chip{padding:5px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);font-size:12px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;transition:all .15s}
 .chip.active{background:#fff;color:var(--header);border-color:#fff}
 .cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-
-/* CONTENT */
 .content{overflow-y:auto;padding:12px 12px 80px;-webkit-overflow-scrolling:touch}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px}
 .stat{background:var(--surface);border-radius:var(--rs);border:1px solid var(--border);padding:9px 6px;text-align:center}
 .stat-val{font-size:20px;font-weight:600;font-family:'DM Mono',monospace}
 .stat-lbl{font-size:10px;color:var(--muted);margin-top:1px}
-
-/* GRID */
 .gwrap{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow)}
 .ghead{display:grid;background:#FAFAF8;border-bottom:1px solid var(--border)}
 .ghcell{padding:7px 3px;text-align:center;font-size:10px;font-weight:500;color:var(--muted);font-family:'DM Mono',monospace}
@@ -92,8 +68,6 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 .more-badge{font-size:9px;color:var(--muted);padding:1px 3px;font-family:'DM Mono',monospace;cursor:pointer}
 .add-mini{position:absolute;bottom:3px;right:3px;width:16px;height:16px;border-radius:50%;border:1px dashed var(--border-s);background:transparent;color:var(--xmuted);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
 .dcell:hover .add-mini{opacity:1}
-
-/* LIST */
 .litem{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);padding:13px;margin-bottom:8px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .15s}
 .litem:hover{border-color:var(--border-s)}
 .li-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
@@ -101,16 +75,12 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 .li-task{font-size:13px;color:var(--muted);margin-bottom:4px}
 .li-meta{font-size:11px;color:var(--xmuted);font-family:'DM Mono',monospace}
 .li-pre{margin-top:6px;font-size:11px;padding:4px 8px;border-radius:var(--rx);background:var(--danger-l);color:#991B1B;border-left:2px solid var(--danger)}
-
-/* NAV */
 .bnav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:8px 0 max(12px,env(safe-area-inset-bottom));z-index:50}
 .nbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;cursor:pointer;font-size:10px;color:var(--muted);padding:4px 0;font-family:'DM Sans',sans-serif;transition:color .15s}
 .nbtn.active{color:var(--primary)}
 .nbtn svg{width:20px;height:20px}
 .nfab{width:46px;height:46px;border-radius:50%;background:var(--primary);color:#fff;border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:-18px;box-shadow:0 4px 14px rgba(33,82,200,.35);transition:transform .15s}
 .nfab:hover{transform:scale(1.06)}
-
-/* MODALS */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:flex-end;animation:fadeIn .15s}
 @keyframes fadeIn{from{opacity:0}}
 .sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 40px;animation:slideUp .2s cubic-bezier(.32,.72,0,1)}
@@ -155,7 +125,8 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 .popt.sel{border-color:var(--primary);background:var(--primary-l);color:var(--primary)}
 .sbadge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;font-family:'DM Mono',monospace}
 .sbadge.attente{background:#F3F4F6;color:#6B7280}
-.sbadge.cours{background:#DBEAFE;color:#1D4ED8}
+.sbadge.arealis{background:#F3F4F6;color:#6B7280}
+.sbadge.encours{background:#DBEAFE;color:#1D4ED8}
 .sbadge.termine{background:#D1FAE5;color:#065F46}
 .sbadge.bloque{background:#FEE2E2;color:#991B1B}
 .dkv{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
@@ -181,9 +152,9 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
   <div class="config-card">
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Configuration requise</div>
     <div class="config-title">Connecter Supabase</div>
-    <div class="config-sub">Ouvre ce fichier HTML dans un éditeur de texte et remplace les 2 lignes suivantes (lignes 3-4 du script) :</div>
+    <div class="config-sub">Ouvre ce fichier HTML dans un éditeur de texte et remplace les 2 lignes suivantes :</div>
     <div class="config-step"><div class="step-num">1</div><div><b>SUPABASE_URL</b> → ton URL de projet<br><code>https://abcdefgh.supabase.co</code></div></div>
-    <div class="config-step"><div class="step-num">2</div><div><b>SUPABASE_ANON_KEY</b> → ta clé publique<br>Supabase → Settings → API → anon public key</div></div>
+    <div class="config-step"><div class="step-num">2</div><div><b>SUPABASE_ANON_KEY</b> → ta clé publique</div></div>
     <div class="config-step"><div class="step-num">3</div><div>Sauvegarde et recharge la page</div></div>
   </div>
 </div>
@@ -192,13 +163,13 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 <div id="login-screen" style="position:fixed;inset:0;background:#1A1A1A;display:flex;align-items:center;justify-content:center;z-index:200;padding:20px">
   <div style="background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:#999;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">HSF — 66 Av. Marceau</div>
-    <div style="font-size:22px;font-weight:600;margin-bottom:4px;color:#1A1A1A">Acces chantier</div>
-    <div style="font-size:13px;color:#7A7872;margin-bottom:24px">Selectionnez votre profil et entrez votre code</div>
+    <div style="font-size:22px;font-weight:600;margin-bottom:4px;color:#1A1A1A">Accès chantier</div>
+    <div style="font-size:13px;color:#7A7872;margin-bottom:24px">Sélectionnez votre profil et entrez votre code</div>
     <div id="login-err" style="background:#FEF2F2;color:#991B1B;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;display:none"></div>
     <div style="margin-bottom:12px">
       <label style="font-size:12px;font-weight:500;color:#7A7872;display:block;margin-bottom:5px">Profil</label>
       <select id="l-company" style="width:100%;padding:12px;border:1px solid #E8E6E0;border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;color:#1A1A1A;background:#fff;-webkit-appearance:none">
-        <option value="">Selectionner...</option>
+        <option value="">Sélectionner...</option>
         <option value="__admin__">Responsable de projet</option>
         <option value="std">STD &mdash; Tibor Salak</option>
         <option value="elphitec_cvc">ELPHITEC &mdash; Laurent Testa (CVC)</option>
@@ -211,14 +182,13 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
       </select>
     </div>
     <div style="margin-bottom:20px">
-      <label style="font-size:12px;font-weight:500;color:#7A7872;display:block;margin-bottom:5px">Code d acces (4 chiffres)</label>
-      <input id="l-code" type="password" inputmode="numeric" maxlength="4" placeholder="&bull;&bull;&bull;&bull;" style="width:100%;padding:12px;border:1px solid #E8E6E0;border-radius:8px;font-size:24px;letter-spacing:.5em;text-align:center;font-family:'DM Mono',monospace;color:#1A1A1A">
+      <label style="font-size:12px;font-weight:500;color:#7A7872;display:block;margin-bottom:5px">Code d'accès (4 chiffres)</label>
+      <input id="l-code" type="password" inputmode="numeric" maxlength="4" placeholder="••••" style="width:100%;padding:12px;border:1px solid #E8E6E0;border-radius:8px;font-size:24px;letter-spacing:.5em;text-align:center;font-family:'DM Mono',monospace;color:#1A1A1A">
     </div>
     <button onclick="doLogin()" style="width:100%;padding:14px;background:#2152C8;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Se connecter</button>
   </div>
 </div>
 
-<!-- MAIN APP -->
 <!-- MAIN APP -->
 <div id="app" class="hidden">
   <header class="hdr" id="app-hdr">
@@ -242,12 +212,10 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 
   <div class="content" id="content">
     <div class="stats" id="stats" style="grid-template-columns:1fr 1fr"></div>
-
     <div id="zone-dropdown" class="hidden" style="position:fixed;top:52px;right:12px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:300;min-width:210px;max-height:80vh;overflow-y:auto"><div style="padding:8px 12px;border-bottom:1px solid var(--border)"><button onclick="zoneFilter=[];renderGrid();updateZoneBtn()" class="btn-p" style="padding:7px;font-size:12px">Toutes les zones</button></div><div id="zone-chk" style="padding:4px 0"></div></div>
-  <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
+    <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
     <div id="view-liste" class="hidden"></div>
   </div>
-
   <nav class="bnav" id="main-nav"></nav>
 </div>
 
@@ -259,31 +227,17 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
     <input type="hidden" id="f-zone">
     <input type="hidden" id="f-start">
     <input type="hidden" id="f-end">
-    <div class="fg"><label class="fl">Predecesseur <span style="font-size:10px;color:var(--xmuted)">(optionnel)</span></label><select class="fs" id="f-predecessor"><option value="">Aucun</option></select></div>
+    <div class="fg"><label class="fl">Prédécesseur <span style="font-size:10px;color:var(--xmuted)">(optionnel)</span></label><select class="fs" id="f-predecessor"><option value="">Aucun</option></select></div>
     <input type="hidden" id="f-status" value="arealis">
-    <div class="fg">
-      <label class="fl">Corps de metier *</label>
-      <select class="fs" id="f-trade" onchange="onTradeChange()"><option value="">Selectionner...</option></select>
-    </div>
+    <div class="fg"><label class="fl">Corps de métier *</label><select class="fs" id="f-trade" onchange="onTradeChange()"><option value="">Sélectionner...</option></select></div>
     <div class="fg">
       <label class="fl">Entreprise *</label>
-      <select class="fs" id="f-company-sel" onchange="onCompanyChange(this)">
-        <option value="">Selectionner une entreprise...</option>
-      </select>
+      <select class="fs" id="f-company-sel" onchange="onCompanyChange(this)"><option value="">Sélectionner...</option></select>
       <input class="fi hidden" id="f-company" placeholder="Nouvelle entreprise" style="margin-top:6px">
     </div>
-    <div class="fg">
-      <label class="fl">Description *</label>
-      <input class="fi" id="f-task" placeholder="ex : Pose cloisons R+3 plateau Est">
-    </div>
-    <div class="fg">
-      <label class="fl">Prerequis / Point bloquant</label>
-      <textarea class="fta" id="f-prereq" placeholder="ex : Zone liberee avant intervention..."></textarea>
-    </div>
-    <div class="fg">
-      <label class="fl">Notes / Consignes</label>
-      <textarea class="fta" id="f-notes" placeholder="Informations complementaires..."></textarea>
-    </div>
+    <div class="fg"><label class="fl">Description *</label><input class="fi" id="f-task" placeholder="ex : Pose cloisons R+3 plateau Est"></div>
+    <div class="fg"><label class="fl">Prérequis / Point bloquant</label><textarea class="fta" id="f-prereq" placeholder="ex : Zone libérée avant intervention..."></textarea></div>
+    <div class="fg"><label class="fl">Notes / Consignes</label><textarea class="fta" id="f-notes" placeholder="Informations complémentaires..."></textarea></div>
     <button class="btn-p" onclick="saveInterv()">Enregistrer</button>
     <button class="btn-d hidden" id="btn-del" onclick="deleteInterv()">Supprimer cette intervention</button>
     <button class="btn-g" onclick="closeAdd()">Annuler</button>
@@ -316,7 +270,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
       <button class="tab" id="tab-btn-trades" onclick="showTab('trades')">Corps de métier</button>
     </div>
     <div id="tab-zones">
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">↑↓ réordonner · ✎ renommer · impossible de supprimer une zone avec interventions.</p>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">↑↓ réordonner · ✎ renommer</p>
       <div id="zones-list"></div>
       <button class="add-row-btn" onclick="startAddZone()"><span style="font-size:20px;line-height:1">+</span> Ajouter une zone</button>
       <div id="add-zone-form" class="hidden">
@@ -353,10 +307,29 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
 </div>
 
 <script>
-// ══ CONFIGURATION — MODIFIE CES 2 LIGNES ══════════════════
+// ══ CONFIGURATION ══════════════════════════════════
 const SUPABASE_URL     = 'https://xrfqlbhaxhraneflrfez.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
-// ══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════
+// DONNÉES IMPORTÉES DEPUIS LE PLANNING EXCEL (R+3/TTZ)
+// 106 tâches planifiées (cellules vertes) • 6 zones • 10 intervenants
+// ═══════════════════════════════════════════════════
+const EXCEL_ZONES = [{"id":"z_1","name":"Sanitaire H/F","short":"SANI","display_order":0},{"id":"z_2","name":"Bureaux + circulation","short":"BUR","display_order":1},{"id":"z_3","name":"Tisanerie","short":"TIS","display_order":2},{"id":"z_4","name":"LT VDI","short":"VDI","display_order":3},{"id":"z_5","name":"Cafétéria","short":"CAF","display_order":4},{"id":"z_6","name":"Lounge","short":"LGE","display_order":5}];
+const EXCEL_TRADES = [{"id":"tr_1","name":"STD","short":"STD","color":"amber","display_order":0},{"id":"tr_2","name":"BB","short":"BB","color":"teal","display_order":1},{"id":"tr_3","name":"ELPHITEC","short":"ELPHIT","color":"blue","display_order":2},{"id":"tr_4","name":"PROST","short":"PROST","color":"green","display_order":3},{"id":"tr_5","name":"AM FRANCE","short":"AMFRA","color":"rose","display_order":4},{"id":"tr_6","name":"SOAA","short":"SOAA","color":"purple","display_order":5},{"id":"tr_7","name":"Jeanne","short":"JEANNE","color":"sky","display_order":6},{"id":"tr_8","name":"BENE","short":"BENE","color":"indigo","display_order":7},{"id":"tr_9","name":"9ème sens","short":"9ÈMES","color":"orange","display_order":8},{"id":"tr_10","name":"Papier peint","short":"PAPIER","color":"gold","display_order":9}];
+const EXCEL_INTERVENTIONS = [{"id":"imp_1","trade":"tr_1","company":"STD","task":"déposer placage imposte porte  + doublage GEBERIT","zone":"z_1","start":"2026-04-15","end":"2026-04-15","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-001"},{"id":"imp_2","trade":"tr_1","company":"STD","task":"dépose équipement toilette ( WC + vasque + miroir) + tisanerie","zone":"z_1","start":"2026-04-15","end":"2026-04-15","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-002"},{"id":"imp_3","trade":"tr_2","company":"BARRE BOUILLET","task":"dépose porte + amener en atelier","zone":"z_1","start":"2026-04-16","end":"2026-04-16","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-001"},{"id":"imp_4","trade":"tr_3","company":"ELPHITEC","task":"Dépose + mise en réserve radiateur  + condamner EF/EC + CFO/CFA","zone":"z_1","start":"2026-04-16","end":"2026-04-16","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-001"},{"id":"imp_5","trade":"tr_3","company":"ELPHITEC","task":"Distribution EF/EC","zone":"z_1","start":"2026-04-20","end":"2026-04-20","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-002"},{"id":"imp_6","trade":"tr_3","company":"ELPHITEC","task":"Installation corps encastrement mitigeur","zone":"z_1","start":"2026-04-21","end":"2026-04-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-003"},{"id":"imp_7","trade":"tr_3","company":"ELPHITEC","task":"Installation Support Geberit","zone":"z_1","start":"2026-04-16","end":"2026-04-16","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-004"},{"id":"imp_8","trade":"tr_1","company":"STD","task":"Doublage / rebouchage pour coprs du mitigeur","zone":"z_1","start":"2026-04-17","end":"2026-04-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-003"},{"id":"imp_9","trade":"tr_1","company":"STD","task":"Doublage support GEBERIT","zone":"z_1","start":"2026-04-17","end":"2026-04-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-004"},{"id":"imp_10","trade":"tr_3","company":"ELPHITEC","task":"Repoositionner alim éclairage suivant plan implantation","zone":"z_1","start":"2026-04-17","end":"2026-04-17","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-005"},{"id":"imp_11","trade":"tr_2","company":"BARRE BOUILLET","task":"Pose vasque","zone":"z_1","start":"2026-05-06","end":"2026-05-06","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-002"},{"id":"imp_12","trade":"tr_4","company":"PROST","task":"Pose faience coin vasque","zone":"z_1","start":"2026-05-11","end":"2026-05-12","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-001"},{"id":"imp_13","trade":"tr_2","company":"BARRE BOUILLET","task":"Pose porte + habillage encradrement porte","zone":"z_1","start":"2026-05-06","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-003"},{"id":"imp_14","trade":"tr_2","company":"BARRE BOUILLET","task":"Tablette fond de cabine","zone":"z_1","start":"2026-05-06","end":"2026-05-06","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-004"},{"id":"imp_15","trade":"tr_5","company":"AM FRANCE","task":"Préparation support enduit + ponçage + révision_ Plafond & Mur","zone":"z_1","start":"2026-04-22","end":"2026-04-24","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-001"},{"id":"imp_16","trade":"tr_5","company":"AM FRANCE","task":"Application première couche de peinture_ Plafond & Mur","zone":"z_1","start":"2026-04-27","end":"2026-04-28","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-002"},{"id":"imp_17","trade":"tr_3","company":"ELPHITEC","task":"Pose cuvette toilette + plaque de déclenchement + barre de relevage + robinetterie","zone":"z_1","start":"2026-05-26","end":"2026-05-26","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-006"},{"id":"imp_18","trade":"tr_3","company":"ELPHITEC","task":"Pose terminaux en faux-plafond (elec. + cvc)","zone":"z_1","start":"2026-05-21","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-007"},{"id":"imp_19","trade":"tr_5","company":"AM FRANCE","task":"Application deuxième couche de peinture_ Plafond & Mur","zone":"z_1","start":"2026-05-18","end":"2026-05-19","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-003"},{"id":"imp_20","trade":"tr_3","company":"ELPHITEC","task":"repose radiateur","zone":"z_1","start":"2026-05-04","end":"2026-05-04","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-008"},{"id":"imp_21","trade":"tr_4","company":"PROST","task":"Traitement sol pierre + pose buté de sol","zone":"z_1","start":"2026-05-22","end":"2026-05-25","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-002"},{"id":"imp_22","trade":"tr_4","company":"PROST","task":"dépose moquette","zone":"z_2","start":"2026-04-10","end":"2026-04-24","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-003"},{"id":"imp_23","trade":"tr_6","company":"SOA-A","task":"Dépose cloison","zone":"z_2","start":"2026-04-10","end":"2026-04-10","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"SOA-001"},{"id":"imp_24","trade":"tr_3","company":"ELPHITEC","task":"Curage câble CFO/CFA \"sol\" R+1 cis raccordement","zone":"z_2","start":"2026-04-13","end":"2026-04-17","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-009"},{"id":"imp_25","trade":"tr_3","company":"ELPHITEC","task":"Tirage des RJ au sol","zone":"z_2","start":"2026-05-04","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-010"},{"id":"imp_26","trade":"tr_3","company":"ELPHITEC","task":"Distribution wifi","zone":"z_2","start":"2026-05-04","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-011"},{"id":"imp_27","trade":"tr_3","company":"ELPHITEC","task":"reprise des réeseaxu CVC","zone":"z_2","start":"2026-04-22","end":"2026-05-07","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-012"},{"id":"imp_28","trade":"tr_3","company":"ELPHITEC","task":"Transfert d'air cis distribution","zone":"z_2","start":"2026-04-22","end":"2026-05-04","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-013"},{"id":"imp_29","trade":"tr_3","company":"ELPHITEC","task":"remplacer MR soufflage bureaux + extraction circulation","zone":"z_2","start":"2026-04-23","end":"2026-04-30","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-014"},{"id":"imp_30","trade":"tr_5","company":"AM FRANCE","task":"Préparation support enduit / ponçage / révision + 1ere couche peinture_plafond & mur","zone":"z_2","start":"2026-04-15","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-004"},{"id":"imp_31","trade":"tr_4","company":"PROST","task":"Pose moquette TTZ (cis pose barre de seuil) cis revetement local VDI","zone":"z_2","start":"2026-05-06","end":"2026-05-20","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-004"},{"id":"imp_32","trade":"tr_3","company":"ELPHITEC","task":"Refixer boitier de sol / Reccettage","zone":"z_2","start":"2026-05-13","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-015"},{"id":"imp_33","trade":"tr_2","company":"BARRE BOUILLET","task":"Traitement acoustique + support au droit des cloisons SOAA / habillage ventilo","zone":"z_2","start":"2026-04-29","end":"2026-04-29","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-005"},{"id":"imp_34","trade":"tr_5","company":"AM FRANCE","task":"Enduit cloisons SOA-A","zone":"z_2","start":"2026-05-18","end":"2026-05-19","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-005"},{"id":"imp_35","trade":"tr_6","company":"SOA-A","task":"Tracer cloisoncis passage de porte / Retracer  suivant réalité terrain","zone":"z_2","start":"2026-04-16","end":"2026-04-28","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"SOA-002"},{"id":"imp_36","trade":"tr_6","company":"SOA-A","task":"Pose ossature + placo + bande","zone":"z_2","start":"2026-05-12","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"SOA-003"},{"id":"imp_37","trade":"tr_6","company":"SOA-A","task":"Pose vitrage ( + 6 jr après pose ossature)","zone":"z_2","start":"2026-05-21","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"SOA-004"},{"id":"imp_38","trade":"tr_6","company":"SOA-A","task":"Pose porte","zone":"z_2","start":"2026-05-20","end":"2026-05-20","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"SOA-005"},{"id":"imp_39","trade":"tr_5","company":"AM FRANCE","task":"2ème couche de peinture","zone":"z_2","start":"2026-05-11","end":"2026-05-22","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-006"},{"id":"imp_40","trade":"tr_3","company":"ELPHITEC","task":"Pose grille transfert d'air","zone":"z_2","start":"2026-05-25","end":"2026-05-27","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-016"},{"id":"imp_41","trade":"tr_7","company":"Jeanne","task":"Nettoyage fin","zone":"z_2","start":"2026-05-28","end":"2026-05-29","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"JEA-001"},{"id":"imp_42","trade":"tr_3","company":"ELPHITEC","task":"Raccordement bureaux","zone":"z_2","start":"2026-06-01","end":"2026-06-03","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-017"},{"id":"imp_43","trade":"tr_8","company":"BENE","task":"Installation du mobilier","zone":"z_2","start":"2026-06-01","end":"2026-06-03","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"BEN-001"},{"id":"imp_44","trade":"tr_3","company":"ELPHITEC","task":"Dépose radiateur","zone":"z_3","start":"2026-04-21","end":"2026-04-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-018"},{"id":"imp_45","trade":"tr_1","company":"STD","task":"dépose du meuble évier cis évier / faience / BECS","zone":"z_3","start":"2026-04-15","end":"2026-04-20","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-005"},{"id":"imp_46","trade":"tr_3","company":"ELPHITEC","task":"Distribution EF/EC","zone":"z_3","start":"2026-04-27","end":"2026-04-28","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-019"},{"id":"imp_47","trade":"tr_5","company":"AM FRANCE","task":"Préparation support enduit + ponçage + révision_ Plafond & Mur","zone":"z_3","start":"2026-04-27","end":"2026-04-28","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-007"},{"id":"imp_48","trade":"tr_5","company":"AM FRANCE","task":"Application première couche de peinture_ Plafond & Mur","zone":"z_3","start":"2026-04-29","end":"2026-04-30","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-008"},{"id":"imp_49","trade":"tr_2","company":"BARRE BOUILLET","task":"Installation meuble cuisine","zone":"z_3","start":"2026-05-18","end":"2026-05-19","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-006"},{"id":"imp_50","trade":"tr_3","company":"ELPHITEC","task":"Installation BECS","zone":"z_3","start":"2026-05-04","end":"2026-05-04","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-020"},{"id":"imp_51","trade":"tr_3","company":"ELPHITEC","task":"Installation robinetterie","zone":"z_3","start":"2026-05-21","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-021"},{"id":"imp_52","trade":"tr_4","company":"PROST","task":"Pose faience","zone":"z_3","start":"2026-05-20","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-005"},{"id":"imp_53","trade":"tr_5","company":"AM FRANCE","task":"Application deuxième couche de peinture_ Plafond & Mur","zone":"z_3","start":"2026-05-21","end":"2026-05-22","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-009"},{"id":"imp_54","trade":"tr_3","company":"ELPHITEC","task":"repose radiateur","zone":"z_3","start":"2026-05-21","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-022"},{"id":"imp_55","trade":"tr_4","company":"PROST","task":"Traitement sol pierre","zone":"z_3","start":"2026-05-22","end":"2026-05-25","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-006"},{"id":"imp_56","trade":"tr_7","company":"Jeanne","task":"Nettoyage fin","zone":"z_3","start":"2026-05-27","end":"2026-05-28","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"JEA-002"},{"id":"imp_57","trade":"tr_3","company":"ELPHITEC","task":"Dépose et évacuation de la baie existante","zone":"z_4","start":"2026-04-15","end":"2026-04-15","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-023"},{"id":"imp_58","trade":"tr_4","company":"PROST","task":"Curage du sol","zone":"z_4","start":"2026-04-17","end":"2026-04-17","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-007"},{"id":"imp_59","trade":"tr_1","company":"STD","task":"Curage faux-plafond","zone":"z_4","start":"2026-04-16","end":"2026-04-16","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-006"},{"id":"imp_60","trade":"tr_3","company":"ELPHITEC","task":"Remplacement ventilo","zone":"z_4","start":"2026-04-29","end":"2026-04-29","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-024"},{"id":"imp_61","trade":"tr_3","company":"ELPHITEC","task":"Installation de la clim","zone":"z_4","start":"2026-04-29","end":"2026-04-29","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-025"},{"id":"imp_62","trade":"tr_1","company":"STD","task":"Pose du nouveau plafond","zone":"z_4","start":"2026-05-04","end":"2026-05-04","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-007"},{"id":"imp_63","trade":"tr_4","company":"PROST","task":"Pose du nouveau sol souple cis barre de seuil","zone":"z_4","start":"2026-06-01","end":"2026-06-02","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-008"},{"id":"imp_64","trade":"tr_3","company":"ELPHITEC","task":"Instalation baie + Câblage de la baie info.","zone":"z_4","start":"2026-05-19","end":"2026-05-22","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-026"},{"id":"imp_65","trade":"tr_3","company":"ELPHITEC","task":"Recettage + Raccordement fibre","zone":"z_4","start":"2026-05-25","end":"2026-05-29","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+3","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-027"},{"id":"imp_66","trade":"tr_3","company":"ELPHITEC","task":"Dépose radiateur","zone":"z_3","start":"2026-04-21","end":"2026-04-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-028"},{"id":"imp_67","trade":"tr_1","company":"STD","task":"dépose du meuble évier cis évier / faience / BECS","zone":"z_3","start":"2026-04-15","end":"2026-04-20","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-008"},{"id":"imp_68","trade":"tr_3","company":"ELPHITEC","task":"Distribution EF/EC","zone":"z_3","start":"2026-04-29","end":"2026-04-30","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-029"},{"id":"imp_69","trade":"tr_5","company":"AM FRANCE","task":"Préparation support enduit + ponçage + révision_ Plafond & Mur","zone":"z_3","start":"2026-04-23","end":"2026-04-24","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-010"},{"id":"imp_70","trade":"tr_5","company":"AM FRANCE","task":"Application première couche de peinture_ Plafond & Mur","zone":"z_3","start":"2026-05-04","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-011"},{"id":"imp_71","trade":"tr_2","company":"BARRE BOUILLET","task":"Installation meuble cuisine","zone":"z_3","start":"2026-05-18","end":"2026-05-19","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-007"},{"id":"imp_72","trade":"tr_3","company":"ELPHITEC","task":"Installation BECS","zone":"z_3","start":"2026-04-29","end":"2026-04-29","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-030"},{"id":"imp_73","trade":"tr_3","company":"ELPHITEC","task":"Installation robinetterie","zone":"z_3","start":"2026-05-21","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-031"},{"id":"imp_74","trade":"tr_4","company":"PROST","task":"Pose faience","zone":"z_3","start":"2026-05-20","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-009"},{"id":"imp_75","trade":"tr_5","company":"AM FRANCE","task":"Application deuxième couche de peinture_ Plafond & Mur","zone":"z_3","start":"2026-05-21","end":"2026-05-22","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-012"},{"id":"imp_76","trade":"tr_3","company":"ELPHITEC","task":"repose radiateur","zone":"z_3","start":"2026-05-13","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-032"},{"id":"imp_77","trade":"tr_4","company":"PROST","task":"Traitement sol pierre","zone":"z_3","start":"2026-05-22","end":"2026-05-25","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-010"},{"id":"imp_78","trade":"tr_7","company":"Jeanne","task":"Nettoyage fin","zone":"z_3","start":"2026-05-26","end":"2026-05-26","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+2","progress":0,"delay":0,"predecessor_id":null,"task_number":"JEA-003"},{"id":"imp_79","trade":"tr_3","company":"ELPHITEC","task":"Distribution EF/EC","zone":"z_3","start":"2026-05-04","end":"2026-05-05","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-033"},{"id":"imp_80","trade":"tr_5","company":"AM FRANCE","task":"Préparation support enduit + ponçage + révision_ Plafond & Mur","zone":"z_3","start":"2026-04-23","end":"2026-04-24","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-013"},{"id":"imp_81","trade":"tr_5","company":"AM FRANCE","task":"Application première couche de peinture_ Plafond & Mur","zone":"z_3","start":"2026-05-06","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-014"},{"id":"imp_82","trade":"tr_2","company":"BARRE BOUILLET","task":"Installation meuble cuisine","zone":"z_3","start":"2026-05-18","end":"2026-05-19","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-008"},{"id":"imp_83","trade":"tr_3","company":"ELPHITEC","task":"Installation BECS","zone":"z_3","start":"2026-04-29","end":"2026-04-29","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-034"},{"id":"imp_84","trade":"tr_3","company":"ELPHITEC","task":"Installation robinetterie","zone":"z_3","start":"2026-05-21","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-035"},{"id":"imp_85","trade":"tr_4","company":"PROST","task":"Pose faience","zone":"z_3","start":"2026-05-20","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-011"},{"id":"imp_86","trade":"tr_5","company":"AM FRANCE","task":"Application deuxième couche de peinture_ Plafond & Mur","zone":"z_3","start":"2026-05-21","end":"2026-05-22","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-015"},{"id":"imp_87","trade":"tr_3","company":"ELPHITEC","task":"repose radiateur","zone":"z_3","start":"2026-05-13","end":"2026-05-13","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-036"},{"id":"imp_88","trade":"tr_4","company":"PROST","task":"Traitement sol pierre","zone":"z_3","start":"2026-05-22","end":"2026-05-25","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-012"},{"id":"imp_89","trade":"tr_7","company":"Jeanne","task":"Nettoyage fin","zone":"z_3","start":"2026-05-26","end":"2026-05-26","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"JEA-004"},{"id":"imp_90","trade":"tr_5","company":"AM FRANCE","task":"Préparation support enduit / ponçage / révision + 1ere couche peinture_plafond & mur","zone":"z_5","start":"2026-04-27","end":"2026-04-30","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-016"},{"id":"imp_91","trade":"tr_3","company":"ELPHITEC","task":"création des attentes plomberie","zone":"z_5","start":"2026-04-27","end":"2026-04-30","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-037"},{"id":"imp_92","trade":"tr_4","company":"PROST","task":"Pose revêtement de sol","zone":"z_5","start":"2026-05-04","end":"2026-05-07","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-013"},{"id":"imp_93","trade":"tr_2","company":"BARRE BOUILLET","task":"Installation cuisine cis psoe crédence","zone":"z_5","start":"2026-05-08","end":"2026-05-08","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-009"},{"id":"imp_94","trade":"tr_5","company":"AM FRANCE","task":"2ème couche de peinture","zone":"z_5","start":"2026-05-18","end":"2026-05-20","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-017"},{"id":"imp_95","trade":"tr_3","company":"ELPHITEC","task":"Pose appareillage","zone":"z_5","start":"2026-05-21","end":"2026-05-21","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-038"},{"id":"imp_96","trade":"tr_9","company":"9ème sens","task":"vitrophanie","zone":"z_5","start":"2026-05-28","end":"2026-05-28","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"9ÈM-001"},{"id":"imp_97","trade":"tr_5","company":"AM FRANCE","task":"Préparation support enduit / ponçage / révision + 1ere couche peinture_plafond & mur","zone":"z_6","start":"2026-04-27","end":"2026-04-28","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-018"},{"id":"imp_98","trade":"tr_4","company":"PROST","task":"remanier position boitier de sol","zone":"z_6","start":"2026-04-29","end":"2026-04-30","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-014"},{"id":"imp_99","trade":"tr_3","company":"ELPHITEC","task":"Distribution au sol + repositionner boitier de sol","zone":"z_6","start":"2026-04-29","end":"2026-04-30","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-039"},{"id":"imp_100","trade":"tr_4","company":"PROST","task":"Pose moquette + PVC  TTZ (cis pose barre de seuil) cis revetement local VDI - plinthe ?","zone":"z_6","start":"2026-05-04","end":"2026-05-07","staff":1,"status":"arealis","priority":3,"prereq":"Euler vers Marceau","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"PRO-015"},{"id":"imp_101","trade":"tr_5","company":"AM FRANCE","task":"Application première couche de peinture_ Plafond & Mur","zone":"z_6","start":"2026-04-29","end":"2026-04-30","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-019"},{"id":"imp_102","trade":"tr_2","company":"BARRE BOUILLET","task":"Installation et pose des aménagements","zone":"z_6","start":"2026-05-11","end":"2026-05-20","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"BAR-010"},{"id":"imp_103","trade":"tr_1","company":"STD","task":"Installation des panneaux acoustiques","zone":"z_6","start":"2026-05-21","end":"2026-05-22","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"STD-009"},{"id":"imp_104","trade":"tr_10","company":"Papier peint","task":"Préparation des supports + pose papier peint","zone":"z_6","start":"2026-05-18","end":"2026-05-18","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"PAP-001"},{"id":"imp_105","trade":"tr_5","company":"AM FRANCE","task":"Application deuxième couche de peinture_ Plafond & Mur","zone":"z_6","start":"2026-05-26","end":"2026-05-27","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"AM-020"},{"id":"imp_106","trade":"tr_3","company":"ELPHITEC","task":"Installation des appliques + éclairage","zone":"z_6","start":"2026-05-28","end":"2026-05-28","staff":1,"status":"arealis","priority":3,"prereq":"","notes":"Étage: R+1","progress":0,"delay":0,"predecessor_id":null,"task_number":"ELP-040"}];
+
+function mergeExcelData(dbZones, dbTrades, dbIntervs) {
+  const zones = (dbZones && dbZones.length > 0) ? dbZones : EXCEL_ZONES;
+  const trades = (dbTrades && dbTrades.length > 0) ? dbTrades : EXCEL_TRADES;
+  let merged = dbIntervs ? dbIntervs.slice() : [];
+  const dbIds = new Set(merged.map(i => i.id));
+  for (const iv of EXCEL_INTERVENTIONS) {
+    if (!dbIds.has(iv.id)) merged.push(iv);
+  }
+  return { zones, trades, interventions: merged };
+}
 
 const CONFIGURED = !SUPABASE_URL.includes('VOTRE');
 let sb = null;
@@ -365,10 +338,8 @@ if (CONFIGURED) {
   sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-
 let companies=[];
 let planningLocked=false;
-let editingCompanyId=null;
 let currentSession={role:null,company:null,name:null};
 
 function saveSession(s){try{sessionStorage.setItem('hsf-session',JSON.stringify(s));}catch(e){}}
@@ -376,14 +347,14 @@ function loadSession(){try{var s=sessionStorage.getItem('hsf-session');return s?
 function clearSession(){try{sessionStorage.removeItem('hsf-session');}catch(e){}}
 
 const FALLBACK_COMPANIES=[
-  {id:'std',name:'STD',contact_name:'Tibor Salak',email:'std.construction91@gmail.com',phone:'06 24 07 23 24',color:'amber',access_code:'1001',active:true},
-  {id:'elphitec_cvc',name:'ELPHITEC',contact_name:'Laurent Testa',email:'Laurent.testa@vinci-energies.com',phone:'07 64 76 17 82',color:'blue',access_code:'2002',active:true},
-  {id:'elphitec_elec',name:'ELPHITEC',contact_name:'Thibault Brousseau',email:'thibault.brousseau@vinci-energies.com',phone:'07 64 25 99 90',color:'gold',access_code:'3003',active:true},
-  {id:'amfrance',name:'AM FRANCE',contact_name:'Ahmed El Sabbagh',email:'amfrance.ah@gmail.com',phone:'06 07 14 55 88',color:'rose',access_code:'4004',active:true},
-  {id:'prost',name:'PROST',contact_name:'Bruno Machado',email:'bmachado@eprost.fr',phone:'06 23 25 54 46',color:'green',access_code:'5005',active:true},
-  {id:'soaa',name:'SOA-A',contact_name:'Antoine Delalande',email:'antoine@soa-a.fr',phone:'06 75 94 33 86',color:'purple',access_code:'6006',active:true},
-  {id:'barrebouillet',name:'BARRE BOUILLET',contact_name:'Cyrille Mazaleyrat',email:'c.mazaleyrat@barre-bouillet.fr',phone:'06 26 70 29 86',color:'teal',access_code:'7007',active:true},
-  {id:'bene',name:'BENE',contact_name:'Francois Corbin',email:'francois.corbin@bene.com',phone:'07 85 90 75 38',color:'indigo',access_code:'8008',active:true}
+  {id:'std',name:'STD',contact_name:'Tibor Salak',color:'amber',access_code:'1001',active:true},
+  {id:'elphitec_cvc',name:'ELPHITEC',contact_name:'Laurent Testa',color:'blue',access_code:'2002',active:true},
+  {id:'elphitec_elec',name:'ELPHITEC',contact_name:'Thibault Brousseau',color:'gold',access_code:'3003',active:true},
+  {id:'amfrance',name:'AM FRANCE',contact_name:'Ahmed El Sabbagh',color:'rose',access_code:'4004',active:true},
+  {id:'prost',name:'PROST',contact_name:'Bruno Machado',color:'green',access_code:'5005',active:true},
+  {id:'soaa',name:'SOA-A',contact_name:'Antoine Delalande',color:'purple',access_code:'6006',active:true},
+  {id:'barrebouillet',name:'BARRE BOUILLET',contact_name:'Cyrille Mazaleyrat',color:'teal',access_code:'7007',active:true},
+  {id:'bene',name:'BENE',contact_name:'Francois Corbin',color:'indigo',access_code:'8008',active:true}
 ];
 
 async function loadCompanies(){
@@ -436,52 +407,37 @@ function applyRole(){
 
 function canEdit(){return currentSession.role==='admin'||!planningLocked;}
 
-// ─── CONSTANTS ────────────────────────────────────────────
 const COLORS=[{id:'amber',b:'#F59E0B',bg:'#FFF8EE',t:'#92400E'},{id:'blue',b:'#3B82F6',bg:'#EEF6FF',t:'#1E3A5F'},{id:'gold',b:'#CA8A04',bg:'#FEFCE8',t:'#713F12'},{id:'purple',b:'#8B5CF6',bg:'#F5F3FF',t:'#4C1D95'},{id:'green',b:'#16A34A',bg:'#F0FDF4',t:'#14532D'},{id:'rose',b:'#E11D48',bg:'#FFF1F2',t:'#881337'},{id:'teal',b:'#0D9488',bg:'#F0FDFA',t:'#134E4A'},{id:'orange',b:'#EA580C',bg:'#FFF7ED',t:'#7C2D12'},{id:'indigo',b:'#6366F1',bg:'#EEF2FF',t:'#312E81'},{id:'sky',b:'#0EA5E9',bg:'#F0F9FF',t:'#0C4A6E'}];
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
-const SLABEL={arealis:'A realiser',encours:'En cours',termine:'Termine',bloque:'Bloque'};
+const SLABEL={arealis:'A réaliser',encours:'En cours',termine:'Terminé',bloque:'Bloqué'};
 const SCOL={arealis:'#9CA3AF',encours:'#2563EB',termine:'#16A34A',bloque:'#DC2626'};
 const DAYS_FR=['Lun','Mar','Mer','Jeu','Ven'];
 const PRIO_LABEL=['','Urgente','Haute','Normale','Basse','À conf.'];
 
-// ─── STATE ────────────────────────────────────────────────
 let weekOffset=0,filter='all',view='planning',editId=null,selectedPrio=3,zoneFilter=[];
 let data=[],cfg={zones:[],trades:[]};
 let settingsTab='zones',editingZoneId=null,editingTradeId=null,newTradeColor='amber';
-let currentUser=null,currentProfile=null;
 
-// ─── PHONE → EMAIL ────────────────────────────────────────
-function phoneToEmail(phone){
-  const c=phone.replace(/[\s\.\-\(\)]/g,'');
-  const n=c.startsWith('+')?c:c.startsWith('0')?'+33'+c.slice(1):'+33'+c;
-  return n+'@hsf.app';
-}
-
-// ─── AUTH ─────────────────────────────────────────────────
-async function doLogin(){
+function doLogin(){
   var sel=document.getElementById('l-company');
   var code=document.getElementById('l-code').value.trim();
   var errEl=document.getElementById('login-err');
   errEl.style.display='none';
-  if(!sel.value||!code){showLoginErr('Selectionnez votre entreprise et entrez votre code.');return;}
+  if(!sel.value||!code){showLoginErr('Sélectionnez votre entreprise et entrez votre code.');return;}
   if(sel.value==='__admin__'){
     if(code==='1234'){
       currentSession={role:'admin',company:null,name:'Responsable de projet'};
       saveSession(currentSession);
-      await enterApp();
-    } else {
-      showLoginErr('Code incorrect.');
-    }
+      enterApp();
+    } else { showLoginErr('Code incorrect.'); }
     return;
   }
-  // Search in FALLBACK first (guaranteed IDs), then loaded companies
   var co=FALLBACK_COMPANIES.find(function(x){return x.id===sel.value;});
-  if(!co)co=companies.find(function(x){return x.id===sel.value;});
   if(!co){showLoginErr('Entreprise introuvable.');return;}
   if(String(co.access_code||'0000')===String(code)){
     currentSession={role:'company',company:co,name:co.contact_name||co.name};
     saveSession(currentSession);
-    await enterApp();
+    enterApp();
   } else {
     showLoginErr('Code incorrect.');
   }
@@ -489,59 +445,67 @@ async function doLogin(){
 
 function showLoginErr(msg){var e=document.getElementById('login-err');e.textContent=msg;e.style.display='block';}
 
-
-
-async 
-async function loadProfile(){
-  if(!currentUser)return;
-  const {data:p}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
-  currentProfile=p;
-  const initials=(p?.name||p?.phone||'?').slice(0,2).toUpperCase();
-  document.getElementById('user-btn').textContent=initials;
-}
-
 function openUserMenu(){
-  const p=currentProfile;
-  document.getElementById('user-info').innerHTML=`
-    <div style="font-size:13px;font-weight:600;margin-bottom:4px">${p?.name||'—'}</div>
-    <div style="font-size:12px;color:var(--muted)">${p?.company_name||''}</div>
-    <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px">${p?.phone||currentUser?.email||''}</div>`;
+  document.getElementById('user-info').innerHTML=
+    '<div style="font-size:13px;font-weight:600;margin-bottom:4px">'+currentSession.name+'</div>'+
+    (currentSession.company?'<div style="font-size:12px;color:var(--muted)">'+currentSession.company.name+'</div>':'<div style="font-size:12px;color:var(--muted)">Administrateur</div>');
   document.getElementById('modal-user').classList.remove('hidden');
 }
 function closeUserMenu(){document.getElementById('modal-user').classList.add('hidden');}
 
-// ─── SCREENS ──────────────────────────────────────────────
-function showApp(){
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('config-screen').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-}
-function showLoginScreen(){
-  document.getElementById('app').classList.add('hidden');
-  document.getElementById('config-screen').classList.add('hidden');
-  document.getElementById('login-screen').classList.remove('hidden');
-}
-
-// ─── SYNC INDICATOR ───────────────────────────────────────
 function setSyncing(){const d=document.getElementById('sync-dot');if(d){d.className='sync-dot syncing';d.title='Synchronisation...';}}
 function setSynced(){const d=document.getElementById('sync-dot');if(d){d.className='sync-dot';d.title='Synchronisé';}}
 function setSyncErr(){const d=document.getElementById('sync-dot');if(d){d.className='sync-dot error';d.title='Erreur de connexion';}}
 
-// ─── DATA LAYER ───────────────────────────────────────────
+// ── CHARGEMENT DES DONNÉES (Excel + Supabase merge) ──────────
 async function loadAllData(){
   setSyncing();
+  // 1. Affichage immédiat avec les données Excel
+  const local = mergeExcelData([], [], []);
+  cfg.zones = local.zones;
+  cfg.trades = local.trades;
+  data = local.interventions.map(iv => ({
+    id:iv.id, trade:iv.trade, company:iv.company, task:iv.task,
+    zone:iv.zone, start:iv.start, end:iv.end||iv.start,
+    staff:iv.staff||1, status:iv.status||'arealis', priority:iv.priority||3,
+    prereq:iv.prereq||'', notes:iv.notes||'', progress:iv.progress||0,
+    delay:iv.delay||0, predecessor_id:iv.predecessor_id||null,
+    task_number:iv.task_number||null, ts:''
+  }));
+  render();
+  // 2. Fusion avec Supabase
+  if(!sb){setSynced();return;}
   try{
     const [{data:zones},{data:trades},{data:intervs}]=await Promise.all([
       sb.from('zones').select('*').order('display_order'),
       sb.from('trades').select('*').order('display_order'),
       sb.from('interventions').select('*').order('created_at')
     ]);
-    cfg.zones=zones||[];
-    cfg.trades=trades||[];
-    data=(intervs||[]).map(dbToApp);
+    const merged = mergeExcelData(zones||[], trades||[], (intervs||[]).map(dbToApp));
+    cfg.zones = merged.zones;
+    cfg.trades = merged.trades;
+    data = merged.interventions;
     setSynced();
     render();
-  }catch(e){setSyncErr();console.error(e);}
+    // 3. Si Supabase est vide, on le peuple avec les données Excel
+    if((!zones||zones.length===0) && EXCEL_ZONES.length>0){
+      console.log('[HSF] Seeding Supabase with Excel data...');
+      try{
+        await sb.from('zones').upsert(EXCEL_ZONES);
+        await sb.from('trades').upsert(EXCEL_TRADES);
+        const dbIvs = EXCEL_INTERVENTIONS.map(iv=>(({
+          id:iv.id, trade:iv.trade, company:iv.company, task:iv.task,
+          zone:iv.zone, start_date:iv.start, end_date:iv.end||iv.start,
+          staff:iv.staff||1, status:iv.status||'arealis', priority:iv.priority||3,
+          prereq:iv.prereq||'', notes:iv.notes||'', progress:0, delay:0,
+          predecessor_id:iv.predecessor_id||null, task_number:iv.task_number||null,
+          updated_at:new Date().toISOString()
+        })));
+        await sb.from('interventions').upsert(dbIvs);
+        console.log('[HSF] Supabase seeded!');
+      }catch(e2){console.warn('Seed error:',e2);}
+    }
+  }catch(e){setSyncErr();console.warn('DB error, keeping Excel data:',e);}
 }
 
 function dbToApp(r){
@@ -553,78 +517,57 @@ function dbToApp(r){
 }
 function appToDB(iv){
   return {
-    id:iv.id,
-    trade:iv.trade,
-    company:iv.company,
-    task:iv.task,
-    zone:iv.zone,
-    start_date:iv.start,
-    end_date:iv.end||iv.start,
-    staff:iv.staff||1,
-    status:iv.status||'arealis',
-    priority:iv.priority||3,
-    prereq:iv.prereq||'',
-    notes:iv.notes||'',
-    progress:iv.progress||0,
-    delay:iv.delay||0,
-    predecessor_id:iv.predecessor_id||null,
-    task_number:iv.task_number||null,
-    updated_at:new Date().toISOString()
+    id:iv.id, trade:iv.trade, company:iv.company, task:iv.task,
+    zone:iv.zone, start_date:iv.start, end_date:iv.end||iv.start,
+    staff:iv.staff||1, status:iv.status||'arealis', priority:iv.priority||3,
+    prereq:iv.prereq||'', notes:iv.notes||'', progress:iv.progress||0,
+    delay:iv.delay||0, predecessor_id:iv.predecessor_id||null,
+    task_number:iv.task_number||null, updated_at:new Date().toISOString()
   };
 }
 
 async function dbSave(iv){
-  setSyncing();
+  if(!sb)return;setSyncing();
   try{
     if(editId){await sb.from('interventions').update(appToDB(iv)).eq('id',editId);}
     else{await sb.from('interventions').insert([appToDB(iv)]);}
     setSynced();
-  }catch(e){
-    setSyncErr();
-    console.warn('DB save error (local save OK):', e);
-  }
+  }catch(e){setSyncErr();console.warn('DB save error:',e);}
 }
 
 async function dbDelete(id){
-  setSyncing();
+  if(!sb)return;setSyncing();
   try{await sb.from('interventions').delete().eq('id',id);setSynced();}
   catch(e){setSyncErr();alert('Erreur de suppression.');}
 }
 
 async function dbSaveZone(zone,isNew){
+  if(!sb)return;
   try{
     if(isNew){await sb.from('zones').insert({id:zone.id,name:zone.name,short:zone.short,display_order:zone.display_order||0});}
     else{await sb.from('zones').update({name:zone.name,short:zone.short,display_order:zone.display_order||0}).eq('id',zone.id);}
   }catch(e){console.error(e);}
 }
-
-async function dbDeleteZone(id){try{await sb.from('zones').delete().eq('id',id);}catch(e){console.error(e);}}
-
+async function dbDeleteZone(id){if(!sb)return;try{await sb.from('zones').delete().eq('id',id);}catch(e){console.error(e);}}
 async function dbSaveTrade(trade,isNew){
+  if(!sb)return;
   try{
     if(isNew){await sb.from('trades').insert({id:trade.id,name:trade.name,short:trade.short,color:trade.color,display_order:trade.display_order||0});}
     else{await sb.from('trades').update({name:trade.name,short:trade.short,color:trade.color,display_order:trade.display_order||0}).eq('id',trade.id);}
   }catch(e){console.error(e);}
 }
-
-async function dbDeleteTrade(id){try{await sb.from('trades').delete().eq('id',id);}catch(e){console.error(e);}}
-
+async function dbDeleteTrade(id){if(!sb)return;try{await sb.from('trades').delete().eq('id',id);}catch(e){console.error(e);}}
 async function dbReorderZones(){
-  for(let i=0;i<cfg.zones.length;i++){
-    cfg.zones[i].display_order=i;
-    await sb.from('zones').update({display_order:i}).eq('id',cfg.zones[i].id);
-  }
+  if(!sb)return;
+  for(let i=0;i<cfg.zones.length;i++){cfg.zones[i].display_order=i;await sb.from('zones').update({display_order:i}).eq('id',cfg.zones[i].id);}
 }
-
 async function dbReorderTrades(){
-  for(let i=0;i<cfg.trades.length;i++){
-    cfg.trades[i].display_order=i;
-    await sb.from('trades').update({display_order:i}).eq('id',cfg.trades[i].id);
-  }
+  if(!sb)return;
+  for(let i=0;i<cfg.trades.length;i++){cfg.trades[i].display_order=i;await sb.from('trades').update({display_order:i}).eq('id',cfg.trades[i].id);}
 }
 
-// ─── REALTIME ─────────────────────────────────────────────
 function subscribeRealtime(){
+  if(!sb)return;
   sb.channel('hsf-realtime')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'interventions'},p=>{
       if(!data.find(d=>d.id===p.new.id))data.push(dbToApp(p.new));render();
@@ -639,7 +582,6 @@ function subscribeRealtime(){
     .subscribe();
 }
 
-// ─── DATE UTILS ───────────────────────────────────────────
 function getMonday(off=0){const t=new Date(),d=t.getDay(),diff=d===0?-6:1-d,m=new Date(t);m.setDate(t.getDate()+diff+off*7);m.setHours(0,0,0,0);return m;}
 function dateStr(d){return d.toISOString().split('T')[0];}
 function dateFR(d){return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
@@ -648,92 +590,67 @@ function isToday(d){return d.toDateString()===new Date().toDateString();}
 function weekDays(off=0){const m=getMonday(off);return Array.from({length:5},(_,i)=>{const d=new Date(m);d.setDate(m.getDate()+i);return d;});}
 function inDay(iv,day){const s=new Date(iv.start+'T00:00:00'),e=new Date((iv.end||iv.start)+'T00:00:00'),d=new Date(day);d.setHours(0,0,0,0);return d>=s&&d<=e;}
 
-// ─── STYLES ───────────────────────────────────────────────
 function injectStyles(){
   document.getElementById('dyn-styles')?.remove();
   const s=document.createElement('style');s.id='dyn-styles';
-  s.textContent=cfg.trades.map(tr=>{const c=gc(tr.color);return`.ic.t-${tr.id}{background:${c.bg};border-color:${c.b};color:${c.t}}.tbadge.t-${tr.id}{background:${c.bg};border-color:${c.b};color:${c.t}}`;}).join('\n');
+  s.textContent=cfg.trades.map(tr=>{const c=gc(tr.color);return`.ic.t-${tr.id}{background:${c.bg};border-color:${c.b};color:${c.t}}.tbadge.t-${tr.id}{background:${c.bg};border-color:${c.b};color:${c.t}}`;}). join('\n');
   document.head.appendChild(s);
 }
 
-// ─── RENDER ───────────────────────────────────────────────
 function render(){injectStyles();renderFilters();renderStats();view==='planning'?renderGrid():renderList();}
 function setFilter(el,t){filter=t;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');render();}
 function changeWeek(d){weekOffset+=d;render();}
 function switchView(v){view=v;document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');document.getElementById('view-liste').classList.toggle('hidden',v!=='liste');document.getElementById('nb-planning').classList.toggle('active',v==='planning');document.getElementById('nb-liste').classList.toggle('active',v==='liste');render();}
 function getFiltered(){return filter==='all'?data:data.filter(i=>i.trade===filter);}
 
-function renderFilters(){document.getElementById('filters').innerHTML=`<div class="chip ${filter==='all'?'active':''}" onclick="setFilter(this,'all')">Tous</div>`+cfg.trades.map(tr=>{const c=gc(tr.color);return`<div class="chip ${filter===tr.id?'active':''}" onclick="setFilter(this,'${tr.id}')"><span class="cdot" style="background:${c.b}"></span>${tr.short}</div>`;}).join('');}
+function renderFilters(){document.getElementById('filters').innerHTML=`<div class="chip ${filter==='all'?'active':''}" onclick="setFilter(this,'all')">Tous</div>`+cfg.trades.map(tr=>{const c=gc(tr.color);return`<div class="chip ${filter===tr.id?'active':''}" onclick="setFilter(this,'${tr.id}')"><span class="cdot" style="background:${c.b}"></span>${tr.short}</div>`;}). join('');}
 
 function renderStats(){
   var days=weekDays(weekOffset),fi=getFiltered(),wi=fi.filter(function(i){return days.some(function(d){return inDay(i,d);});});
   var en=wi.filter(function(i){return i.status==='encours';}).length;
   var bl=wi.filter(function(i){return i.status==='bloque';}).length;
   document.getElementById('stats').innerHTML=
-    '<div class="stat" style="cursor:pointer" onclick="showStatusList('+"'encours'"+')">'+'<div class="stat-val" style="color:#2563EB">'+en+'</div><div class="stat-lbl">En cours</div></div>'+
-    '<div class="stat" style="cursor:pointer" onclick="showStatusList('+"'bloque'"+')">'+'<div class="stat-val" style="color:#DC2626">'+bl+'</div><div class="stat-lbl">Bloquées</div></div>';
+    '<div class="stat" style="cursor:pointer" onclick="showStatusList(\'encours\')">'+'<div class="stat-val" style="color:#2563EB">'+en+'</div><div class="stat-lbl">En cours</div></div>'+
+    '<div class="stat" style="cursor:pointer" onclick="showStatusList(\'bloque\')">'+'<div class="stat-val" style="color:#DC2626">'+bl+'</div><div class="stat-lbl">Bloquées</div></div>';
 }
 
 function showStatusList(status){
   var days=weekDays(weekOffset);
-  var fi=data.filter(function(i){return days.some(function(d){return inDay(i,d);}) && i.status===status;});
+  var fi=data.filter(function(i){return days.some(function(d){return inDay(i,d);})&&i.status===status;});
   var label=status==='encours'?'En cours':'Bloquées';
   var col=status==='encours'?'#2563EB':'#DC2626';
   var body=fi.length?fi.map(function(i){
-    var tr=cfg.trades.find(function(t){return t.id===i.trade;}),z=cfg.zones.find(function(x){return x.id===i.zone;});
-    return '<div class="litem" onclick="closeDetail();openDetail('+"'"+i.id+"'"+')">'+'<div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'+'<div class="li-task">'+i.task+'</div>'+'<div class="li-meta">'+(z?z.name:i.zone)+'</div>'+(i.prereq?'<div class="li-pre">'+i.prereq+'</div>':'')+'</div>';
+    var z=cfg.zones.find(function(x){return x.id===i.zone;});
+    return '<div class="litem" onclick="closeDetail();openDetail(\''+i.id+'\')"><div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div><div class="li-task">'+i.task+'</div><div class="li-meta">'+(z?z.name:i.zone)+'</div>'+(i.prereq?'<div class="li-pre">'+i.prereq+'</div>':'')+'</div>';
   }).join(''):'<div class="empty">Aucune intervention</div>';
   document.getElementById('detail-body').innerHTML='<div class="stitle" style="color:'+col+'">'+label+'</div>'+body+'<button class="btn-g" onclick="closeDetail()">Fermer</button>';
   document.getElementById('modal-detail').classList.remove('hidden');
 }
 
-
-
-
 function toggleZoneDropdown(){
-  var d=document.getElementById('zone-dropdown');
-  if(!d)return;
+  var d=document.getElementById('zone-dropdown');if(!d)return;
   var hidden=d.classList.contains('hidden');
   if(hidden){
     fillZoneDropdown();
-    // Position below zone-btn
     var btn=document.getElementById('zone-btn');
-    if(btn){
-      var rect=btn.getBoundingClientRect();
-      d.style.top=(rect.bottom+4)+'px';
-      d.style.left=rect.left+'px';
-    }
+    if(btn){var rect=btn.getBoundingClientRect();d.style.top=(rect.bottom+4)+'px';d.style.left=rect.left+'px';}
     d.classList.remove('hidden');
     setTimeout(function(){document.addEventListener('click',function h(e){if(!d.contains(e.target)&&e.target.id!=='zone-btn'){d.classList.add('hidden');}document.removeEventListener('click',h);},true);},0);
-  } else {
-    d.classList.add('hidden');
-  }
+  }else{d.classList.add('hidden');}
 }
-
 function fillZoneDropdown(){
-  var el=document.getElementById('zone-chk');
-  if(!el)return;
+  var el=document.getElementById('zone-chk');if(!el)return;
   el.innerHTML=cfg.zones.map(function(z){
     var on=zoneFilter.length===0||zoneFilter.includes(z.id);
-    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-size:13px;color:var(--text)">'
-      +'<input type="checkbox" '+(on?'checked':'')+' data-zid="'+z.id+'" onchange="onZoneCheck(this)" style="width:15px;height:15px;cursor:pointer"> '+z.name+'</label>';
+    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-size:13px;color:var(--text)"><input type="checkbox" '+(on?'checked':'')+' data-zid="'+z.id+'" onchange="onZoneCheck(this)" style="width:15px;height:15px;cursor:pointer"> '+z.name+'</label>';
   }).join('');
 }
-
 function onZoneCheck(cb){
   var zid=cb.getAttribute('data-zid');
-  if(!cb.checked){
-    if(zoneFilter.length===0)zoneFilter=cfg.zones.map(function(z){return z.id;});
-    var i=zoneFilter.indexOf(zid);
-    if(i>=0)zoneFilter.splice(i,1);
-  } else {
-    if(zoneFilter.indexOf(zid)<0)zoneFilter.push(zid);
-    if(zoneFilter.length===cfg.zones.length)zoneFilter=[];
-  }
-  updateZoneBtn();
-  renderGrid();
+  if(!cb.checked){if(zoneFilter.length===0)zoneFilter=cfg.zones.map(function(z){return z.id;});var i=zoneFilter.indexOf(zid);if(i>=0)zoneFilter.splice(i,1);}
+  else{if(zoneFilter.indexOf(zid)<0)zoneFilter.push(zid);if(zoneFilter.length===cfg.zones.length)zoneFilter=[];}
+  updateZoneBtn();renderGrid();
 }
-
 function updateZoneBtn(){
   var btn=document.getElementById('zone-btn');
   if(btn)btn.textContent=zoneFilter.length>0?'Zones ('+zoneFilter.length+')':'Zones';
@@ -759,19 +676,16 @@ function renderGrid(){
         var tr=cfg.trades.find(function(t){return t.id===i.trade;});
         var col=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'};
         var pred=i.predecessor_id?data.find(function(x){return x.id===i.predecessor_id;}):null;
-        return '<div onclick="event.stopPropagation();openDetail(&quot;'+i.id+'&quot;)" style="background:'+col.bg+';border-left:3px solid '+col.b+';color:'+col.t+';border-radius:6px;padding:5px 6px;margin-bottom:3px;cursor:pointer;word-break:break-word">'
-          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'
-          +'<span class="li-meta" style="font-size:9px;font-weight:700;color:inherit;opacity:.7">'+(i.task_number||'')+'</span>'
-          +'<span class="sbadge '+i.status+'" style="font-size:9px;padding:1px 5px">'+SLABEL[i.status]+'</span>'
-          +'</div>'
+        return '<div onclick="event.stopPropagation();openDetail(\"'+i.id+'\")" style="background:'+col.bg+';border-left:3px solid '+col.b+';color:'+col.t+';border-radius:6px;padding:5px 6px;margin-bottom:3px;cursor:pointer;word-break:break-word">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><span style="font-size:9px;font-weight:700;opacity:.7">'+(i.task_number||'')+'</span><span class="sbadge '+i.status+'" style="font-size:9px;padding:1px 5px">'+SLABEL[i.status]+'</span></div>'
           +'<div style="font-size:12px;font-weight:700;margin-bottom:2px">'+i.company+'</div>'
           +'<div style="font-size:11px;line-height:1.4">'+i.task+'</div>'
           +(i.prereq?'<div style="font-size:9px;margin-top:3px;color:#991B1B">⚠ '+i.prereq.slice(0,50)+'</div>':'')
           +(pred?'<div style="font-size:9px;margin-top:2px;opacity:.6">↱ '+(pred.task_number||'?')+'</div>':'')
           +'</div>';
       }).join('');
-      var addBtn=isAdm?'<button class="add-mini" onclick="event.stopPropagation();openAddPre(&quot;'+z.id+'&quot;,&quot;'+ds+'&quot;)">+</button>':'';
-      return '<div class="dcell'+(isToday(day)?' today-col':'')+'"'+(isAdm?' onclick="openAddPre(&quot;'+z.id+'&quot;,&quot;'+ds+'&quot;)"':'')+'>'
+      var addBtn=isAdm?'<button class="add-mini" onclick="event.stopPropagation();openAddPre(\"'+z.id+'\",\"'+ds+'\")">+</button>':'';
+      return '<div class="dcell'+(isToday(day)?' today-col':'')+'"'+(isAdm?' onclick="openAddPre(\"'+z.id+'\",\"'+ds+'\")"':'')+'>'
         +ch+addBtn+'</div>';
     }).join('');
     return '<div class="grow" style="grid-template-columns:'+cols+'"><div class="zlbl">'+z.short+'</div>'+cells+'</div>';
@@ -782,46 +696,35 @@ function renderList(){
   var days=weekDays(weekOffset),fi=getFiltered();
   var wi=fi.filter(function(i){return days.some(function(d){return inDay(i,d);});}).sort(function(a,b){return a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3);});
   var el=document.getElementById('view-liste');
-  if(!wi.length){el.innerHTML='<div class="empty"><div style="font-size:40px;margin-bottom:12px">&#128203;</div><b>Aucune intervention cette semaine</b></div>';return;}
+  if(!wi.length){el.innerHTML='<div class="empty"><div style="font-size:40px;margin-bottom:12px">📋</div><b>Aucune intervention cette semaine</b></div>';return;}
   el.innerHTML=wi.map(function(i){
     var z=cfg.zones.find(function(x){return x.id===i.zone;});
-    var dr=fmtDate(i.start)+(i.end&&i.end!==i.start?' &rarr; '+fmtDate(i.end):'');
-    var pre=i.prereq?'<div class="li-pre" style="margin-top:5px">&#9888; '+i.prereq+'</div>':'';
-    var note=i.notes?'<div class="nbox" style="margin-top:5px;margin-bottom:0">'+i.notes+'</div>':'';
-    return '<div class="litem" onclick="openDetail(&quot;'+i.id+'&quot;)">'
+    var dr=fmtDate(i.start)+(i.end&&i.end!==i.start?' → '+fmtDate(i.end):'');
+    return '<div class="litem" onclick="openDetail(\"'+i.id+'\")">'
       +'<div class="li-meta" style="margin-bottom:4px">'+dr+'</div>'
       +'<div class="li-top"><span class="li-co">'+i.company+'</span><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'
       +'<div class="li-meta" style="margin-bottom:3px">'+(z?z.name:i.zone)+'</div>'
       +'<div class="li-task">'+i.task+'</div>'
-      +pre+note+'</div>';
+      +(i.prereq?'<div class="li-pre">⚠ '+i.prereq+'</div>':'')
+      +(i.notes?'<div class="nbox" style="margin-top:5px;margin-bottom:0">'+i.notes+'</div>':'')+'</div>';
   }).join('');
 }
 
-function openDayModal(zoneId,ds){
-  const z=cfg.zones.find(x=>x.id===zoneId),d=new Date(ds+'T00:00:00');
-  const cards=data.filter(i=>i.zone===zoneId&&inDay(i,d)).sort((a,b)=>(a.priority||3)-(b.priority||3));
-  document.getElementById('detail-body').innerHTML=`<div class="stitle">${z?.name||zoneId} — ${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>${cards.map(i=>{const tr=cfg.trades.find(t=>t.id===i.trade);return`<div class="litem" onclick="closeDetail();openDetail('${i.id}')"><div class="li-top"><span class="pbadge p${i.priority||3}">${i.priority||3}</span>&nbsp;<span class="li-co">${i.company}</span><span class="sbadge ${i.status}" style="margin-left:auto">${SLABEL[i.status]}</span></div><div class="li-task" style="margin-top:4px">${i.task}</div><div class="li-meta">${tr?tr.name:i.trade}</div></div>`;}).join('')}<button class="btn-g" onclick="closeDetail()">Fermer</button>`;
-  document.getElementById('modal-detail').classList.remove('hidden');
-}
-
-// ─── ADD MODAL ────────────────────────────────────────────
 function populateFormSelects(){
-  document.getElementById('f-trade').innerHTML='<option value="">Selectionner...</option>'+
+  document.getElementById('f-trade').innerHTML='<option value="">Sélectionner...</option>'+
     cfg.trades.map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
   updateDL();
   var ps=document.getElementById('f-predecessor');
   if(ps&&ps.tagName==='SELECT'){
-    var list=data.filter(function(i){return i.id!==editId&&i.task_number;})
-      .sort(function(a,b){return(a.task_number||'').localeCompare(b.task_number||'');});
-    ps.innerHTML='<option value="">Aucun</option>'+list.map(function(i){
-      return'<option value="'+i.id+'">'+(i.task_number)+'  —  '+i.company+'  —  '+i.task.slice(0,28)+'</option>';
-    }).join('');
+    var list=data.filter(function(i){return i.id!==editId&&i.task_number;}).sort(function(a,b){return(a.task_number||'').localeCompare(b.task_number||'');});
+    ps.innerHTML='<option value="">Aucun</option>'+list.map(function(i){return'<option value="'+i.id+'">'+(i.task_number)+'  —  '+i.company+'  —  '+i.task.slice(0,28)+'</option>';}).join('');
     var cur=editId?(data.find(function(i){return i.id===editId;})||{}).predecessor_id:null;
     if(cur)ps.value=cur;
   }
 }
+
 function openAdd(){
-  if(!canEdit()){alert('Le planning est verrouille.');return;}
+  if(!canEdit()){alert('Le planning est verrouillé.');return;}
   editId=null;selectedPrio=3;
   document.getElementById('eid').value='';
   populateFormSelects();
@@ -841,31 +744,19 @@ function openAdd(){
 
 function openAddPre(zone,date){if(currentSession.role!=='admin')return;openAdd();document.getElementById('f-zone').value=zone;document.getElementById('f-start').value=date;document.getElementById('f-end').value=date;}
 function closeAdd(){document.getElementById('modal-add').classList.add('hidden');}
-function onTradeChange(){
-  updateDL();
-  var tid=document.getElementById('f-trade').value;if(!tid)return;
-  var tr=cfg.trades.find(function(t){return t.id===tid;});if(!tr)return;
-  var parts=tr.name.split(' — ');if(parts.length<2)return;
-  var co=parts[0].trim();
-  var sel=document.getElementById('f-company-sel');
-  var opt=Array.from(sel.options).find(function(o){return o.value===co;});
-  if(opt){sel.value=co;document.getElementById('f-company').value=co;document.getElementById('f-company').classList.add('hidden');}
-}
+function onTradeChange(){updateDL();}
 function updateDL(){
-  var sel=document.getElementById('f-company-sel');
-  if(!sel)return;
+  var sel=document.getElementById('f-company-sel');if(!sel)return;
   var cur=sel.value;
   var names=[...new Set(FALLBACK_COMPANIES.map(function(x){return x.name;}))].sort();
-  sel.innerHTML='<option value="">Selectionner...</option>'+names.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('')+'<option value="__new__">+ Ajouter</option>';
+  sel.innerHTML='<option value="">Sélectionner...</option>'+names.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('')+'<option value="__new__">+ Ajouter</option>';
   if(cur&&cur!=='__new__')sel.value=cur;
 }
 function onCompanyChange(sel){
-  var inp=document.getElementById('f-company');
-  if(!inp)return;
+  var inp=document.getElementById('f-company');if(!inp)return;
   if(sel.value==='__new__'){inp.classList.remove('hidden');inp.value='';inp.focus();}
   else{inp.classList.add('hidden');inp.value=sel.value;}
 }
-
 function selPrio(el){selectedPrio=parseInt(el.dataset.p);updatePrioUI();}
 function updatePrioUI(){document.querySelectorAll('.popt').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.p)===selectedPrio));}
 
@@ -878,7 +769,7 @@ function generateTaskNumber(company){
 }
 
 async function saveInterv(){
-  if(!canEdit()){alert('Planning verrouille.');closeAdd();return;}
+  if(!canEdit()){alert('Planning verrouillé.');closeAdd();return;}
   var trade=document.getElementById('f-trade').value;
   var csel=document.getElementById('f-company-sel');
   var cinp=document.getElementById('f-company');
@@ -886,7 +777,7 @@ async function saveInterv(){
   var task=document.getElementById('f-task').value.trim();
   var zone=document.getElementById('f-zone').value;
   var start=document.getElementById('f-start').value||dateStr(new Date());
-  if(!trade||!company||!task){alert('Corps de metier, Entreprise et Description requis.');return;}
+  if(!trade||!company||!task){alert('Corps de métier, Entreprise et Description requis.');return;}
   var predEl=document.getElementById('f-predecessor');
   var predId=predEl?predEl.value||null:null;
   var prereq=document.getElementById('f-prereq').value.trim();
@@ -910,7 +801,6 @@ async function deleteInterv(){
   await dbDelete(id);
 }
 
-// ─── DETAIL MODAL ─────────────────────────────────────────
 function openDetail(id){
   var i=data.find(function(x){return x.id===id;});if(!i)return;
   var tr=cfg.trades.find(function(x){return x.id===i.trade;});
@@ -920,40 +810,53 @@ function openDetail(id){
   var pred=i.predecessor_id?data.find(function(x){return x.id===i.predecessor_id;}):null;
   var html='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">'
     +'<div>'
-    +'<div style="font-size:17px;font-weight:600">'+(i.company)+'</div>'
+    +'<div style="font-size:17px;font-weight:600">'+i.company+'</div>'
     +(i.task_number?'<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:4px">'+i.task_number+'</div>':'<div style="margin-bottom:4px"></div>')
     +'<span class="tbadge t-'+i.trade+'" style="background:'+col.bg+';border-color:'+col.b+';color:'+col.t+'">'+(tr?tr.name:i.trade)+'</span>'
-    +'</div>'
-    +'<span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span>'
-    +'</div>'
+    +'</div><span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span></div>'
     +'<div style="background:var(--bg);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:14px;border:1px solid var(--border)">'+i.task+'</div>'
     +'<div class="dkv">'
     +'<div class="kv"><div class="kv-l">Zone</div><div class="kv-v">'+(z?z.name:(i.zone||'—'))+'</div></div>'
-    +'<div class="kv"><div class="kv-l">Date</div><div class="kv-v" style="font-family:\'DM Mono\',monospace;font-size:12px">'+fmtDate(i.start)+(i.end&&i.end!==i.start?' \u2192 '+fmtDate(i.end):'')+'</div></div>'
+    +'<div class="kv"><div class="kv-l">Date</div><div class="kv-v" style="font-family:\'DM Mono\',monospace;font-size:12px">'+fmtDate(i.start)+(i.end&&i.end!==i.start?' → '+fmtDate(i.end):'')+'</div></div>'
     +'</div>'
-    +(pred?'<div style="background:var(--bg);border-left:3px solid #CA8A04;border-radius:0 var(--rx) var(--rx) 0;padding:8px 11px;margin-bottom:10px;font-size:12px;color:#92400E"><b>Pr\u00e9d\u00e9cesseur : '+(pred.task_number||'?')+'</b><br>'+pred.company+' \u2014 '+pred.task+'</div>':'')
-    +(i.prereq?'<div class="abox"><b>\u26a0 Pr\u00e9requis / Blocage</b><br>'+i.prereq+'</div>':'')
+    +(pred?'<div style="background:var(--bg);border-left:3px solid #CA8A04;border-radius:0 var(--rx) var(--rx) 0;padding:8px 11px;margin-bottom:10px;font-size:12px;color:#92400E"><b>Prédécesseur : '+(pred.task_number||'?')+'</b><br>'+pred.company+' — '+pred.task+'</div>':'')
+    +(i.prereq?'<div class="abox"><b>⚠ Prérequis / Blocage</b><br>'+i.prereq+'</div>':'')
     +(i.notes?'<div class="nbox"><b>Notes</b><br>'+i.notes+'</div>':'')
-    +'<p style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:\'DM Mono\',monospace">METTRE \u00c0 JOUR LE STATUT</p>'
+    +'<p style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:\'DM Mono\',monospace">METTRE À JOUR LE STATUT</p>'
     +'<div class="status-row">'
-    +Object.keys(SLABEL).map(function(k){return'<div class="sopt2" style="border-color:'+(i.status===k?SCOL[k]:'var(--border)')+';background:'+(i.status===k?SCOL[k]+'18':'var(--surface)')+';color:'+(i.status===k?SCOL[k]:'var(--text)')+'" onclick="quickStatus(&quot;'+id+'&quot;,&quot;'+k+'&quot;)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+SCOL[k]+';margin-right:4px;vertical-align:middle"></span>'+SLABEL[k]+'</div>';}).join('')
+    +Object.keys(SLABEL).map(function(k){return'<div class="sopt2" style="border-color:'+(i.status===k?SCOL[k]:'var(--border)')+';background:'+(i.status===k?SCOL[k]+'18':'var(--surface)')+';color:'+(i.status===k?SCOL[k]:'var(--text)')+'" onclick="quickStatus(\"'+id+'\",\"'+k+'\")"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+SCOL[k]+';margin-right:4px;vertical-align:middle"></span>'+SLABEL[k]+'</div>';}).join('')
     +'</div>'
-    +(isAdmin?'<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail(&quot;'+id+'&quot;)">Modifier</button>':'')
+    +(isAdmin?'<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail(\"'+id+'\")">Modifier</button>':'')
     +'<button class="btn-g" onclick="closeDetail()">Fermer</button>';
   document.getElementById('detail-body').innerHTML=html;
   document.getElementById('modal-detail').classList.remove('hidden');
 }
 
-
 async function quickStatus(id,s){
   const i=data.find(x=>x.id===id);if(!i)return;
   i.status=s;render();openDetail(id);
-  await sb.from('interventions').update({status:s,updated_at:new Date().toISOString()}).eq('id',id);
+  if(sb)await sb.from('interventions').update({status:s,updated_at:new Date().toISOString()}).eq('id',id);
 }
 function closeDetail(){document.getElementById('modal-detail').classList.add('hidden');}
-function editFromDetail(id){const i=data.find(x=>x.id===id);if(!i)return;closeDetail();editId=id;selectedPrio=i.priority||3;document.getElementById('add-title').textContent='Modifier';populateFormSelects();document.getElementById('f-trade').value=i.trade;document.getElementById('f-company').value=i.company;document.getElementById('f-task').value=i.task;document.getElementById('f-zone').value=i.zone;document.getElementById('f-start').value=i.start;document.getElementById('f-end').value=i.end||'';document.getElementById('f-staff').value=i.staff||1;document.getElementById('f-status').value=i.status;document.getElementById('f-prereq').value=i.prereq||'';document.getElementById('f-notes').value=i.notes||'';updatePrioUI();document.getElementById('btn-del').classList.remove('hidden');document.getElementById('modal-add').classList.remove('hidden');updateDL();}
+function editFromDetail(id){
+  const i=data.find(x=>x.id===id);if(!i)return;
+  closeDetail();editId=id;selectedPrio=i.priority||3;
+  populateFormSelects();
+  document.getElementById('f-trade').value=i.trade;
+  document.getElementById('f-company').value=i.company;
+  document.getElementById('f-task').value=i.task;
+  document.getElementById('f-zone').value=i.zone;
+  document.getElementById('f-start').value=i.start;
+  document.getElementById('f-end').value=i.end||'';
+  document.getElementById('f-status').value=i.status;
+  document.getElementById('f-prereq').value=i.prereq||'';
+  document.getElementById('f-notes').value=i.notes||'';
+  updatePrioUI();
+  document.getElementById('btn-del').classList.remove('hidden');
+  document.getElementById('modal-add').classList.remove('hidden');
+  updateDL();
+}
 
-// ─── SETTINGS ─────────────────────────────────────────────
 function openSettings(){editingZoneId=null;editingTradeId=null;renderZonesList();renderTradesList();showTab('zones');document.getElementById('modal-settings').classList.remove('hidden');}
 function closeSettings(){document.getElementById('modal-settings').classList.add('hidden');}
 function showTab(t){settingsTab=t;document.getElementById('tab-zones').classList.toggle('hidden',t!=='zones');document.getElementById('tab-trades').classList.toggle('hidden',t!=='trades');document.getElementById('tab-btn-zones').classList.toggle('active',t==='zones');document.getElementById('tab-btn-trades').classList.toggle('active',t==='trades');}
@@ -993,11 +896,15 @@ function startAddTrade(){newTradeColor='amber';document.getElementById('add-trad
 function cancelAddTrade(){document.getElementById('add-trade-form').classList.add('hidden');}
 async function confirmAddTrade(){const name=document.getElementById('new-trade-name').value.trim(),short=document.getElementById('new-trade-short').value.trim();if(!name||!short){alert('Requis');return;}const sel=document.querySelector('#add-trade-colors .cswatch.sel');if(sel)newTradeColor=sel.dataset.cid;const tr={id:'tr_'+Date.now(),name,short,color:newTradeColor,display_order:cfg.trades.length};cfg.trades.push(tr);document.getElementById('new-trade-name').value='';document.getElementById('new-trade-short').value='';document.getElementById('add-trade-form').classList.add('hidden');renderTradesList();render();await dbSaveTrade(tr,true);}
 
-// ─── WHATSAPP ─────────────────────────────────────────────
-function sendWhatsApp(){const days=weekDays(weekOffset),wi=data.filter(i=>days.some(d=>inDay(i,d)));let msg=`📋 *Planning HSF — Av. Marceau*\nSemaine du ${dateFR(days[0])} au ${dateFR(days[4])}\n\n`;const bl=wi.filter(i=>i.status==='bloque');if(bl.length){msg+=`🔴 *BLOCAGES (${bl.length})*\n`;bl.forEach(i=>{msg+=`• ${i.company} — ${i.task} (${(cfg.zones.find(z=>z.id===i.zone)||{short:i.zone}).short})\n`;});msg+='\n';}cfg.zones.forEach(z=>{const zi=wi.filter(i=>i.zone===z.id).sort((a,b)=>(a.priority||3)-(b.priority||3));if(!zi.length)return;msg+=`*${z.name}*\n`;zi.forEach(i=>{const e={arealis:'⏳',encours:'🔵',termine:'✅',bloque:'🔴'}[i.status];msg+=`${e} [P${i.priority||3}] ${i.company} — ${i.task}\n`;});msg+='\n';});window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');}
-function exportJSON(){const blob=new Blob([JSON.stringify({project:'HSF-Marceau',exportedAt:new Date().toISOString(),config:cfg,interventions:data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hsf-'+dateStr(new Date())+'.json';a.click();}
+function exportWeek(){
+  var days=weekDays(weekOffset);
+  var wi=data.filter(function(i){return days.some(function(d){return inDay(i,d);});}).sort(function(a,b){return a.start.localeCompare(b.start);});
+  function doRows(){var rows=[['Entreprise','Tâche','Zone','Corps de métier','Début','Fin','Statut']];wi.forEach(function(i){var z=cfg.zones.find(function(x){return x.id===i.zone;});var tr=cfg.trades.find(function(x){return x.id===i.trade;});rows.push([i.company,i.task,z?z.name:i.zone,tr?tr.name:i.trade,fmtDate(i.start),fmtDate(i.end||i.start),SLABEL[i.status]||i.status]);});return rows;}
+  function doExp(){var ws2=XLSX.utils.aoa_to_sheet(doRows());ws2['!cols']=[{wch:22},{wch:36},{wch:20},{wch:20},{wch:12},{wch:12},{wch:14}];var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,'Planning',ws2);XLSX.writeFile(wb,'HSF-'+dateStr(days[0])+'.xlsx');}
+  function fallback(){var rows=doRows();var csv=rows.map(function(r){return r.map(function(v){return'"'+String(v).replace(/"/g,'\"\"')+'"';}).join(',');}).join('\n');var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='HSF-'+dateStr(days[0])+'.csv';a.click();}
+  if(typeof XLSX!=='undefined'){try{doExp();}catch(e){fallback();}}else{var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=function(){try{doExp();}catch(e){fallback();}};s.onerror=fallback;document.head.appendChild(s);}
+}
 
-// ─── LAYOUT ───────────────────────────────────────────────
 function fixH(){const h=document.getElementById('app-hdr').offsetHeight;document.getElementById('content').style.height=`calc(100vh - ${h}px)`;}
 
 function renderNav(){
@@ -1005,39 +912,20 @@ function renderNav(){
   var p='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="22"/></svg>';
   var l='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>';
   var e='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
-  nav.innerHTML='<button class="nbtn active" id="nb-planning" onclick="switchView(&quot;planning&quot;)">'+p+'Planning</button>'
-    +'<button class="nbtn" id="nb-liste" onclick="switchView(&quot;liste&quot;)">'+l+'Liste</button>'
+  nav.innerHTML='<button class="nbtn active" id="nb-planning" onclick="switchView(\"planning\")">'+p+'Planning</button>'
+    +'<button class="nbtn" id="nb-liste" onclick="switchView(\"liste\")">'+l+'Liste</button>'
     +'<button class="nbtn" onclick="exportWeek()">'+e+'Export</button>';
 }
 
-function exportWeek(){
-  var days=weekDays(weekOffset);
-  var wi=data.filter(function(i){return days.some(function(d){return inDay(i,d);});}).sort(function(a,b){return a.start.localeCompare(b.start);});
-  function doRows(){var rows=[['Entreprise','Tache','Zone','Corps de metier','Debut','Fin','Statut']];wi.forEach(function(i){var z=cfg.zones.find(function(x){return x.id===i.zone;});var tr=cfg.trades.find(function(x){return x.id===i.trade;});rows.push([i.company,i.task,z?z.name:i.zone,tr?tr.name:i.trade,fmtDate(i.start),fmtDate(i.end||i.start),SLABEL[i.status]||i.status]);});return rows;}
-  function doExp(){var ws=XLSX.utils.aoa_to_sheet(doRows());ws['!cols']=[{wch:22},{wch:36},{wch:20},{wch:20},{wch:12},{wch:12},{wch:14}];var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,'Planning',ws);XLSX.writeFile(wb,'HSF-'+dateStr(days[0])+'.xlsx');}
-  function fallback(){var rows=doRows();var csv=rows.map(function(r){return r.map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='HSF-'+dateStr(days[0])+'.csv';a.click();}
-  if(typeof XLSX!=='undefined'){try{doExp();}catch(e){fallback();}}else{var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=function(){try{doExp();}catch(e){fallback();}};s.onerror=fallback;document.head.appendChild(s);}
-}
-
-
-// ─── INIT ─────────────────────────────────────────────────
 async function init(){
-  if(!CONFIGURED){document.getElementById('config-screen').classList.remove('hidden');return;}
   companies=FALLBACK_COMPANIES;
-  populateLoginCompanies();
   clearSession();
   var ls=document.getElementById('login-screen');if(ls){ls.classList.remove('hidden');ls.style.display='flex';}
-  loadCompanies().then(function(){populateLoginCompanies();});
   window.addEventListener('resize',fixH);
   document.getElementById('l-code').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
 }
 
-function populateLoginCompanies(){
-  var sel=document.getElementById('l-company');
-  sel.innerHTML='<option value="">Sélectionner...</option>'+'<option value="__admin__">Responsable de projet</option>'+companies.map(function(co){return'<option value="'+co.id+'">'+co.name+' — '+(co.contact_name||'')+'</option>';}).join('');
-}
-
-init().then(()=>{if(CONFIGURED&&document.getElementById('app').classList.contains('hidden')===false)fixH();});
+init();
 </script>
 </body>
 </html>
