@@ -734,19 +734,19 @@ function updateZoneBtn(){
 }
 
 function renderGrid(){
-  const days=weekDays(weekOffset),fi=getFiltered(),cols='56px repeat(5,1fr)';
+  var days=weekDays(weekOffset),fi=getFiltered();
+  var cols='56px repeat(5,1fr)';
   document.getElementById('wlbl').textContent=dateFR(days[0])+' – '+dateFR(days[4]);
   document.getElementById('ghead').style.gridTemplateColumns=cols;
   document.getElementById('ghead').innerHTML='<div class="ghcell"></div>'+days.map(function(d,i){
     return '<div class="ghcell'+(isToday(d)?' today':'')+'">'+DAYS_FR[i]+'<br><span style="font-size:9px">'+d.getDate()+'/'+(d.getMonth()+1)+'</span></div>';
   }).join('');
-  var _zones=zoneFilter.length>0?cfg.zones.filter(function(z){return zoneFilter.includes(z.id);}):cfg.zones;
-  document.getElementById('gbody').innerHTML=_zones.map(function(z){
+  var zones=zoneFilter.length>0?cfg.zones.filter(function(z){return zoneFilter.includes(z.id);}):cfg.zones;
+  document.getElementById('gbody').innerHTML=zones.map(function(z){
     var cells=days.map(function(day){
       var ds=dateStr(day);
       var cards=fi.filter(function(i){return i.zone===z.id&&inDay(i,day);}).sort(function(a,b){return(a.priority||3)-(b.priority||3);});
       var isAdm=currentSession.role==='admin';
-      var oc=isAdm?'openAddPre(&quot;'+z.id+'&quot;,&quot;'+ds+'&quot;)':'';
       var ch=cards.map(function(i){
         var tr=cfg.trades.find(function(t){return t.id===i.trade;});
         var col=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'};
@@ -762,7 +762,9 @@ function renderGrid(){
           +(pred?'<div style="font-size:9px;margin-top:2px;opacity:.6">↱ '+(pred.task_number||'?')+'</div>':'')
           +'</div>';
       }).join('');
-      return '<div class="dcell'+(isToday(day)?' today-col':'')+'" onclick="'+oc+'">'+ch+'</div>';
+      var addBtn=isAdm?'<button class="add-mini" onclick="event.stopPropagation();openAddPre(&quot;'+z.id+'&quot;,&quot;'+ds+'&quot;)">+</button>':'';
+      return '<div class="dcell'+(isToday(day)?' today-col':'')+'"'+(isAdm?' onclick="openAddPre(&quot;'+z.id+'&quot;,&quot;'+ds+'&quot;)"':'')+'>'
+        +ch+addBtn+'</div>';
     }).join('');
     return '<div class="grow" style="grid-template-columns:'+cols+'"><div class="zlbl">'+z.short+'</div>'+cells+'</div>';
   }).join('');
