@@ -229,6 +229,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
           <button class="wbtn" onclick="changeWeek(-1)">&#8249;</button>
           <span class="wlbl" id="wlbl">—</span>
           <button class="wbtn" onclick="changeWeek(1)">&#8250;</button>
+          <button class="wbtn" id="zone-btn" onclick="toggleZoneDropdown()" style="min-width:52px;padding:0 6px;font-size:11px;font-family:sans-serif;letter-spacing:0">Zones</button>
         </div>
         <div class="hdr-actions">
           <span class="sync-dot" id="sync-dot" title="Synchronisé"></span>
@@ -243,7 +244,8 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
   <div class="content" id="content">
     <div class="stats" id="stats" style="grid-template-columns:1fr 1fr"></div>
 
-    <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
+    <div id="zone-dropdown" class="hidden" style="position:fixed;top:52px;right:12px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:300;min-width:210px;max-height:80vh;overflow-y:auto"><div style="padding:8px 12px;border-bottom:1px solid var(--border)"><button onclick="zoneFilter=[];renderGrid();updateZoneBtn()" class="btn-p" style="padding:7px;font-size:12px">Toutes les zones</button></div><div id="zone-chk" style="padding:4px 0"></div></div>
+  <div id="view-planning"><div class="gwrap"><div class="ghead" id="ghead"></div><div id="gbody"></div></div></div>
     <div id="view-liste" class="hidden"></div>
   </div>
 
@@ -444,7 +446,7 @@ const DAYS_FR=['Lun','Mar','Mer','Jeu','Ven'];
 const PRIO_LABEL=['','Urgente','Haute','Normale','Basse','À conf.'];
 
 // ─── STATE ────────────────────────────────────────────────
-let weekOffset=0,filter='all',view='planning',editId=null,selectedPrio=3;
+let weekOffset=0,filter='all',view='planning',editId=null,selectedPrio=3,zoneFilter=[];
 let data=[],cfg={zones:[],trades:[]};
 let settingsTab='zones',editingZoneId=null,editingTradeId=null,newTradeColor='amber';
 let currentUser=null,currentProfile=null;
@@ -689,6 +691,48 @@ function showStatusList(status){
 
 
 
+function toggleZoneDropdown(){
+  var d=document.getElementById('zone-dropdown');
+  if(!d)return;
+  var hidden=d.classList.contains('hidden');
+  if(hidden){
+    fillZoneDropdown();
+    d.classList.remove('hidden');
+    setTimeout(function(){document.addEventListener('click',function h(e){if(!d.contains(e.target)&&e.target.id!=='zone-btn'){d.classList.add('hidden');}document.removeEventListener('click',h);},true);},0);
+  } else {
+    d.classList.add('hidden');
+  }
+}
+
+function fillZoneDropdown(){
+  var el=document.getElementById('zone-chk');
+  if(!el)return;
+  el.innerHTML=cfg.zones.map(function(z){
+    var on=zoneFilter.length===0||zoneFilter.includes(z.id);
+    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-size:13px;color:var(--text)">'
+      +'<input type="checkbox" '+(on?'checked':'')+' data-zid="'+z.id+'" onchange="onZoneCheck(this)" style="width:15px;height:15px;cursor:pointer"> '+z.name+'</label>';
+  }).join('');
+}
+
+function onZoneCheck(cb){
+  var zid=cb.getAttribute('data-zid');
+  if(!cb.checked){
+    if(zoneFilter.length===0)zoneFilter=cfg.zones.map(function(z){return z.id;});
+    var i=zoneFilter.indexOf(zid);
+    if(i>=0)zoneFilter.splice(i,1);
+  } else {
+    if(zoneFilter.indexOf(zid)<0)zoneFilter.push(zid);
+    if(zoneFilter.length===cfg.zones.length)zoneFilter=[];
+  }
+  updateZoneBtn();
+  renderGrid();
+}
+
+function updateZoneBtn(){
+  var btn=document.getElementById('zone-btn');
+  if(btn)btn.textContent=zoneFilter.length>0?'Zones ('+zoneFilter.length+')':'Zones';
+}
+
 function renderGrid(){
   const days=weekDays(weekOffset),fi=getFiltered(),cols='56px repeat(5,1fr)';
   document.getElementById('wlbl').textContent=dateFR(days[0])+' – '+dateFR(days[4]);
@@ -696,7 +740,8 @@ function renderGrid(){
   document.getElementById('ghead').innerHTML='<div class="ghcell"></div>'+days.map(function(d,i){
     return '<div class="ghcell'+(isToday(d)?' today':'')+'">'+DAYS_FR[i]+'<br><span style="font-size:9px">'+d.getDate()+'/'+(d.getMonth()+1)+'</span></div>';
   }).join('');
-  document.getElementById('gbody').innerHTML=cfg.zones.map(function(z){
+  var _zones=zoneFilter.length>0?cfg.zones.filter(function(z){return zoneFilter.includes(z.id);}):cfg.zones;
+  document.getElementById('gbody').innerHTML=_zones.map(function(z){
     var cells=days.map(function(day){
       var ds=dateStr(day);
       var cards=fi.filter(function(i){return i.zone===z.id&&inDay(i,day);}).sort(function(a,b){return(a.priority||3)-(b.priority||3);});
