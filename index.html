@@ -229,7 +229,6 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
           <button class="wbtn" onclick="changeWeek(-1)">&#8249;</button>
           <span class="wlbl" id="wlbl">—</span>
           <button class="wbtn" onclick="changeWeek(1)">&#8250;</button>
-          <button class="wbtn" id="zone-btn" onclick="toggleZoneDropdown()" style="min-width:52px;padding:0 6px;font-size:11px;font-family:sans-serif;letter-spacing:0">Zones</button>
         </div>
         <div class="hdr-actions">
           <span class="sync-dot" id="sync-dot" title="Synchronisé"></span>
@@ -738,7 +737,9 @@ function renderGrid(){
   var cols='56px repeat(5,1fr)';
   document.getElementById('wlbl').textContent=dateFR(days[0])+' – '+dateFR(days[4]);
   document.getElementById('ghead').style.gridTemplateColumns=cols;
-  document.getElementById('ghead').innerHTML='<div class="ghcell"></div>'+days.map(function(d,i){
+  document.getElementById('ghead').innerHTML='<div class="ghcell" style="position:relative;padding:2px">'
+    +(currentSession.role!=='company'?'<button id="zone-btn" onclick="toggleZoneDropdown()" style="width:100%;padding:3px 4px;border-radius:4px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:10px;cursor:pointer;font-family:sans-serif">Zones '+(zoneFilter.length>0?'('+zoneFilter.length+')':'&#9660;')+'</button>':'<span style="font-size:9px;color:var(--muted)">Zone</span>')
+    +'</div>'+days.map(function(d,i){
     return '<div class="ghcell'+(isToday(d)?' today':'')+'">'+DAYS_FR[i]+'<br><span style="font-size:9px">'+d.getDate()+'/'+(d.getMonth()+1)+'</span></div>';
   }).join('');
   var zones=zoneFilter.length>0?cfg.zones.filter(function(z){return zoneFilter.includes(z.id);}):cfg.zones;
