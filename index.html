@@ -687,26 +687,42 @@ function showStatusList(status){
 }
 
 function renderGrid(){
-  const days=weekDays(weekOffset),fi=getFiltered(),cols=`56px repeat(5,1fr)`;
-  document.getElementById('wlbl').textContent=`${dateFR(days[0])} – ${dateFR(days[4])}`;
+  var days=weekDays(weekOffset),fi=getFiltered();
+  var cols='130px repeat(5,1fr)';
+  document.getElementById('wlbl').textContent=dateFR(days[0])+' – '+dateFR(days[4]);
   document.getElementById('ghead').style.gridTemplateColumns=cols;
-  document.getElementById('ghead').innerHTML=`<div class="ghcell"></div>`+days.map((d,i)=>`<div class="ghcell${isToday(d)?' today':''}">
-    ${DAYS_FR[i]}<br><span style="font-size:9px">${d.getDate()}/${d.getMonth()+1}</span></div>`).join('');
-  document.getElementById('gbody').innerHTML=cfg.zones.map(z=>{
-    const cells=days.map(day=>{
-      const ds=dateStr(day),cards=fi.filter(i=>i.zone===z.id&&inDay(i,day)).sort((a,b)=>(a.priority||3)-(b.priority||3));
-      const visible=cards.slice(0,2),extra=cards.length-2;
-      return `<div class="dcell${isToday(day)?' today-col':''}" onclick="openAddPre('${z.id}','${ds}')">
-        ${visible.map(i=>`<div class="ic t-${i.trade}" onclick="event.stopPropagation();openDetail('${i.id}')">
-             <span style="font-size:9px;font-family:'DM Mono',monospace;opacity:.6;display:block;margin-bottom:1px">${i.task_number||''}</span><span class="co">${i.company.split(' ')[0]}</span>
-          <span class="tk">${i.task}</span>
-        </div>`).join('')}
-        ${extra>0?`<div class="more-badge" onclick="event.stopPropagation();openDayModal('${z.id}','${ds}')">+${extra} autre${extra>1?'s':''}</div>`:''}
-        <button class="add-mini" onclick="event.stopPropagation();openAddPre('${z.id}','${ds}')">+</button>
-      </div>`;
-    }).join('');
-    return `<div class="grow" style="grid-template-columns:${cols}"><div class="zlbl">${z.short}</div>${cells}</div>`;
+  document.getElementById('ghead').innerHTML='<div class="ghcell"></div>'+days.map(function(d,i){
+    return '<div class="ghcell'+(isToday(d)?' today':'')+'">'+DAYS_FR[i]+'<br><span style="font-size:9px">'+d.getDate()+'/'+(d.getMonth()+1)+'</span></div>';
   }).join('');
+  var zones=zoneFilter.length>0?cfg.zones.filter(function(z){return zoneFilter.includes(z.id);}):cfg.zones;
+  document.getElementById('gbody').innerHTML=zones.map(function(z){
+    var cells=days.map(function(day){
+      var ds=dateStr(day);
+      var cards=fi.filter(function(i){return i.zone===z.id&&inDay(i,day);}).sort(function(a,b){return(a.priority||3)-(b.priority||3);});
+      var isAdm=currentSession.role==='admin';
+      var oc=isAdm?'openAddPre(&quot;'+z.id+'&quot;,&quot;'+ds+'&quot;)':'';
+      var ch=cards.map(function(i){
+        var tr=cfg.trades.find(function(t){return t.id===i.trade;});
+        var col=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'};
+        var pred=i.predecessor_id?data.find(function(x){return x.id===i.predecessor_id;}):null;
+        var tn=i.task_number||'';
+        var prereqHtml=i.prereq?'<div style="font-size:9px;margin-top:3px;color:#991B1B">⚠ '+i.prereq.slice(0,50)+'</div>':'';
+        var predHtml=pred?'<div style="font-size:9px;margin-top:2px;opacity:.6">↱ '+(pred.task_number||'?')+'</div>':'';
+        return '<div onclick="event.stopPropagation();openDetail(&quot;'+i.id+'&quot;)" style="background:'+col.bg+';border-left:3px solid '+col.b+';color:'+col.t+';border-radius:6px;padding:6px 7px;margin-bottom:4px;cursor:pointer;word-break:break-word">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
+          +'<span class="li-meta" style="font-size:9px;font-weight:700;color:inherit;opacity:.7">'+tn+'</span>'
+          +'<span class="sbadge '+i.status+'" style="font-size:9px;padding:1px 5px">'+SLABEL[i.status]+'</span>'
+          +'</div>'
+          +'<div style="font-size:12px;font-weight:700;margin-bottom:2px">'+i.company+'</div>'
+          +'<div style="font-size:11px;line-height:1.4">'+i.task+'</div>'
+          +prereqHtml+predHtml
+          +'</div>';
+      }).join('');
+      return '<div class="dcell'+(isToday(day)?' today-col':'')+'" onclick="'+oc+'">'+ch+'</div>';
+    }).join('');
+    return '<div class="grow" style="grid-template-columns:'+cols+'"><div class="zlbl" style="min-width:130px;font-size:10px;padding:5px 4px;text-transform:none;letter-spacing:0">'+z.name+'</div>'+cells+'</div>';
+  }).join('');
+  renderZoneFilter();
 }
 
 function renderList(){
