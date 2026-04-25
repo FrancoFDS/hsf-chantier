@@ -460,52 +460,44 @@ function setSyncErr(){const d=document.getElementById('sync-dot');if(d){d.classN
 // ── CHARGEMENT DES DONNÉES (Excel + Supabase merge) ──────────
 async function loadAllData(){
   setSyncing();
-  // 1. Affichage immédiat avec les données Excel
-  const local = mergeExcelData([], [], []);
-  cfg.zones = local.zones;
-  cfg.trades = local.trades;
-  data = local.interventions.map(iv => ({
-    id:iv.id, trade:iv.trade, company:iv.company, task:iv.task,
-    zone:iv.zone, start:iv.start, end:iv.end||iv.start,
-    staff:iv.staff||1, status:iv.status||'arealis', priority:iv.priority||3,
-    prereq:iv.prereq||'', notes:iv.notes||'', progress:iv.progress||0,
-    delay:iv.delay||0, predecessor_id:iv.predecessor_id||null,
-    task_number:iv.task_number||null, ts:''
-  }));
-  render();
-  // 2. Fusion avec Supabase
+  // Source de vérité : les données Excel sont TOUJOURS la base
+  cfg.zones  = EXCEL_ZONES;
+  cfg.trades = EXCEL_TRADES;
+  data = EXCEL_INTERVENTIONS.map(function(iv){
+    return {id:iv.id, trade:iv.trade, company:iv.company, task:iv.task,
+      zone:iv.zone, start:iv.start, end:iv.end||iv.start,
+      staff:iv.staff||1, status:iv.status||'arealis', priority:iv.priority||3,
+      prereq:iv.prereq||'', notes:iv.notes||'', progress:iv.progress||0,
+      delay:iv.delay||0, predecessor_id:iv.predecessor_id||null,
+      task_number:iv.task_number||null, ts:''};
+  });
+  render(); // Affichage immédiat
+
   if(!sb){setSynced();return;}
   try{
-    const [{data:zones},{data:trades},{data:intervs}]=await Promise.all([
-      sb.from('zones').select('*').order('display_order'),
-      sb.from('trades').select('*').order('display_order'),
-      sb.from('interventions').select('*').order('created_at')
-    ]);
-    const merged = mergeExcelData(zones||[], trades||[], (intervs||[]).map(dbToApp));
-    cfg.zones = merged.zones;
-    cfg.trades = merged.trades;
-    data = merged.interventions;
+    // Synchroniser uniquement les mises à jour de statut depuis Supabase
+    var ids = data.map(function(d){return d.id;});
+    var res = await sb.from('interventions').select('id,status').in('id', ids);
+    if(res.data && res.data.length > 0){
+      res.data.forEach(function(row){
+        var local = data.find(function(d){return d.id===row.id;});
+        if(local && row.status) local.status = row.status;
+      });
+    }
+    // Charger aussi les nouvelles interventions ajoutées depuis l'app (pas Excel)
+    var res2 = await sb.from('interventions').select('*').not('id','like','imp_%');
+    if(res2.data && res2.data.length > 0){
+      var existIds = new Set(data.map(function(d){return d.id;}));
+      res2.data.forEach(function(row){
+        if(!existIds.has(row.id)) data.push(dbToApp(row));
+      });
+    }
     setSynced();
     render();
-    // 3. Si Supabase est vide, on le peuple avec les données Excel
-    if((!zones||zones.length===0) && EXCEL_ZONES.length>0){
-      console.log('[HSF] Seeding Supabase with Excel data...');
-      try{
-        await sb.from('zones').upsert(EXCEL_ZONES);
-        await sb.from('trades').upsert(EXCEL_TRADES);
-        const dbIvs = EXCEL_INTERVENTIONS.map(iv=>(({
-          id:iv.id, trade:iv.trade, company:iv.company, task:iv.task,
-          zone:iv.zone, start_date:iv.start, end_date:iv.end||iv.start,
-          staff:iv.staff||1, status:iv.status||'arealis', priority:iv.priority||3,
-          prereq:iv.prereq||'', notes:iv.notes||'', progress:0, delay:0,
-          predecessor_id:iv.predecessor_id||null, task_number:iv.task_number||null,
-          updated_at:new Date().toISOString()
-        })));
-        await sb.from('interventions').upsert(dbIvs);
-        console.log('[HSF] Supabase seeded!');
-      }catch(e2){console.warn('Seed error:',e2);}
-    }
-  }catch(e){setSyncErr();console.warn('DB error, keeping Excel data:',e);}
+  }catch(e){
+    setSyncErr();
+    console.warn('[HSF] Supabase sync error (données Excel utilisées):', e);
+  }
 }
 
 function dbToApp(r){
