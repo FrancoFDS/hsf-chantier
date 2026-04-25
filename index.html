@@ -258,7 +258,7 @@ code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:'DM Mono',
     <input type="hidden" id="f-zone">
     <input type="hidden" id="f-start">
     <input type="hidden" id="f-end">
-    <input type="hidden" id="f-predecessor">
+    <div class="fg"><label class="fl">Predecesseur <span style="font-size:10px;color:var(--xmuted)">(optionnel)</span></label><select class="fs" id="f-predecessor"><option value="">Aucun</option></select></div>
     <input type="hidden" id="f-status" value="arealis">
     <div class="fg">
       <label class="fl">Corps de metier *</label>
@@ -543,7 +543,13 @@ async function loadAllData(){
   }catch(e){setSyncErr();console.error(e);}
 }
 
-function dbToApp(r){return{id:r.id,trade:r.trade,company:r.company,task:r.task,zone:r.zone,start:r.start_date,end:r.end_date,staff:r.staff,status:r.status,priority:r.priority,prereq:r.prereq||'',notes:r.notes||'',ts:r.created_at};}
+function dbToApp(r){
+  return {id:r.id,trade:r.trade,company:r.company,task:r.task,
+    zone:r.zone,start:r.start_date,end:r.end_date,
+    staff:r.staff||1,status:r.status||'arealis',priority:r.priority||3,
+    prereq:r.prereq||'',notes:r.notes||'',progress:r.progress||0,delay:r.delay||0,
+    predecessor_id:r.predecessor_id||null,task_number:r.task_number||null,ts:r.created_at};
+}
 function appToDB(iv){
   return {
     id:iv.id,
@@ -692,7 +698,7 @@ function renderGrid(){
       const visible=cards.slice(0,2),extra=cards.length-2;
       return `<div class="dcell${isToday(day)?' today-col':''}" onclick="openAddPre('${z.id}','${ds}')">
         ${visible.map(i=>`<div class="ic t-${i.trade}" onclick="event.stopPropagation();openDetail('${i.id}')">
-             <span class="co">${i.company.split(' ')[0]}</span>
+             <span style="font-size:9px;font-family:'DM Mono',monospace;opacity:.6;display:block;margin-bottom:1px">${i.task_number||''}</span><span class="co">${i.company.split(' ')[0]}</span>
           <span class="tk">${i.task}</span>
         </div>`).join('')}
         ${extra>0?`<div class="more-badge" onclick="event.stopPropagation();openDayModal('${z.id}','${ds}')">+${extra} autre${extra>1?'s':''}</div>`:''}
@@ -731,16 +737,18 @@ function openDayModal(zoneId,ds){
 
 // ─── ADD MODAL ────────────────────────────────────────────
 function populateFormSelects(){
-  document.getElementById('f-trade').innerHTML='<option value="">Selectionner...</option>'+cfg.trades.map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
-  var cs=document.getElementById('f-company-sel');
-  if(cs){
-    var names=[...new Set(FALLBACK_COMPANIES.map(function(co){return co.name;}))].sort();
-    cs.innerHTML='<option value="">Selectionner une entreprise...</option>'+names.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('')+'<option value="__new__">+ Ajouter une nouvelle entreprise</option>';
-  }
+  document.getElementById('f-trade').innerHTML='<option value="">Selectionner...</option>'+
+    cfg.trades.map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
+  updateDL();
   var ps=document.getElementById('f-predecessor');
   if(ps&&ps.tagName==='SELECT'){
-    var sorted=[...data].sort(function(a,b){return a.start.localeCompare(b.start);});
-    ps.innerHTML='<option value="">Aucune</option>'+sorted.filter(function(i){return i.id!==editId;}).map(function(i){var z=cfg.zones.find(function(x){return x.id===i.zone;});return'<option value="'+i.id+'">'+(i.task_number||'?')+' - '+i.company+' - '+i.task.slice(0,25)+'</option>';}).join('');
+    var list=data.filter(function(i){return i.id!==editId&&i.task_number;})
+      .sort(function(a,b){return(a.task_number||'').localeCompare(b.task_number||'');});
+    ps.innerHTML='<option value="">Aucun</option>'+list.map(function(i){
+      return'<option value="'+i.id+'">'+(i.task_number)+'  —  '+i.company+'  —  '+i.task.slice(0,28)+'</option>';
+    }).join('');
+    var cur=editId?(data.find(function(i){return i.id===editId;})||{}).predecessor_id:null;
+    if(cur)ps.value=cur;
   }
 }
 function openAdd(){
@@ -801,11 +809,28 @@ function generateTaskNumber(company){
 }
 
 async function saveInterv(){
-  const trade=document.getElementById('f-trade').value,company=(function(){var sel=document.getElementById('f-company-sel');var inp=document.getElementById('f-company');if(sel&&sel.value&&sel.value!=='__new__')return sel.value;return inp?inp.value.trim():'';})().trim(),task=document.getElementById('f-task').value.trim(),zone=document.getElementById('f-zone').value,start=document.getElementById('f-start').value;
-  if(!trade||!company||!task){alert('Merci de remplir Corps de metier, Entreprise et Description.');return;}
-  var tn=editId?((data.find(function(i){return i.id===editId;})||{}).task_number||generateTaskNumber(company)):generateTaskNumber(company);
-  const iv={id:editId||Date.now().toString(),trade,company,task,zone,start,end:document.getElementById('f-end').value||start,staff:1,status:document.getElementById('f-status').value,priority:selectedPrio,prereq:document.getElementById('f-prereq').value.trim(),notes:document.getElementById('f-notes').value.trim(),progress:0,delay:0,predecessor_id:document.getElementById('f-predecessor').value||null,task_number:tn};
-  if(editId){const idx=data.findIndex(i=>i.id===editId);if(idx>=0)data[idx]=iv;}else{data.push(iv);}
+  if(!canEdit()){alert('Planning verrouille.');closeAdd();return;}
+  var trade=document.getElementById('f-trade').value;
+  var csel=document.getElementById('f-company-sel');
+  var cinp=document.getElementById('f-company');
+  var company=(csel&&csel.value&&csel.value!=='__new__')?csel.value:(cinp?cinp.value.trim():'');
+  var task=document.getElementById('f-task').value.trim();
+  var zone=document.getElementById('f-zone').value;
+  var start=document.getElementById('f-start').value||dateStr(new Date());
+  if(!trade||!company||!task){alert('Corps de metier, Entreprise et Description requis.');return;}
+  var predEl=document.getElementById('f-predecessor');
+  var predId=predEl?predEl.value||null:null;
+  var prereq=document.getElementById('f-prereq').value.trim();
+  var notes=document.getElementById('f-notes').value.trim();
+  var existIv=editId?data.find(function(i){return i.id===editId;}):null;
+  var taskNum=existIv&&existIv.task_number?existIv.task_number:generateTaskNumber(company);
+  var iv={id:editId||Date.now().toString(),trade:trade,company:company,task:task,
+    zone:zone,start:start,end:document.getElementById('f-end').value||start,
+    staff:1,status:'arealis',priority:selectedPrio||3,
+    prereq:prereq,notes:notes,progress:0,delay:0,
+    predecessor_id:predId,task_number:taskNum};
+  if(editId){var idx2=data.findIndex(function(i){return i.id===editId;});if(idx2>=0)data[idx2]=iv;}
+  else{data.push(iv);}
   closeAdd();render();
   await dbSave(iv);
 }
