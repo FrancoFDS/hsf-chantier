@@ -818,31 +818,35 @@ async function deleteInterv(){
 
 // ─── DETAIL MODAL ─────────────────────────────────────────
 function openDetail(id){
-  const i=data.find(x=>x.id===id);if(!i)return;
-  const tr=cfg.trades.find(x=>x.id===i.trade),c=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'},z=cfg.zones.find(x=>x.id===i.zone);
-  const isAdmin=currentSession.role==='admin';
-  document.getElementById('detail-body').innerHTML=`
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-      <div>
-        <div style="font-size:17px;font-weight:600;margin-bottom:4px">${i.company}</div>
-        <span class="tbadge t-${i.trade}" style="background:${c.bg};border-color:${c.b};color:${c.t}">${tr?tr.name:i.trade}</span>
-      </div>
-      <span class="sbadge ${i.status}">${SLABEL[i.status]}</span>
-    </div>
-    <div style="background:var(--bg);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:14px;border:1px solid var(--border)">${i.task}</div>
-    <div class="dkv">
-      <div class="kv"><div class="kv-l">Zone</div><div class="kv-v">${z?z.name:(i.zone||'—')}</div></div>
-      <div class="kv"><div class="kv-l">Date</div><div class="kv-v" style="font-family:'DM Mono',monospace;font-size:12px">${fmtDate(i.start)}${i.end&&i.end!==i.start?' → '+fmtDate(i.end):''}</div></div>
-    </div>
-    ${i.prereq?`<div class="abox"><b>⚠ Prérequis / Blocage</b><br>${i.prereq}</div>`:''}
-    ${i.notes?`<div class="nbox"><b>Notes</b><br>${i.notes}</div>`:''}
-    <p style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:'DM Mono',monospace">METTRE À JOUR LE STATUT</p>
-    <div class="status-row">
-      ${Object.entries(SLABEL).map(([k,v])=>`<div class="sopt2" style="border-color:${i.status===k?SCOL[k]:'var(--border)'};background:${i.status===k?SCOL[k]+'18':'var(--surface)'};color:${i.status===k?SCOL[k]:'var(--text)'}" onclick="quickStatus('${i.id}','${k}')">
-        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SCOL[k]};margin-right:4px;vertical-align:middle"></span>${v}</div>`).join('')}
-    </div>
-    ${isAdmin?`<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail('${i.id}')">Modifier</button>`:''}
-    <button class="btn-g" onclick="closeDetail()">Fermer</button>`;
+  var i=data.find(function(x){return x.id===id;});if(!i)return;
+  var tr=cfg.trades.find(function(x){return x.id===i.trade;});
+  var col=tr?gc(tr.color):{b:'#ccc',bg:'#f5f5f5',t:'#333'};
+  var z=cfg.zones.find(function(x){return x.id===i.zone;});
+  var isAdmin=currentSession.role==='admin';
+  var pred=i.predecessor_id?data.find(function(x){return x.id===i.predecessor_id;}):null;
+  var html='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">'
+    +'<div>'
+    +'<div style="font-size:17px;font-weight:600">'+(i.company)+'</div>'
+    +(i.task_number?'<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:4px">'+i.task_number+'</div>':'<div style="margin-bottom:4px"></div>')
+    +'<span class="tbadge t-'+i.trade+'" style="background:'+col.bg+';border-color:'+col.b+';color:'+col.t+'">'+(tr?tr.name:i.trade)+'</span>'
+    +'</div>'
+    +'<span class="sbadge '+i.status+'">'+SLABEL[i.status]+'</span>'
+    +'</div>'
+    +'<div style="background:var(--bg);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:14px;border:1px solid var(--border)">'+i.task+'</div>'
+    +'<div class="dkv">'
+    +'<div class="kv"><div class="kv-l">Zone</div><div class="kv-v">'+(z?z.name:(i.zone||'—'))+'</div></div>'
+    +'<div class="kv"><div class="kv-l">Date</div><div class="kv-v" style="font-family:\'DM Mono\',monospace;font-size:12px">'+fmtDate(i.start)+(i.end&&i.end!==i.start?' \u2192 '+fmtDate(i.end):'')+'</div></div>'
+    +'</div>'
+    +(pred?'<div style="background:var(--bg);border-left:3px solid #CA8A04;border-radius:0 var(--rx) var(--rx) 0;padding:8px 11px;margin-bottom:10px;font-size:12px;color:#92400E"><b>Pr\u00e9d\u00e9cesseur : '+(pred.task_number||'?')+'</b><br>'+pred.company+' \u2014 '+pred.task+'</div>':'')
+    +(i.prereq?'<div class="abox"><b>\u26a0 Pr\u00e9requis / Blocage</b><br>'+i.prereq+'</div>':'')
+    +(i.notes?'<div class="nbox"><b>Notes</b><br>'+i.notes+'</div>':'')
+    +'<p style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:\'DM Mono\',monospace">METTRE \u00c0 JOUR LE STATUT</p>'
+    +'<div class="status-row">'
+    +Object.keys(SLABEL).map(function(k){return'<div class="sopt2" style="border-color:'+(i.status===k?SCOL[k]:'var(--border)')+';background:'+(i.status===k?SCOL[k]+'18':'var(--surface)')+';color:'+(i.status===k?SCOL[k]:'var(--text)')+'" onclick="quickStatus(&quot;'+id+'&quot;,&quot;'+k+'&quot;)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+SCOL[k]+';margin-right:4px;vertical-align:middle"></span>'+SLABEL[k]+'</div>';}).join('')
+    +'</div>'
+    +(isAdmin?'<button class="btn-p" style="margin-bottom:6px" onclick="editFromDetail(&quot;'+id+'&quot;)">Modifier</button>':'')
+    +'<button class="btn-g" onclick="closeDetail()">Fermer</button>';
+  document.getElementById('detail-body').innerHTML=html;
   document.getElementById('modal-detail').classList.remove('hidden');
 }
 
