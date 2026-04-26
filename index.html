@@ -1339,7 +1339,7 @@ function SectionCard({ title, children, accent }) {
 /* ════════════════════════════════════════════════════════════
    PLANNING SCREEN (weekly grid)
 ═══════════════════════════════════════════════════════════ */
-function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode }) {
+function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, setZones }) {
   const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const isMulti = weeks > 1;
   const days = multiWeekDays(weekOffset, weeks);
@@ -1551,24 +1551,60 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   );
                 })}
 
-                {/* Deadline cell — working days */}
+                {/* Deadline cell — click to edit deadline */}
                 {(()=>{
                   const wd = workingDaysUntil(zone.deadline);
                   const lbl = wd < 0 ? '▲' : `J-${wd}`;
                   const ds2 = zone.deadline?.slice(5,10).replace('-','/');
-                  return (
+                  const [editing, setEditing] = React.useState(false);
+                  return editing ? (
                     <div style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
-                      alignItems:'center',justifyContent:'center',padding:'2px 1px',
-                      background:`${dc}12`,minHeight:isMulti?44:56}}>
+                      alignItems:'center',justifyContent:'center',padding:'3px 2px',
+                      background:`${dc}18`,minHeight:isMulti?44:56}}>
+                      <input
+                        type="date"
+                        defaultValue={zone.deadline||''}
+                        autoFocus
+                        onBlur={e => {
+                          const val = e.target.value;
+                          if (val && val !== zone.deadline) {
+                            const updated = {...zone, deadline: val};
+                            setZones(prev => prev.map(z => z.id===zone.id ? updated : z));
+                            if (window._supaWrite) window._supaWrite('PATCH','zones',{deadline:val},'id=eq.'+zone.id);
+                          }
+                          setEditing(false);
+                        }}
+                        onKeyDown={e => { if(e.key==='Escape') setEditing(false); }}
+                        style={{width:'100%',border:'none',background:'transparent',
+                          fontSize:7,fontFamily:"'DM Mono',monospace",color:dc,
+                          textAlign:'center',cursor:'pointer',outline:'none',padding:'1px'}}
+                      />
+                      <span style={{fontSize:6,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",lineHeight:1}}>
+                        ↵ valider
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={isAdmin ? ()=>setEditing(true) : undefined}
+                      title={isAdmin ? 'Cliquer pour modifier la date de fin' : undefined}
+                      style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
+                        alignItems:'center',justifyContent:'center',padding:'2px 1px',
+                        background:`${dc}12`,minHeight:isMulti?44:56,
+                        cursor:isAdmin?'pointer':'default',
+                        transition:'background .15s'}}
+                      onMouseEnter={e=>{if(isAdmin)e.currentTarget.style.background=`${dc}25`;}}
+                      onMouseLeave={e=>{e.currentTarget.style.background=`${dc}12`;}}>
                       <span style={{fontSize:isMulti?7.5:8.5,fontWeight:800,color:dc,
                         fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.15,
                         whiteSpace:'nowrap',letterSpacing:'-.01em'}}>
-                        {lbl}
+                        {zone.deadline ? lbl : '—'}
                       </span>
                       <span style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",
                         marginTop:2,textAlign:'center',lineHeight:1,whiteSpace:'nowrap'}}>
-                        {ds2}
+                        {ds2||'ajouter'}
                       </span>
+                      {isAdmin && <span style={{fontSize:5.5,color:dc,opacity:.5,marginTop:1,
+                        fontFamily:"'DM Mono',monospace",lineHeight:1}}>✎</span>}
                     </div>
                   );
                 })()}
@@ -2230,7 +2266,8 @@ function PlanifyApp() {
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
       case 'planning':  return <PlanningScreen  data={data} zones={zones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
-        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} />;
+        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode}
+        setZones={setZones} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades}
         weekOffset={weekOffset} filter={filter} onOpenDetail={openDetail} />;
       case 'settings':  return <SettingsScreen  zones={zones} trades={trades}
