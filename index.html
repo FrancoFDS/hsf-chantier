@@ -1253,83 +1253,334 @@ function LoginScreen({ onLogin }) {
    DASHBOARD SCREEN
 ═══════════════════════════════════════════════════════════ */
 function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetail }) {
+  const isAdmin = session?.role === 'admin';
+  const company = session?.company;
+
+  // Filter data per role
+  const myData = isAdmin ? data : data.filter(i => i.company === company?.name);
+
+  // Stats (global for admin, filtered for company)
+  const total    = myData.length;
+  const blocked  = myData.filter(i => i.status === 'bloque');
+  const encours  = myData.filter(i => i.status === 'encours');
+  const prereqs  = myData.filter(i => i.prereq && i.prereq.trim() !== '' && i.status !== 'termine');
+  const termine  = myData.filter(i => i.status === 'termine');
+  const pctDone  = total ? Math.round(termine.length / total * 100) : 0;
+
+  // Drawer state: which stat is expanded
+  const [drawer, setDrawer] = React.useState(null); // 'bloque'|'encours'|'prereq'|'avance'
+
+  function toggleDrawer(key) { setDrawer(d => d === key ? null : key); }
+
+  // Task row helper
+  function TaskRow({ iv }) {
+    const z  = zones.find(x => x.id === iv.zone);
+    const tr = trades.find(x => x.id === iv.trade);
+    const c  = getTC(tr?.color || 'navy');
+    return (
+      <div onClick={() => onOpenDetail(iv.id)}
+        style={{display:'flex',gap:10,padding:'10px 0',borderBottom:'1px solid var(--border)',
+          cursor:'pointer',alignItems:'flex-start',transition:'opacity .12s'}}
+        onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
+        onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+        <div style={{width:3,alignSelf:'stretch',borderRadius:2,background:c.b,flexShrink:0}}></div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+            <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{iv.company}</span>
+            {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,
+              color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 4px',
+              borderRadius:3,border:'1px solid var(--border)'}}>{iv.task_number}</span>}
+            <StatusBadge status={iv.status} size="sm" style={{marginLeft:'auto'}} />
+          </div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:iv.prereq?3:0,
+            overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>
+            {iv.task}
+          </div>
+          {iv.prereq && iv.prereq.trim() && (
+            <div style={{fontSize:10,color:'#DC2626',background:'#FEF2F2',
+              padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:3}}>
+              ⚠ {iv.prereq}
+            </div>
+          )}
+          <div style={{display:'flex',gap:8,marginTop:4,alignItems:'center'}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
+              {fmtDate(iv.start)}{iv.end && iv.end !== iv.start ? ' → '+fmtDate(iv.end) : ''}
+            </span>
+            {z && <span style={{fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',
+              padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>{z.short}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Collapsible drawer
+  function StatDrawer({ items, color, label }) {
+    if (!items.length) return <div style={{padding:'12px 0',fontSize:12,color:'var(--muted)',textAlign:'center'}}>
+      Aucune tâche
+    </div>;
+    return (
+      <div style={{marginTop:4}}>
+        {items.map(iv => <TaskRow key={iv.id} iv={iv} />)}
+      </div>
+    );
+  }
+
+  // ── ADMIN VIEW ─────────────────────────────────────────────────────────
+  if (isAdmin) {
+    // Per-company stats
+    const companies = [...new Set(data.map(i => i.company))].sort();
+    const companyStats = companies.map(co => ({
+      name: co,
+      total:   data.filter(i => i.company === co).length,
+      encours: data.filter(i => i.company === co && i.status === 'encours').length,
+      bloque:  data.filter(i => i.company === co && i.status === 'bloque').length,
+      termine: data.filter(i => i.company === co && i.status === 'termine').length,
+    }));
+
+    // Next 5 working days tasks
+    const soon = data.filter(i => {
+      const s = new Date(i.start+'T00:00:00'), now = new Date();
+      const diff = (s - now) / (1000*60*60*24);
+      return diff >= 0 && diff <= 7 && i.status === 'arealis';
+    }).sort((a,b) => a.start.localeCompare(b.start)).slice(0, 8);
+
+    return (
+      <div style={{padding:'14px 12px 100px',overflowY:'auto',height:'100%'}}>
+
+        {/* ── 4 stat chips ── */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:14}}>
+          <StatChip value={blocked.length}  label="Bloquées"  color="#DC2626"
+            onClick={() => toggleDrawer('bloque')} />
+          <StatChip value={encours.length}  label="En cours"  color="#2563EB"
+            onClick={() => toggleDrawer('encours')} />
+          <StatChip value={prereqs.length}  label="Prérequis" color="#D97706"
+            onClick={() => toggleDrawer('prereq')} />
+          <StatChip value={`${pctDone}%`}   label="Avancement" color="#16A34A"
+            onClick={() => toggleDrawer('avance')} />
+        </div>
+
+        {/* ── Stat drawer ── */}
+        {drawer && (
+          <SectionCard
+            title={drawer==='bloque'?`Bloquées (${blocked.length})`:
+                   drawer==='encours'?`En cours (${encours.length})`:
+                   drawer==='prereq'?`Avec prérequis (${prereqs.length})`:
+                   `Terminées (${termine.length})`}
+            accent={drawer==='bloque'?'#DC2626':drawer==='encours'?'#2563EB':
+                    drawer==='prereq'?'#D97706':'#16A34A'}>
+            <StatDrawer
+              items={drawer==='bloque'?blocked:drawer==='encours'?encours:
+                     drawer==='prereq'?prereqs:termine}
+              color={drawer==='bloque'?'#DC2626':drawer==='encours'?'#2563EB':
+                     drawer==='prereq'?'#D97706':'#16A34A'} />
+          </SectionCard>
+        )}
+
+        {/* ── Avancement par zone ── */}
+        <SectionCard title="Avancement par zone">
+          {zones.map(z => {
+            const zivs = data.filter(i => i.zone === z.id);
+            const done = zivs.filter(i => i.status === 'termine').length;
+            const bloc = zivs.filter(i => i.status === 'bloque').length;
+            const pct  = zivs.length ? Math.round(done / zivs.length * 100) : 0;
+            const wd   = workingDaysUntil(z.deadline);
+            const dc   = deadlineColor(z.deadline);
+            return (
+              <div key={z.id} style={{marginBottom:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7}}>
+                    <span style={{width:8,height:8,borderRadius:'50%',background:FLOOR_COLORS[z.floor]||'#9CA3AF',flexShrink:0,display:'inline-block'}}></span>
+                    <span style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</span>
+                    {bloc > 0 && <span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>⚠ {bloc} bloquée{bloc>1?'s':''}</span>}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{done}/{zivs.length}</span>
+                    {z.deadline && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:dc}}>
+                      J-{wd < 0 ? '▲' : wd}
+                    </span>}
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,
+                      color:pct===100?'#16A34A':bloc>0?'#DC2626':'var(--muted)'}}>{pct}%</span>
+                  </div>
+                </div>
+                <div style={{height:6,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${pct}%`,
+                    background:pct===100?'#16A34A':bloc>0?'#DC2626':'#2563EB',
+                    borderRadius:3,transition:'width .4s ease'}}></div>
+                </div>
+              </div>
+            );
+          })}
+        </SectionCard>
+
+        {/* ── Avancement par entreprise ── */}
+        <SectionCard title="Avancement par entreprise">
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+              <thead>
+                <tr style={{borderBottom:'2px solid var(--border)'}}>
+                  {['Entreprise','Total','✓ Term.','▶ En cours','⚠ Bloqué','○ À réal.','%'].map(h => (
+                    <th key={h} style={{padding:'4px 6px',textAlign:h==='Entreprise'?'left':'center',
+                      fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--muted)',
+                      letterSpacing:'.04em',fontWeight:700,whiteSpace:'nowrap'}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {companyStats.map((co,i) => {
+                  const arealis = co.total - co.encours - co.bloque - co.termine;
+                  const pct = co.total ? Math.round(co.termine / co.total * 100) : 0;
+                  const tr = trades.find(t => data.find(d => d.company===co.name && d.trade===t.id));
+                  const c = getTC(tr?.color || 'navy');
+                  return (
+                    <tr key={co.name} style={{borderBottom:'1px solid var(--border)',
+                      background:i%2===0?'transparent':'var(--surface-2)'}}>
+                      <td style={{padding:'7px 6px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <span style={{width:8,height:8,borderRadius:'50%',background:c.b,flexShrink:0,display:'inline-block'}}></span>
+                          <span style={{fontWeight:600,color:'var(--text)',fontSize:12}}>{co.name}</span>
+                        </div>
+                      </td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{co.total}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#16A34A',fontWeight:co.termine?700:400}}>{co.termine||'—'}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#2563EB',fontWeight:co.encours?700:400}}>{co.encours||'—'}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#DC2626',fontWeight:co.bloque?700:400}}>{co.bloque||'—'}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{arealis||'—'}</td>
+                      <td style={{textAlign:'center',padding:'7px 6px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:4}}>
+                          <div style={{flex:1,height:4,background:'var(--border)',borderRadius:2,overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${pct}%`,background:pct===100?'#16A34A':'#2563EB',borderRadius:2}}></div>
+                          </div>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',minWidth:28,textAlign:'right'}}>{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+
+        {/* ── Prochaines tâches à démarrer ── */}
+        {soon.length > 0 && (
+          <SectionCard title="Prochaines échéances (à réaliser)">
+            {soon.map(iv => <TaskRow key={iv.id} iv={iv} />)}
+          </SectionCard>
+        )}
+      </div>
+    );
+  }
+
+  // ── COMPANY VIEW ───────────────────────────────────────────────────────
   const days = weekDays(weekOffset);
-  const weekIvs = data.filter(i => days.some(d => inDay(i, d)));
-  const stats = {
-    total:   weekIvs.length,
-    encours: weekIvs.filter(i=>i.status==='encours').length,
-    bloque:  weekIvs.filter(i=>i.status==='bloque').length,
-    termine: weekIvs.filter(i=>i.status==='termine').length,
+  const weekIvs = myData.filter(i => days.some(d => inDay(i, d)));
+  const byStatus = {
+    bloque:  myData.filter(i => i.status === 'bloque'),
+    encours: myData.filter(i => i.status === 'encours'),
+    arealis: myData.filter(i => i.status === 'arealis'),
+    termine: myData.filter(i => i.status === 'termine'),
   };
-  const blocked = data.filter(i=>i.status==='bloque');
-  const upcoming = data.filter(i=>{
-    const s=new Date(i.start+'T00:00:00'),now=new Date();
-    const diff=(s-now)/(1000*60*60*24);
-    return diff>0&&diff<=7&&i.status!=='termine';
-  }).sort((a,b)=>a.start.localeCompare(b.start)).slice(0,5);
+
+  // 3-week timeline for this company
+  const timelineDays = multiWeekDays(weekOffset, 3);
+  const timelineIvs  = myData.filter(i =>
+    timelineDays.some(d => inDay(i, d)) && i.status !== 'termine'
+  );
 
   return (
-    <div style={{padding:'16px 14px 100px',overflowY:'auto',height:'100%'}}>
-      {/* Stats row */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:16}}>
-        <StatChip value={stats.total}   label="Semaine"  color="var(--text)"    />
-        <StatChip value={stats.encours} label="En cours" color="#2563EB"        />
-        <StatChip value={stats.bloque}  label="Bloquées" color="#DC2626"        />
-        <StatChip value={stats.termine} label="Terminées" color="#16A34A"       />
+    <div style={{padding:'14px 12px 100px',overflowY:'auto',height:'100%'}}>
+
+      {/* ── 4 stat chips ── */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:14}}>
+        <StatChip value={byStatus.bloque.length}  label="Bloquées"  color="#DC2626"
+          onClick={() => toggleDrawer('bloque')} />
+        <StatChip value={byStatus.encours.length} label="En cours"  color="#2563EB"
+          onClick={() => toggleDrawer('encours')} />
+        <StatChip value={prereqs.length}          label="Prérequis" color="#D97706"
+          onClick={() => toggleDrawer('prereq')} />
+        <StatChip value={`${pctDone}%`}           label="Avancement" color="#16A34A"
+          onClick={() => toggleDrawer('avance')} />
       </div>
 
-      {/* Zone progress */}
-      <SectionCard title="Avancement par zone">
-        {zones.map(z => <ZoneProgressBar key={z.id} zone={z} interventions={data} />)}
-      </SectionCard>
-
-      {/* Blocages */}
-      {blocked.length > 0 && (
-        <SectionCard title={`Points bloquants (${blocked.length})`} accent="#DC2626">
-          {blocked.map(iv => {
-            const z = zones.find(x=>x.id===iv.zone);
-            return (
-              <div key={iv.id} onClick={()=>onOpenDetail(iv.id)}
-                style={{display:'flex',gap:10,padding:'9px 0',borderBottom:'1px solid var(--border)',
-                  cursor:'pointer',alignItems:'flex-start'}}
-                onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
-                onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                <span style={{flexShrink:0,color:'#DC2626',fontSize:12,marginTop:1}}>⚠</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:1}}>{iv.company}</div>
-                  <div style={{fontSize:11,color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
-                  {iv.prereq && <div style={{fontSize:10,color:'#DC2626',marginTop:2}}>{iv.prereq}</div>}
-                </div>
-                <TradeBadge tradeId={iv.trade} trades={trades} />
-              </div>
-            );
-          })}
+      {/* ── Stat drawer ── */}
+      {drawer && (
+        <SectionCard
+          title={drawer==='bloque'?`Mes tâches bloquées (${byStatus.bloque.length})`:
+                 drawer==='encours'?`En cours (${byStatus.encours.length})`:
+                 drawer==='prereq'?`Prérequis actifs (${prereqs.length})`:
+                 `Terminées (${byStatus.termine.length})`}
+          accent={drawer==='bloque'?'#DC2626':drawer==='encours'?'#2563EB':
+                  drawer==='prereq'?'#D97706':'#16A34A'}>
+          <StatDrawer items={drawer==='bloque'?byStatus.bloque:drawer==='encours'?byStatus.encours:
+                             drawer==='prereq'?prereqs:byStatus.termine} />
         </SectionCard>
       )}
 
-      {/* Upcoming */}
-      {upcoming.length > 0 && (
-        <SectionCard title="À venir cette semaine">
-          {upcoming.map(iv => {
-            const z = zones.find(x=>x.id===iv.zone);
-            return (
-              <div key={iv.id} onClick={()=>onOpenDetail(iv.id)}
-                style={{display:'flex',gap:10,padding:'9px 0',borderBottom:'1px solid var(--border)',
-                  cursor:'pointer',alignItems:'flex-start'}}
-                onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
-                onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                <div style={{flexShrink:0,fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',
-                  marginTop:2,minWidth:32}}>{fmtDate(iv.start).slice(0,5)}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:1}}>{iv.company}</div>
-                  <div style={{fontSize:11,color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
-                </div>
-                <StatusBadge status={iv.status} size="sm" />
-              </div>
-            );
-          })}
+      {/* ── Tâches cette semaine ── */}
+      {weekIvs.length > 0 && (
+        <SectionCard title={`Cette semaine — ${weekIvs.length} tâche${weekIvs.length>1?'s':''}`}>
+          {weekIvs.sort((a,b) => a.start.localeCompare(b.start))
+                  .map(iv => <TaskRow key={iv.id} iv={iv} />)}
         </SectionCard>
       )}
+      {weekIvs.length === 0 && (
+        <SectionCard title="Cette semaine">
+          <div style={{padding:'16px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>
+            Aucune tâche planifiée cette semaine
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ── Planning 3 semaines ── */}
+      {timelineIvs.length > 0 && (
+        <SectionCard title="Planning — 3 prochaines semaines">
+          {timelineIvs
+            .sort((a,b) => a.start.localeCompare(b.start))
+            .map(iv => {
+              const z = zones.find(x => x.id === iv.zone);
+              const tr = trades.find(x => x.id === iv.trade);
+              const c = getTC(tr?.color || 'navy');
+              return (
+                <div key={iv.id} onClick={() => onOpenDetail(iv.id)}
+                  style={{display:'flex',gap:10,padding:'9px 0',
+                    borderBottom:'1px solid var(--border)',cursor:'pointer'}}
+                  onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
+                  onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                  <div style={{flexShrink:0,textAlign:'center',minWidth:36}}>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:c.b}}>
+                      {fmtDate(iv.start).slice(0,5)}
+                    </div>
+                    {iv.end && iv.end !== iv.start && <div style={{fontFamily:"'DM Mono',monospace",
+                      fontSize:9,color:'var(--xmuted)'}}>→ {fmtDate(iv.end).slice(0,5)}</div>}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:1,
+                      overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>
+                      {iv.task}
+                    </div>
+                    {z && <span style={{fontSize:10,color:'var(--xmuted)'}}>{z.name}</span>}
+                  </div>
+                  <StatusBadge status={iv.status} size="sm" />
+                </div>
+              );
+            })}
+        </SectionCard>
+      )}
+
+      {/* ── Toutes mes tâches par statut ── */}
+      {['bloque','encours','arealis','termine'].map(st => {
+        const items = byStatus[st];
+        if (!items.length) return null;
+        const labels = {bloque:'Bloquées',encours:'En cours',arealis:'À réaliser',termine:'Terminées'};
+        const colors = {bloque:'#DC2626',encours:'#2563EB',arealis:'var(--muted)',termine:'#16A34A'};
+        return (
+          <SectionCard key={st} title={`${labels[st]} (${items.length})`} accent={colors[st]}>
+            {items.sort((a,b) => a.start.localeCompare(b.start))
+                  .map(iv => <TaskRow key={iv.id} iv={iv} />)}
+          </SectionCard>
+        );
+      })}
     </div>
   );
 }
