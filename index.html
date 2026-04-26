@@ -2156,100 +2156,365 @@ const miniBtn = {padding:'5px 10px',borderRadius:'var(--r-xs)',border:'1px solid
 ═══════════════════════════════════════════════════════════ */
 function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit }) {
   const iv = data.find(x=>x.id===ivId);
+  const [tab, setTab] = React.useState('detail');
+  // Local task logs (in-memory for test — will be Supabase later)
+  const [logs, setLogs] = React.useState({});
+  const [logType, setLogType] = React.useState('note');
+  const [logMsg, setLogMsg]   = React.useState('');
+  const [logPhoto, setLogPhoto] = React.useState(null); // base64
+  const [mentions, setMentions] = React.useState(['Admin']);
+  const [photoExpanded, setPhotoExpanded] = React.useState(null);
+  const fileRef = React.useRef();
+  const cameraRef = React.useRef();
+
+  React.useEffect(() => { setTab('detail'); setLogMsg(''); setLogPhoto(null); }, [ivId]);
+
   if (!iv) return null;
-  const z  = zones.find(x=>x.id===iv.zone);
-  const tr = trades.find(t=>t.id===iv.trade);
-  const c  = getTC(tr?.color||'blue');
+  const z   = zones.find(x=>x.id===iv.zone);
+  const tr  = trades.find(t=>t.id===iv.trade);
+  const c   = getTC(tr?.color||'blue');
   const pred = iv.predecessor_id ? data.find(x=>x.id===iv.predecessor_id) : null;
+
+  const isAdmin   = session?.role === 'admin';
+  const myCompany = session?.company?.name || '';
+  const isOwner   = isAdmin || iv.company === myCompany;
+
+  // All unique company names for mention picker
+  const allCompanies = ['Admin', ...new Set(COMPANIES.map(c=>c.name))].filter(Boolean);
+
+  // Log types config
+  const LOG_TYPES = {
+    note:        { icon:'📝', label:'Note',        color:'#6B7280', bg:'var(--surface-2)',     hasMention:true },
+    encours:     { icon:'🔵', label:'En cours',   color:'#2563EB', bg:'rgba(37,99,235,.08)',  hasMention:true },
+    signalement: { icon:'⚠️', label:'Signalement', color:'#D97706', bg:'rgba(217,119,6,.08)',  hasMention:true },
+    bloque:      { icon:'🔴', label:'Blocage',     color:'#DC2626', bg:'rgba(220,38,38,.08)',  hasMention:true },
+    termine:     { icon:'✅', label:'Terminé',     color:'#16A34A', bg:'rgba(22,163,74,.08)',  hasMention:true },
+  };
+
+  const ivLogs = logs[iv.id] || [];
+
+  function handlePhoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setLogPhoto(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  function submitLog() {
+    if (!logMsg.trim() && !logPhoto) return;
+    const now = new Date();
+    const entry = {
+      id: Date.now().toString(),
+      type: logType,
+      message: logMsg.trim(),
+      photo: logPhoto,
+      mentions: LOG_TYPES[logType].hasMention ? mentions : [],
+      author: isAdmin ? 'Admin' : myCompany,
+      created_at: now.toISOString(),
+      dateLabel: now.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'}),
+      timeLabel: now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}),
+    };
+    setLogs(prev => ({ ...prev, [iv.id]: [entry, ...(prev[iv.id]||[])] }));
+    // Auto-change status for blocage/terminé
+    if (logType === 'bloque')  onStatusChange(iv.id, 'bloque');
+    if (logType === 'termine') onStatusChange(iv.id, 'termine');
+    if (logType === 'encours') onStatusChange(iv.id, 'encours');
+    setLogMsg(''); setLogPhoto(null); setMentions(['Admin']);
+  }
+
+  function toggleMention(name) {
+    if (name === 'Admin') return; // always keep admin
+    setMentions(m => m.includes(name) ? m.filter(x=>x!==name) : [...m, name]);
+  }
+
+  const cfg = LOG_TYPES[logType];
 
   return (
     <SheetModal open={open} onClose={onClose}>
-      {/* Trade color accent strip */}
+      {/* Color accent strip */}
       <div style={{height:4,background:c.b,margin:'-18px -18px 18px',borderRadius:'4px 4px 0 0'}}></div>
 
       {/* Header */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
         <div>
           <div style={{fontSize:19,fontWeight:700,color:'var(--text)',marginBottom:3}}>{iv.company}</div>
-          {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{iv.task_number}</span>}
+          {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{iv.task_number}</span>}
         </div>
         <StatusBadge status={iv.status} />
       </div>
       <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
 
-      {/* Task */}
-      <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-        padding:'11px 13px',margin:'12px 0',fontSize:14,color:'var(--text)',lineHeight:1.5}}>{iv.task}</div>
-
-      {/* KV grid */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
-        {[
-          {l:'Zone',  v: z?.name||iv.zone},
-          {l:'Dates', v: fmtDate(iv.start)+(iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''), mono:true},
-        ].map(kv=>(
-          <div key={kv.l} style={{background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:'9px 11px',
-            border:'1px solid var(--border)'}}>
-            <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,fontFamily:"'DM Mono',monospace"}}>{kv.l}</div>
-            <div style={{fontSize:12,fontWeight:600,color:'var(--text)',
-              fontFamily:kv.mono?"'DM Mono',monospace":undefined}}>{kv.v}</div>
-          </div>
-        ))}
-      </div>
-
-      {pred&&<div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',borderRadius:'0 6px 6px 0',
-        padding:'8px 12px',marginBottom:10,fontSize:12}}>
-        <b>Prédécesseur : {pred.task_number}</b><br/>
-        <span style={{color:'var(--muted)'}}>{pred.company} — {pred.task}</span>
-      </div>}
-
-      {iv.prereq&&<div style={{background:'rgba(220,38,38,.1)',borderLeft:'3px solid #DC2626',
-        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#991B1B'}}>
-        <b>⚠ Prérequis</b><br/>{iv.prereq}
-      </div>}
-      {iv.notes&&<div style={{background:'rgba(22,163,74,.08)',borderLeft:'3px solid #16A34A',
-        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'var(--text)'}}>
-        <b>Notes</b><br/>{iv.notes}
-      </div>}
-
-      {/* Attachments */}
-      {iv.attachments&&iv.attachments.length>0&&(
-        <div style={{marginBottom:12}}>
-          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
-            fontFamily:"'DM Mono',monospace",marginBottom:8}}>Pièces jointes</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-            {iv.attachments.map(f=>(
-              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
-                style={{display:'flex',alignItems:'center',gap:5,padding:'5px 9px',
-                  background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',
-                  fontSize:12,color:'var(--text)',textDecoration:'none'}}>
-                <span>{f.type==='application/pdf'?'📄':'🖼'}</span>
-                <span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Status update */}
-      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
-        fontFamily:"'DM Mono',monospace",marginBottom:8}}>Mettre à jour le statut</div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
-        {Object.entries(STATUS_META).map(([k,m])=>(
-          <button key={k} onClick={()=>onStatusChange(iv.id,k)}
-            style={{padding:'9px 6px',borderRadius:'var(--r-sm)',border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
-              background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',fontSize:12,fontWeight:500,
-              color:iv.status===k?m.text:'var(--text)',display:'flex',alignItems:'center',justifyContent:'center',
-              gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
-            <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
-            {m.label}
+      {/* Tabs */}
+      <div style={{display:'flex',borderBottom:'2px solid var(--border)',margin:'14px 0 16px',gap:2}}>
+        {[{k:'detail',l:'Détail'},{k:'suivi',l:`Suivi${ivLogs.length?` (${ivLogs.length})`:''}`}].map(t=>(
+          <button key={t.k} onClick={()=>setTab(t.k)}
+            style={{flex:1,padding:'9px 4px',background:'transparent',border:'none',cursor:'pointer',
+              fontSize:13,fontWeight:600,
+              color:tab===t.k?'var(--primary)':' var(--muted)',
+              borderBottom:`2px solid ${tab===t.k?'var(--primary)':`transparent`}`,
+              marginBottom:-2,fontFamily:"'DM Sans',sans-serif",transition:'color .15s'}}>
+            {t.l}
           </button>
         ))}
       </div>
 
-      {session?.role==='admin'&&(
-        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l'intervention</button>
+      {/* ── TAB: DETAIL ─────────────────────────────────────── */}
+      {tab==='detail' && <>
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
+          padding:'11px 13px',marginBottom:12,fontSize:14,color:'var(--text)',lineHeight:1.5}}>{iv.task}</div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
+          {[
+            {l:'Zone',  v:z?.name||iv.zone},
+            {l:'Dates', v:fmtDate(iv.start)+(iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''),mono:true},
+          ].map(kv=>(
+            <div key={kv.l} style={{background:'var(--surface-2)',borderRadius:'var(--r-sm)',
+              padding:'9px 11px',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,fontFamily:"'DM Mono',monospace"}}>{kv.l}</div>
+              <div style={{fontSize:12,fontWeight:600,color:'var(--text)',
+                fontFamily:kv.mono?"'DM Mono',monospace":undefined}}>{kv.v}</div>
+            </div>
+          ))}
+        </div>
+
+        {pred && <div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',
+          borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12}}>
+          <b>Prédécesseur : {pred.task_number}</b><br/>
+          <span style={{color:'var(--muted)'}}>{pred.company} — {pred.task}</span>
+        </div>}
+        {iv.prereq && <div style={{background:'rgba(220,38,38,.1)',borderLeft:'3px solid #DC2626',
+          borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#991B1B'}}>
+          <b>⚠ Prérequis</b><br/>{iv.prereq}
+        </div>}
+        {iv.notes && <div style={{background:'rgba(22,163,74,.08)',borderLeft:'3px solid #16A34A',
+          borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12}}>
+          <b>Notes</b><br/>{iv.notes}
+        </div>}
+
+        {/* Attachments */}
+        {iv.attachments&&iv.attachments.length>0&&(
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
+              textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>Pièces jointes</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {iv.attachments.map(f=>(
+                <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
+                  style={{display:'flex',alignItems:'center',gap:5,padding:'5px 9px',
+                    background:'var(--surface-2)',border:'1px solid var(--border)',
+                    borderRadius:'var(--r-xs)',fontSize:12,color:'var(--text)',textDecoration:'none'}}>
+                  <span>{f.type==='application/pdf'?'📄':'🖼'}</span>
+                  <span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Status update */}
+        <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
+          textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
+          Mettre à jour le statut
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
+          {Object.entries(STATUS_META).map(([k,m])=>(
+            <button key={k} onClick={()=>onStatusChange(iv.id,k)}
+              style={{padding:'9px 6px',borderRadius:'var(--r-sm)',
+                border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
+                background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',
+                fontSize:12,fontWeight:500,color:iv.status===k?m.text:'var(--text)',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
+              <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {isAdmin && <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l'intervention</button>}
+        <button onClick={onClose} style={btnSecStyle}>Fermer</button>
+      </>}
+
+      {/* ── TAB: SUIVI ──────────────────────────────────────── */}
+      {tab==='suivi' && <>
+
+        {/* Log type selector — only if owner or admin */}
+        {isOwner && (
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
+              textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
+              Type d'entrée
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
+              {Object.entries(LOG_TYPES).map(([k,t])=>(
+                <button key={k} onClick={()=>setLogType(k)}
+                  style={{padding:'7px 11px',borderRadius:20,border:`1.5px solid ${logType===k?t.color:'var(--border)'}`,
+                    background:logType===k?t.bg:'var(--surface)',cursor:'pointer',
+                    fontSize:12,fontWeight:600,color:logType===k?t.color:'var(--muted)',
+                    display:'flex',alignItems:'center',gap:5,transition:'all .15s',
+                    fontFamily:"'DM Sans',sans-serif"}}>
+                  <span>{t.icon}</span>{t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Message */}
+            <textarea
+              value={logMsg}
+              onChange={e=>setLogMsg(e.target.value)}
+              placeholder={`${cfg.icon} ${cfg.label} — votre message...`}
+              style={{width:'100%',padding:'11px 12px',border:'1.5px solid var(--border)',
+                borderRadius:'var(--r-sm)',fontSize:14,fontFamily:"'DM Sans',sans-serif",
+                color:'var(--text)',background:'var(--surface)',resize:'vertical',
+                minHeight:80,marginBottom:10,transition:'border-color .15s'}}
+              onFocus={e=>e.target.style.borderColor=cfg.color}
+              onBlur={e=>e.target.style.borderColor='var(--border)'}
+            />
+
+            {/* Photo preview */}
+            {logPhoto && (
+              <div style={{marginBottom:10,position:'relative',display:'inline-block'}}>
+                <img src={logPhoto} alt="photo" onClick={()=>setPhotoExpanded(logPhoto)}
+                  style={{height:80,borderRadius:'var(--r-sm)',border:'1px solid var(--border)',
+                    cursor:'zoom-in',objectFit:'cover'}} />
+                <button onClick={()=>setLogPhoto(null)}
+                  style={{position:'absolute',top:-6,right:-6,width:20,height:20,borderRadius:'50%',
+                    background:'#DC2626',color:'#fff',border:'none',cursor:'pointer',
+                    fontSize:11,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+              </div>
+            )}
+
+            {/* Photo / Camera buttons */}
+            <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+              <input ref={fileRef} type="file" accept="image/*"
+                style={{display:'none'}} onChange={handlePhoto} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment"
+                style={{display:'none'}} onChange={handlePhoto} />
+              <button onClick={()=>cameraRef.current?.click()}
+                style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',
+                  border:'1.5px solid var(--border)',borderRadius:'var(--r-sm)',
+                  background:'var(--surface)',cursor:'pointer',fontSize:12,
+                  fontWeight:500,color:'var(--text)',fontFamily:"'DM Sans',sans-serif"}}>
+                📷 Appareil photo
+              </button>
+              <button onClick={()=>fileRef.current?.click()}
+                style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',
+                  border:'1.5px solid var(--border)',borderRadius:'var(--r-sm)',
+                  background:'var(--surface)',cursor:'pointer',fontSize:12,
+                  fontWeight:500,color:'var(--text)',fontFamily:"'DM Sans',sans-serif"}}>
+                🖼 Choisir image
+              </button>
+            </div>
+
+            {/* Mention picker */}
+            {cfg.hasMention && (
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
+                  textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:7}}>
+                  Notifier
+                </div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                  {allCompanies.map(name => {
+                    const selected = mentions.includes(name);
+                    const isFixed  = name === 'Admin';
+                    return (
+                      <button key={name} onClick={()=>toggleMention(name)}
+                        style={{padding:'5px 10px',borderRadius:20,fontSize:11,fontWeight:600,
+                          border:`1.5px solid ${selected?'var(--primary)':' var(--border)'}`,
+                          background:selected?'var(--primary-l)':' var(--surface)',
+                          color:selected?'var(--primary)':' var(--muted)',
+                          cursor:isFixed?'default':'pointer',
+                          opacity:isFixed?1:1,fontFamily:"'DM Sans',sans-serif"}}>
+                        {isFixed ? '🔒 Admin' : name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button onClick={submitLog}
+              disabled={!logMsg.trim() && !logPhoto}
+              style={{width:'100%',padding:'12px',borderRadius:'var(--r-sm)',border:'none',
+                background:(!logMsg.trim()&&!logPhoto)?'var(--border)':cfg.color,
+                color:'#fff',fontSize:14,fontWeight:700,cursor:(!logMsg.trim()&&!logPhoto)?'not-allowed':'pointer',
+                fontFamily:"'DM Sans',sans-serif",display:'flex',alignItems:'center',
+                justifyContent:'center',gap:8,transition:'background .15s'}}>
+              {cfg.icon} Enregistrer
+            </button>
+          </div>
+        )}
+
+        {/* ── Historique ── */}
+        <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
+          textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:10}}>
+          Historique {ivLogs.length > 0 ? `(${ivLogs.length})` : ''}
+        </div>
+
+        {ivLogs.length === 0 && (
+          <div style={{textAlign:'center',padding:'28px 0',color:'var(--xmuted)',fontSize:12}}>
+            Aucune entrée pour l'instant
+          </div>
+        )}
+
+        {ivLogs.map(log => {
+          const lt = LOG_TYPES[log.type] || LOG_TYPES.note;
+          return (
+            <div key={log.id}
+              style={{borderLeft:`3px solid ${lt.color}`,paddingLeft:12,
+                marginBottom:14,paddingBottom:10,borderBottom:'1px solid var(--border)'}}>
+              {/* Log header */}
+              <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:5}}>
+                <span style={{fontSize:14}}>{lt.icon}</span>
+                <span style={{fontSize:12,fontWeight:700,color:lt.color}}>{lt.label}</span>
+                <span style={{fontSize:11,fontWeight:600,color:'var(--text)'}}>{log.author}</span>
+                <span style={{marginLeft:'auto',fontFamily:"'DM Mono',monospace",fontSize:10,
+                  color:'var(--xmuted)',whiteSpace:'nowrap'}}>
+                  {log.dateLabel} {log.timeLabel}
+                </span>
+              </div>
+              {/* Message */}
+              {log.message && <div style={{fontSize:13,color:'var(--text)',lineHeight:1.5,marginBottom:log.photo?6:0}}>
+                {log.message}
+              </div>}
+              {/* Photo */}
+              {log.photo && (
+                <img src={log.photo} alt="photo" onClick={()=>setPhotoExpanded(log.photo)}
+                  style={{marginTop:6,maxHeight:140,maxWidth:'100%',borderRadius:'var(--r-sm)',
+                    border:'1px solid var(--border)',cursor:'zoom-in',objectFit:'cover',display:'block'}} />
+              )}
+              {/* Mentions */}
+              {log.mentions?.length > 0 && (
+                <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
+                  {log.mentions.map(m=>(
+                    <span key={m} style={{fontSize:10,padding:'2px 7px',borderRadius:20,
+                      background:'var(--primary-l)',color:'var(--primary)',fontWeight:600}}>
+                      @{m}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        <button onClick={onClose} style={{...btnSecStyle,marginTop:4}}>Fermer</button>
+      </>}
+
+      {/* ── Photo fullscreen viewer ── */}
+      {photoExpanded && (
+        <div onClick={()=>setPhotoExpanded(null)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,.9)',zIndex:999,
+            display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <img src={photoExpanded} alt="fullscreen"
+            style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',borderRadius:8}} />
+          <button onClick={()=>setPhotoExpanded(null)}
+            style={{position:'absolute',top:20,right:20,width:36,height:36,borderRadius:'50%',
+              background:'rgba(255,255,255,.2)',border:'none',color:'#fff',fontSize:18,
+              cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+        </div>
       )}
-      <button onClick={onClose} style={btnSecStyle}>Fermer</button>
     </SheetModal>
   );
 }
