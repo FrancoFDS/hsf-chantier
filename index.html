@@ -34,19 +34,25 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}
 // planify-data.js — Data layer, constants & utilities
 
 const TRADE_COLORS = {
-  amber:  {b:'#F59E0B',bg:'#FFF8EE',bgD:'rgba(245,158,11,.18)',t:'#92400E'},
-  blue:   {b:'#3B82F6',bg:'#EFF6FF',bgD:'rgba(59,130,246,.18)',t:'#1E3A5F'},
-  gold:   {b:'#CA8A04',bg:'#FEFCE8',bgD:'rgba(202,138,4,.18)',t:'#713F12'},
-  purple: {b:'#8B5CF6',bg:'#F5F3FF',bgD:'rgba(139,92,246,.18)',t:'#4C1D95'},
-  green:  {b:'#16A34A',bg:'#F0FDF4',bgD:'rgba(22,163,74,.18)',t:'#14532D'},
-  rose:   {b:'#E11D48',bg:'#FFF1F2',bgD:'rgba(225,29,72,.18)',t:'#881337'},
-  teal:   {b:'#0D9488',bg:'#F0FDFA',bgD:'rgba(13,148,136,.18)',t:'#134E4A'},
-  orange: {b:'#EA580C',bg:'#FFF7ED',bgD:'rgba(234,88,12,.18)',t:'#7C2D12'},
-  indigo: {b:'#6366F1',bg:'#EEF2FF',bgD:'rgba(99,102,241,.18)',t:'#312E81'},
-  sky:    {b:'#0EA5E9',bg:'#F0F9FF',bgD:'rgba(14,165,233,.18)',t:'#0C4A6E'},
+  crimson:   {b:'#B91C1C',bg:'#FEF2F2',bgD:'rgba(185,28,28,.18)',t:'#7F1D1D'},      // rouge foncé
+  coral:     {b:'#F97316',bg:'#FFF7ED',bgD:'rgba(249,115,22,.18)',t:'#7C2D12'},      // orange vif
+  amber:     {b:'#D97706',bg:'#FFFBEB',bgD:'rgba(217,119,6,.18)',t:'#78350F'},       // ambre
+  brown:     {b:'#92400E',bg:'#FEF3C7',bgD:'rgba(146,64,14,.18)',t:'#451A03'},       // marron
+  forest:    {b:'#166534',bg:'#F0FDF4',bgD:'rgba(22,101,52,.18)',t:'#14532D'},       // vert foncé
+  lime:      {b:'#4ADE80',bg:'#F0FDF4',bgD:'rgba(74,222,128,.18)',t:'#166534'},      // vert clair
+  navy:      {b:'#1E3A8A',bg:'#EFF6FF',bgD:'rgba(30,58,138,.18)',t:'#172554'},       // bleu foncé
+  sky:       {b:'#38BDF8',bg:'#F0F9FF',bgD:'rgba(56,189,248,.18)',t:'#0C4A6E'},      // bleu clair
+  violet:    {b:'#7C3AED',bg:'#F5F3FF',bgD:'rgba(124,58,237,.18)',t:'#4C1D95'},      // violet
+  pink:      {b:'#EC4899',bg:'#FDF2F8',bgD:'rgba(236,72,153,.18)',t:'#831843'},      // rose vif
+  slate:     {b:'#475569',bg:'#F8FAFC',bgD:'rgba(71,85,105,.18)',t:'#1E293B'},       // gris ardoise
 };
 
-function getTC(colorId) { return TRADE_COLORS[colorId] || TRADE_COLORS.blue; }
+function getTC(colorId) {
+  // backward-compat aliases from old color names
+  const alias = {gold:'amber',blue:'navy',green:'forest',teal:'slate',
+                 rose:'pink',orange:'coral',indigo:'pink',purple:'violet',red:'crimson'};
+  return TRADE_COLORS[alias[colorId]||colorId] || TRADE_COLORS.navy;
+}
 
 const ZONES = [
   {id:'z_1',name:'R+3 — Sanitaire H/F',    short:'R3-SANI',deadline:'2026-06-04',floor:'R+3'},
@@ -76,16 +82,17 @@ function deadlineColor(dateStr) {
 }
 
 const TRADES = [
-  {id:'tr_1',name:'STD',short:'STD',color:'amber'},
-  {id:'tr_2',name:'BARRE BOUILLET',short:'BB',color:'teal'},
-  {id:'tr_3',name:'ELPHITEC',short:'ELPH',color:'blue'},
-  {id:'tr_4',name:'PROST',short:'PROST',color:'green'},
-  {id:'tr_5',name:'AM FRANCE',short:'AMF',color:'rose'},
-  {id:'tr_6',name:'SOA-A',short:'SOAA',color:'purple'},
-  {id:'tr_7',name:'BENE',short:'BENE',color:'indigo'},
-  {id:'tr_8',name:'9ème sens',short:'9ÈM',color:'orange'},
+  {id:'tr_1',name:'STD',short:'STD',color:'crimson'},
+  {id:'tr_2',name:'BARRE BOUILLET',short:'BB',color:'brown'},
+  {id:'tr_3',name:'ELPHITEC',short:'ELPH',color:'navy'},
+  {id:'tr_4',name:'PROST',short:'PROST',color:'forest'},
+  {id:'tr_5',name:'AM FRANCE',short:'AMF',color:'amber'},
+  {id:'tr_6',name:'SOA-A',short:'SOAA',color:'violet'},
+  {id:'tr_7',name:'BENE',short:'BENE',color:'slate'},
+  {id:'tr_8',name:'9ème sens',short:'9ÈM',color:'coral'},
   {id:'tr_9',name:'Jeanne',short:'JEAN',color:'sky'},
-  {id:'tr_10',name:'Papier peint',short:'PAP',color:'gold'},
+  {id:'tr_10',name:'Papier peint',short:'PAP',color:'pink'},
+  {id:'tr_11',name:'Move Company',short:'MOVE',color:'lime'},
 ];
 
 const COMPANIES = [
@@ -97,6 +104,7 @@ const COMPANIES = [
   {id:'soaa',       name:'SOA-A',         contact:'Antoine Delalande',  code:'6006', tradeId:'tr_6'},
   {id:'barreb',     name:'BARRE BOUILLET',contact:'Cyrille Mazaleyrat', code:'7007', tradeId:'tr_2'},
   {id:'bene',       name:'BENE',          contact:'Francois Corbin',    code:'8008', tradeId:'tr_7'},
+  {id:'move',       name:'Move Company',  contact:'',                   code:'9009', tradeId:'tr_11'},
 ];
 
 const STATUS_META = {
