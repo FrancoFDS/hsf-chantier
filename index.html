@@ -35,6 +35,7 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}
     });
   }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
@@ -2692,7 +2693,7 @@ function UserMenuModal({ open, session, onClose, onLogout }) {
    NOTIFICATIONS PANEL
 ═══════════════════════════════════════════════════════════ */
 function NotificationsPanel({ notifs, onClose, taskLogs, data, onOpenDetail }) {
-  const LOG_ICONS = {note:'📝',encours:'🔵',signalement:'⚠️',bloque:'🔴',termine:'✅'};
+  const LOG_ICONS = {note:'📝',encours:'🔵',signalement:'⚠️',bloque:'🔴',termine:'✅',undefined:'🔔'};
   function fmtDt(s) {
     if (!s) return '';
     const d = new Date(s);
@@ -2722,23 +2723,33 @@ function NotificationsPanel({ notifs, onClose, taskLogs, data, onOpenDetail }) {
           const iv = data?.find(i => i.id === n.task_id);
           return (
             <div key={n.id}
-              onClick={()=>{ if(iv) { onOpenDetail(n.task_id); onClose(); } }}
+              onClick={()=>{ onClose(); if(iv) setTimeout(()=>onOpenDetail(n.task_id),120); }}
               style={{display:'flex',gap:12,padding:'11px 0',borderBottom:'1px solid var(--border)',
-                cursor:iv?'pointer':'default',
+                cursor:'pointer',
                 opacity:n.read?0.6:1,transition:'opacity .15s'}}
               onMouseEnter={e=>{if(iv)e.currentTarget.style.opacity='.7';}}
               onMouseLeave={e=>{e.currentTarget.style.opacity=n.read?'0.6':'1';}}>
               <div style={{width:36,height:36,borderRadius:'50%',flexShrink:0,
-                background:n.read?'var(--surface-2)':'var(--primary-l)',
+                background:n.read?'var(--surface-2)':
+                  n.type==='bloque'?'rgba(220,38,38,.12)':
+                  n.type==='signalement'?'rgba(217,119,6,.12)':
+                  n.type==='termine'?'rgba(22,163,74,.12)':'var(--primary-l)',
                 display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>
                 {LOG_ICONS[n.type] || '🔔'}
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:n.read?400:600,color:'var(--text)',
                   marginBottom:2,lineHeight:1.4}}>{n.message}</div>
-                {iv && <div style={{fontSize:11,color:'var(--primary)',fontWeight:500,marginBottom:2}}>
-                  {iv.task?.slice(0,50)}{iv.task?.length>50?'…':''}
-                </div>}
+                <div style={{fontSize:11,marginBottom:2}}>
+                  {iv ? (
+                    <span style={{color:'var(--primary)',fontWeight:600}}>
+                      {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",marginRight:5}}>{iv.task_number}</span>}
+                      {iv.task?.slice(0,45)}{iv.task?.length>45?'…':''}
+                    </span>
+                  ) : (
+                    <span style={{color:'var(--xmuted)',fontSize:10}}>Appuyer pour voir la tâche</span>
+                  )}
+                </div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
                   {fmtDt(n.created_at)}
                   {!n.read && <span style={{marginLeft:8,color:'var(--primary)',fontWeight:700}}>● nouveau</span>}
@@ -2873,81 +2884,124 @@ function PlanifyApp() {
   // ── Realtime notification subscription ──────────────────────────────
   function subscribeNotifications(sess) {
     const s = sess || session;
-    if (!window.supabase || !s) return;
+    if (!s) return;
     const company = s.role === 'admin' ? 'Admin' : (s.company?.name || '');
     if (!company) return;
-    const { createClient } = window.supabase;
-    const sb = createClient(SUPA_URL, SUPA_KEY);
-    sb.channel('notifs-' + company)
-      .on('postgres_changes', {event:'INSERT', schema:'public', table:'notifications',
-        filter:`company=eq.${company}`}, (payload) => {
-        const n = payload.new;
-        setNotifs(prev => [n, ...prev]);
-        // Browser / phone notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Planify — HSF Marceau', {
-            body: n.message,
-            icon: 'https://francofds.github.io/hsf-chantier/icon-192.png',
-            badge: 'https://francofds.github.io/hsf-chantier/icon-72.png',
-            tag: n.task_id,
-          });
-        }
-      })
-      .subscribe();
+    // Clear previous poll
+    if (window._planifyNotifPoll) clearInterval(window._planifyNotifPoll);
+
+    // Supabase Realtime
+    try {
+      const { createClient } = window.supabase;
+      if (createClient) {
+        const sbRT = createClient(SUPA_URL, SUPA_KEY);
+        sbRT.channel('notifs-' + company)
+          .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'notifications',
+            filter: `company=eq.${company}`
+          }, payload => {
+            const n = payload.new;
+            setNotifs(prev => prev.find(x => x.id === n.id) ? prev : [n, ...prev]);
+            triggerBrowserNotif(n.message, n.task_id);
+          })
+          .subscribe();
+      }
+    } catch(e) { console.warn('[Planify] Realtime error:', e); }
+
+    // Reliable poll every 15s
+    window._planifyNotifPoll = setInterval(() => pollNotifs(company), 15000);
   }
 
+  async function pollNotifs(company) {
+    try {
+      const hdrs = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY };
+      const res = await fetch(
+        SUPA_URL + '/rest/v1/notifications?company=eq.' + encodeURIComponent(company) +
+        '&order=created_at.desc&limit=50', { headers: hdrs });
+      const fresh = await res.json();
+      if (Array.isArray(fresh)) setNotifs(fresh);
+    } catch(e) {}
+  }
+
+  function triggerBrowserNotif(msg, taskId) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const n = new Notification('Planify — HSF Marceau', {
+        body: msg,
+        icon: 'https://francofds.github.io/hsf-chantier/icon-192.png',
+        tag: taskId,
+        requireInteraction: false,
+      });
+      // Click on browser notif → focus app + open task
+      n.onclick = () => {
+        window.focus();
+        if (taskId) openDetail(taskId);
+        n.close();
+      };
+    }
+  }
+
+  
   async function handleSubmitLog(ivId, logEntry) {
-    // 1. Save log to Supabase
-    const headers = {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
-    const iv = data.find(i => i.id === ivId);
+    const iv     = data.find(i => i.id === ivId);
+    const author = logEntry.author;
+    const hdrs   = {
+      'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json', 'Prefer': 'return=representation',
+    };
+
+    // 1. Save log
     const logRow = {
-      task_id: ivId, company: logEntry.author, author: logEntry.author,
+      task_id: ivId, company: author, author,
       type: logEntry.type, message: logEntry.message,
       photo_url: logEntry.photo || null,
       mentioned: logEntry.mentions || [],
     };
     let savedLogId = null;
     try {
-      const res = await fetch(SUPA_URL + '/rest/v1/task_logs', {method:'POST', headers, body:JSON.stringify(logRow)});
+      const res = await fetch(SUPA_URL + '/rest/v1/task_logs', {
+        method: 'POST', headers: hdrs, body: JSON.stringify(logRow),
+      });
       const [saved] = await res.json();
       savedLogId = saved?.id;
-      // Update local taskLogs state
-      const localLog = {...logEntry, id: savedLogId || logEntry.id, created_at: new Date().toISOString()};
-      setTaskLogs(prev => ({...prev, [ivId]: [localLog, ...(prev[ivId]||[])]}));
-    } catch(e) {
-      console.warn('[Planify] Log save error:', e);
-      // Keep local state anyway
-      setTaskLogs(prev => ({...prev, [ivId]: [logEntry, ...(prev[ivId]||[])]}));
-    }
-    // 2. Create notifications for each mentioned company
-    const LOG_LABELS = {note:'Note',encours:'En cours',signalement:'Signalement',bloque:'Blocage',termine:'Terminé'};
-    const taskRef = iv?.task_number || (iv?.task?.slice(0,30) + '…') || ivId;
-    const notifMsg = `${logEntry.author} — ${LOG_LABELS[logEntry.type]||logEntry.type} sur ${taskRef}`;
-    const recipients = [...new Set([...(logEntry.mentions||[]), 'Admin'])].filter(Boolean);
-    const notifRows = recipients.map(company => ({
-      company, task_id: ivId, log_id: savedLogId,
-      message: notifMsg, read: false,
+    } catch(e) { console.warn('[Planify] Log save error:', e); }
+
+    // Update local taskLogs
+    const localLog = { ...logEntry, id: savedLogId || logEntry.id, created_at: new Date().toISOString() };
+    setTaskLogs(prev => ({ ...prev, [ivId]: [localLog, ...(prev[ivId] || [])] }));
+
+    // 2. Build notification rows
+    // Always include Admin + explicitly mentioned companies, deduplicated
+    const LOG_LABELS = { note:'Note', encours:'En cours', signalement:'Signalement', bloque:'Blocage', termine:'Terminé' };
+    const taskRef  = iv?.task_number || (iv?.task?.slice(0, 35) + '…') || ivId;
+    const notifMsg = `${author} · ${LOG_LABELS[logEntry.type] || logEntry.type} · ${taskRef}`;
+    const recipients = [...new Set([...(logEntry.mentions || []), 'Admin'])].filter(Boolean);
+    const now2     = new Date().toISOString();
+    const notifRows = recipients.map(co => ({
+      company: co, task_id: ivId, log_id: savedLogId,
+      type: logEntry.type, message: notifMsg, read: false, created_at: now2,
     }));
+
+    // 3. Insert notifications in Supabase
     try {
       await fetch(SUPA_URL + '/rest/v1/notifications', {
-        method:'POST', headers: {...headers, Prefer:'return=minimal'},
+        method: 'POST',
+        headers: { ...hdrs, Prefer: 'return=minimal' },
         body: JSON.stringify(notifRows),
       });
     } catch(e) { console.warn('[Planify] Notif create error:', e); }
-  }
 
-  async function markNotifsRead() {
-    const company = session?.role === 'admin' ? 'Admin' : (session?.company?.name || '');
-    setNotifs(prev => prev.map(n => ({...n, read: true})));
-    if (company) {
-      await fetch(SUPA_URL + '/rest/v1/notifications?company=eq.' + encodeURIComponent(company) + '&read=eq.false', {
-        method:'PATCH',
-        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'},
-        body: JSON.stringify({read: true}),
-      }).catch(()=>{});
+    // 4. Immediately refresh notifs for current user (no wait for poll)
+    const myCompany = session?.role === 'admin' ? 'Admin' : (session?.company?.name || '');
+    if (myCompany) {
+      await pollNotifs(myCompany);
+      // Browser notif if someone else triggered this and we are a recipient
+      if (author !== myCompany && recipients.includes(myCompany)) {
+        triggerBrowserNotif(notifMsg, ivId);
+      }
     }
   }
 
+  
   function handleSave(iv) {
     setData(prev => {
       const idx = prev.findIndex(i=>i.id===iv.id);
