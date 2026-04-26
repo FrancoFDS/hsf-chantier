@@ -1906,7 +1906,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
       </div>
 
       {session?.role==='admin'&&(
-        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l'intervention</button>
+        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l’intervention</button>
       )}
       <button onClick={onClose} style={btnSecStyle}>Fermer</button>
     </SheetModal>
@@ -2102,7 +2102,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
           ))}
         </div>
 
-        {isAdmin && <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l'intervention</button>}
+        {isAdmin && <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l’intervention</button>}
         <button onClick={onClose} style={btnSecStyle}>Fermer</button>
       </>}
 
@@ -2114,7 +2114,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
           <div style={{marginBottom:14}}>
             <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
               textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
-              Type d'entrée
+              Type d’entrée
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
               {Object.entries(LOG_TYPES).map(([k,t])=>(
@@ -2233,7 +2233,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
 
         {ivLogs.length === 0 && (
           <div style={{textAlign:'center',padding:'28px 0',color:'var(--xmuted)',fontSize:12}}>
-            Aucune entrée pour l'instant
+            Aucune entrée pour l’instant
           </div>
         )}
 
@@ -2817,7 +2817,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
       </div>
 
       {session?.role==='admin'&&(
-        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l'intervention</button>
+        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l’intervention</button>
       )}
       <button onClick={onClose} style={btnSecStyle}>Fermer</button>
     </SheetModal>
