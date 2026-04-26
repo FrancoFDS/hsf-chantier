@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root,[data-theme="terrain"]{--bg:#F4F2EE;--surface:#FFFFFF;--surface-2:#F9F8F5;--hdr:#1A1A1A;--hdr-text:#FFFFFF;--primary:#2152C8;--primary-l:#EEF2FC;--text:#1A1A1A;--muted:#6B6860;--xmuted:#ABA8A0;--border:#E8E4DC;--border-s:#C8C4BB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#16A34A;--success-l:#F0FDF4;--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.10);--shadow-lg:0 8px 32px rgba(0,0,0,.16)}
-[data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--hdr-text:#FFFFFF;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px;--shadow:0 2px 8px rgba(67,56,202,.07);--shadow-md:0 8px 24px rgba(67,56,202,.12);--shadow-lg:0 16px 48px rgba(67,56,202,.18)}
+[data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px;--shadow:0 2px 8px rgba(67,56,202,.07);--shadow-md:0 8px 24px rgba(67,56,202,.12);--shadow-lg:0 16px 48px rgba(67,56,202,.18)}
 [data-theme="nuit"]{--bg:#0D0D10;--surface:#18181C;--surface-2:#1F1F26;--hdr:#0D0D10;--hdr-text:#F1F1F5;--primary:#60A5FA;--primary-l:rgba(96,165,250,.14);--text:#F1F1F5;--muted:#8A8A9A;--xmuted:#55555F;--border:#28282F;--border-s:#38383F;--danger:#F87171;--danger-l:rgba(248,113,113,.12);--success:#34D399;--success-l:rgba(52,211,153,.12);--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 4px rgba(0,0,0,.45);--shadow-md:0 4px 20px rgba(0,0,0,.55);--shadow-lg:0 8px 40px rgba(0,0,0,.65)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
@@ -16,6 +16,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 #root{height:100%;display:flex;flex-direction:column}
 @keyframes fadeIn{from{opacity:0}}
 @keyframes slideUp{from{transform:translateY(100%)}}
+@keyframes spin{to{transform:rotate(360deg)}}
 *{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -29,6 +30,7 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}
 <body>
 <div id="root"></div>
 <script>
+
 // planify-data.js — Data layer, constants & utilities
 
 const TRADE_COLORS = {
@@ -272,6 +274,7 @@ Object.assign(window, {
   getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay,
   genId, genTaskNum, daysUntil, deadlineColor,
 });
+
 
 </script>
 <script type="text/babel">
@@ -1114,6 +1117,7 @@ Object.assign(window, {
 
 </script>
 <script type="text/babel">
+
 // planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
 
@@ -1660,20 +1664,30 @@ function SettingsScreen({ zones, trades, setZones, setTrades }) {
   function saveZone(z) {
     setZones(prev => prev.map(x => x.id===z.id ? z : x));
     setEditingZone(null);
+    if (window._supaWrite) window._supaWrite('PATCH', 'zones',
+      {name:z.name, short:z.short, floor:z.floor, deadline:z.deadline}, 'id=eq.'+z.id);
   }
   function saveTrade(t) {
     setTrades(prev => prev.map(x => x.id===t.id ? t : x));
     setEditingTrade(null);
+    if (window._supaWrite) window._supaWrite('PATCH', 'trades',
+      {name:t.name, short:t.short, color:t.color}, 'id=eq.'+t.id);
   }
   function addZone() {
     if (!newZone?.name||!newZone?.short) return;
-    setZones(prev=>[...prev,{id:'z_'+genId(),name:newZone.name,short:newZone.short}]);
+    const z = {id:'z_'+genId(), name:newZone.name, short:newZone.short,
+      floor:newZone.floor||'', deadline:newZone.deadline||null, display_order:zones.length};
+    setZones(prev=>[...prev, z]);
     setNewZone(null);
+    if (window._supaWrite) window._supaWrite('POST', 'zones', z);
   }
   function addTrade() {
     if (!newTrade?.name||!newTrade?.short) return;
-    setTrades(prev=>[...prev,{id:'tr_'+genId(),name:newTrade.name,short:newTrade.short,color:newTrade.color||'blue'}]);
+    const t = {id:'tr_'+genId(), name:newTrade.name, short:newTrade.short,
+      color:newTrade.color||'blue', display_order:trades.length};
+    setTrades(prev=>[...prev, t]);
     setNewTrade(null);
+    if (window._supaWrite) window._supaWrite('POST', 'trades', t);
   }
 
   return (
@@ -2083,6 +2097,7 @@ function PlanifyApp() {
   const [data,       setData]       = useState([...INTERVENTIONS]);
   const [zones,      setZones]      = useState([...ZONES]);
   const [trades,     setTrades]     = useState([...TRADES]);
+  const [loading,    setLoading]    = useState(true);
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
@@ -2092,7 +2107,56 @@ function PlanifyApp() {
     document.documentElement.setAttribute('data-theme', tweaks.theme);
   }, [tweaks.theme]);
 
-  function handleLogin(s)  { setSession(s); }
+  const SUPA_URL = 'https://xrfqlbhaxhraneflrfez.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
+
+  async function loadFromSupabase() {
+    setLoading(true);
+    try {
+      const headers = {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+      };
+      const base = SUPA_URL + '/rest/v1';
+      const [zRes, tRes, iRes] = await Promise.all([
+        fetch(base + '/zones?order=display_order', {headers}),
+        fetch(base + '/trades?order=display_order', {headers}),
+        fetch(base + '/interventions?order=start_date', {headers}),
+      ]);
+      if (!zRes.ok || !tRes.ok || !iRes.ok) throw new Error('Supabase fetch failed');
+      const [zData, tData, iData] = await Promise.all([zRes.json(), tRes.json(), iRes.json()]);
+      if (zData.length) setZones(zData);
+      if (tData.length) setTrades(tData);
+      if (iData.length) setData(iData.map(r => ({
+        ...r, start: r.start_date, end: r.end_date,
+        predecessor_id: r.predecessor_id || null,
+        attachments: [],
+      })));
+    } catch(e) {
+      console.warn('[Planify] Supabase load failed, using local data:', e);
+    }
+    setLoading(false);
+  }
+
+  // Expose supa globally so child components (SettingsScreen) can use it
+  window._supaWrite = async (method, table, body, match) => supa(method, table, body, match);
+
+  async function supa(method, table, body, match) {
+    const headers = {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal',
+    };
+    let url = SUPA_URL + '/rest/v1/' + table;
+    if (match) url += '?' + match;
+    try {
+      await fetch(url, {method, headers, body: body ? JSON.stringify(body) : undefined});
+    } catch(e) { console.warn('[Planify] Supabase write failed:', e); }
+  }
+
+  function handleLogin(s)  { setSession(s); loadFromSupabase(); }
   function handleLogout()  { setSession(null); setUserMenu(false); }
 
   function openDetail(id)          { setModal({type:'detail', id}); }
@@ -2102,6 +2166,7 @@ function PlanifyApp() {
 
   function handleStatusChange(id, status) {
     setData(prev => prev.map(i => i.id===id ? {...i, status} : i));
+    supa('PATCH', 'interventions', {status, updated_at: new Date().toISOString()}, 'id=eq.' + id);
   }
   function handleSave(iv) {
     setData(prev => {
@@ -2110,14 +2175,42 @@ function PlanifyApp() {
       return [...prev, iv];
     });
     closeModal();
+    // Persist to Supabase
+    const row = {
+      id: iv.id, trade: iv.trade, company: iv.company, task: iv.task,
+      zone: iv.zone, start_date: iv.start, end_date: iv.end || iv.start,
+      status: iv.status || 'arealis', priority: iv.priority || 3,
+      prereq: iv.prereq || '', notes: iv.notes || '',
+      task_number: iv.task_number || null,
+      predecessor_id: iv.predecessor_id || null,
+      updated_at: new Date().toISOString(),
+    };
+    const existing = data.find(i => i.id === iv.id);
+    if (existing) {
+      supa('PATCH', 'interventions', row, 'id=eq.' + iv.id);
+    } else {
+      supa('POST', 'interventions', row);
+    }
   }
   function handleDelete(id) {
     setData(prev => prev.filter(i=>i.id!==id));
     closeModal();
+    supa('DELETE', 'interventions', null, 'id=eq.' + id);
   }
 
   const isAdmin = session?.role === 'admin';
-  const navScreens = ['dashboard','planning','list',...(isAdmin?['settings']:[])];
+
+  if (loading && session) return (
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',alignItems:'center',
+      justifyContent:'center',gap:16,background:'var(--bg)'}}>
+      <div style={{width:36,height:36,border:'3px solid var(--border)',
+        borderTopColor:'var(--primary)',borderRadius:'50%',
+        animation:'spin 0.8s linear infinite'}}></div>
+      <div style={{fontSize:13,color:'var(--muted)',fontFamily:"'DM Mono',monospace"}}>
+        Chargement depuis Supabase…
+      </div>
+    </div>
+  );
 
   if (!session) return (
     <>
@@ -2184,6 +2277,7 @@ function PlanifyApp() {
     </>
   );
 }
+
 
 </script>
 <script type="text/babel">
