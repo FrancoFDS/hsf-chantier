@@ -1500,12 +1500,19 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const cards = filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
                     .sort((a,b)=>(a.priority||3)-(b.priority||3));
                   const shown = cards; // show all, no truncation
-                  const cellBg = holiday?'#D0D3D8':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
+                  const isPastDeadline = zone.deadline && ds > zone.deadline;
+                  const cellBg = holiday?'#D0D3D8'
+                    : isPastDeadline ? 'rgba(220,38,38,.09)'
+                    : isDeadline ? 'rgba(220,38,38,.18)'
+                    : isToday(day) ? 'color-mix(in srgb, var(--primary) 5%, transparent)'
+                    : 'transparent';
                   return (
                     <div key={di} onClick={()=>isAdmin&&!holiday&&onOpenAdd(zone.id,ds)}
                       style={{padding:isMulti?1:2,minHeight:isMulti?44:64,
                         borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                         background:cellBg,
+                        borderLeftColor:isDeadline?'rgba(220,38,38,.6)':undefined,
+                        borderLeftWidth:isDeadline?2:undefined,
                         cursor:isAdmin&&!holiday?'pointer':'default',transition:'background .1s'}}
                       onMouseEnter={e=>{if(isAdmin&&!holiday)e.currentTarget.style.background='var(--surface-2)';}}
                       onMouseLeave={e=>{e.currentTarget.style.background=cellBg;}}>
