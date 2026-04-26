@@ -822,7 +822,12 @@ function TaskCard({ iv, trades, isDark, onClick }) {
         <span style={{fontFamily:"'DM Mono',monospace",fontSize:'8.5px',color:c.t,opacity:.7,fontWeight:600}}>
           {iv.task_number}
         </span>
-        <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+        <div style={{display:'flex',alignItems:'center',gap:3}}>
+          {hasNote && <span style={{fontSize:10,lineHeight:1,
+            filter:myNote?'none':'grayscale(1) opacity(.35)'}}
+            title={myNote?'Vous êtes concerné·e par une note':'Note sur cette tâche'}>📝</span>}
+          <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+        </div>
       </div>
       <div style={{fontSize:11,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.2}}>{iv.company}</div>
       <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',
@@ -875,7 +880,7 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, unreadCount, onBell }) {
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, unreadCount, onBell, onToday, onRefresh }) {
   const weeks = viewMode === '3w' ? 3 : 1;
   const days  = multiWeekDays(weekOffset, weeks);
   const start = days[0], end = days[days.length - 1];
@@ -916,7 +921,7 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
               </button>
             ))}
           </div>
-          {/* Week nav */}
+          {/* Week nav + Today + Refresh */}
           <div style={{display:'flex',alignItems:'center',gap:4,background:'rgba(255,255,255,.08)',
             border:'1px solid rgba(255,255,255,.14)',borderRadius:8,padding:'4px 6px'}}>
             <button onClick={()=>onWeekChange(-1)} style={hdrBtnStyle}>‹</button>
@@ -926,6 +931,16 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             </span>
             <button onClick={()=>onWeekChange(1)} style={hdrBtnStyle}>›</button>
           </div>
+          <button onClick={onToday} title="Revenir à aujourd'hui"
+            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
+              borderRadius:6,width:28,height:28,fontSize:12,letterSpacing:0}}>
+            ⬤
+          </button>
+          <button onClick={onRefresh} title="Rafraîchir les données"
+            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
+              borderRadius:6,width:28,height:28,fontSize:13}}>
+            ↻
+          </button>
           {session?.role==='admin'&&
             <button onClick={onSettings} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:28,height:28,fontSize:14}}>⚙</button>}
@@ -1627,7 +1642,7 @@ function SectionCard({ title, children, accent }) {
 /* ════════════════════════════════════════════════════════════
    PLANNING SCREEN (weekly grid)
 ═══════════════════════════════════════════════════════════ */
-function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, setZones }) {
+function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, setZones, taskLogs }) {
   const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const isMulti = weeks > 1;
   const days = multiWeekDays(weekOffset, weeks);
@@ -1817,17 +1832,25 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                           const _tr=trades.find(t=>t.id===iv.trade);
                           const _c=getTC(_tr?.color||'blue');
                           const _m=STATUS_META[iv.status]||STATUS_META.arealis;
+                          const _hasNote = (taskLogs||{})[iv.id]?.length > 0;
+                          const myComp = session?.role==='admin'?'Admin':(session?.company?.name||'');
+                          const _myNote = _hasNote && (taskLogs[iv.id].some(l=>l.author===myComp||l.mentioned?.includes(myComp)));
                           return (
                             <div key={iv.id} onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}}
                               style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
                                 background:_c.bg,borderLeft:`2px solid ${_c.b}`,overflow:'hidden',
-                                border:`0.5px solid ${_c.b}25`,borderLeftWidth:2,borderLeftColor:_c.b}}>
+                                border:`0.5px solid ${_c.b}25`,borderLeftWidth:2,borderLeftColor:_c.b,
+                                position:'relative'}}>
                               <div style={{display:'flex',alignItems:'center',gap:2,justifyContent:'space-between'}}>
                                 <span style={{fontSize:weeks===2?7.5:7,fontWeight:700,color:_c.t,
                                   overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',lineHeight:1.2,flex:1}}>
                                   {iv.company}
                                 </span>
-                                <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot,flexShrink:0}}></span>
+                                <div style={{display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
+                                  {_hasNote && <span style={{fontSize:9,lineHeight:1,
+                                    color:_myNote?'#D97706':'rgba(0,0,0,.3)'}} title="Cette tâche a des notes">📝</span>}
+                                  <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot}}></span>
+                                </div>
                               </div>
                               {weeks===2 && <div style={{fontSize:7,color:_c.t,opacity:.7,lineHeight:1.2,
                                 overflow:'hidden',display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical'}}>
@@ -1836,8 +1859,12 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                             </div>
                           );
                         }
+                        const hasNote = (taskLogs||{})[iv.id]?.length > 0;
+                        const myC2 = session?.role==='admin'?'Admin':(session?.company?.name||'');
+                        const myNote = hasNote && (taskLogs[iv.id].some(l=>l.author===myC2||l.mentioned?.includes(myC2)));
                         return (
                           <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
+                            hasNote={hasNote} myNote={myNote}
                             onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}} />
                         );
                       })}
@@ -3065,7 +3092,7 @@ function PlanifyApp() {
       case 'planning':  return <PlanningScreen  data={data} zones={zones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
         onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode}
-        setZones={setZones} />;
+        setZones={setZones} taskLogs={taskLogs} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades}
         weekOffset={weekOffset} filter={filter} onOpenDetail={openDetail} />;
       case 'settings':  return <SettingsScreen  zones={zones} trades={trades}
@@ -3085,7 +3112,9 @@ function PlanifyApp() {
           zones={zones} data={data}
           viewMode={viewMode} onViewMode={setViewMode}
           unreadCount={unreadCount}
-          onBell={()=>{ setNotifPanel(p=>!p); if(!notifPanel) markNotifsRead(); }} />
+          onBell={()=>{ setNotifPanel(p=>!p); if(!notifPanel) markNotifsRead(); }}
+          onToday={()=>setWeekOffset(0)}
+          onRefresh={()=>loadFromSupabase(session)} />
         <div style={{flex:1,overflow:'hidden',position:'relative'}}>
           {mainContent()}
         </div>
