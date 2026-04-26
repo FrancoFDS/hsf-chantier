@@ -1436,11 +1436,11 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
             {days.map((d,i) => {
               const isFirstOfWeek = i % 5 === 0 && i > 0;
               const holiday = isHoliday(d);
-              const tcol = holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)';
+              const tcol = holiday?'#666':isToday(d)?'var(--primary)':'var(--muted)';
               return (
                 <div key={i} style={{padding:isMulti?'4px 1px':'6px 2px',textAlign:'center',
                   borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                  background:holiday?'rgba(156,163,175,.18)':isToday(d)?'var(--primary-l)':'transparent',
+                  background:holiday?'#D0D3D8':isToday(d)?'var(--primary-l)':'transparent',
                   overflow:'hidden'}}>
                   {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
                     color:tcol,letterSpacing:'.02em'}}>
@@ -1450,7 +1450,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                     fontFamily:isMulti?"'DM Mono',monospace":undefined}}>
                     {isMulti ? d.getDate() : `${d.getDate()}/${d.getMonth()+1}`}
                   </div>
-                  {holiday && <div style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1,lineHeight:1}}>JF</div>}
+                  {holiday && <div style={{fontSize:6.5,color:'#555',fontWeight:700,fontFamily:"'DM Mono',monospace",marginTop:1,lineHeight:1}}>JF</div>}
                   {isMulti && isFirstOfWeek && <div style={{fontSize:6,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>
                     S{Math.floor(d.getDate()/7)+1}
                   </div>}
@@ -1500,7 +1500,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const cards = filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
                     .sort((a,b)=>(a.priority||3)-(b.priority||3));
                   const shown = cards; // show all, no truncation
-                  const cellBg = holiday?'rgba(156,163,175,.1)':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
+                  const cellBg = holiday?'#D0D3D8':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                   return (
                     <div key={di} onClick={()=>isAdmin&&!holiday&&onOpenAdd(zone.id,ds)}
                       style={{padding:isMulti?1:2,minHeight:isMulti?44:64,
