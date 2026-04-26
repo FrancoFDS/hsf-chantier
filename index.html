@@ -2507,6 +2507,14 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
                 justifyContent:'center',gap:8,transition:'background .15s'}}>
               {cfg.icon} Enregistrer
             </button>
+            <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',marginTop:5,
+              fontFamily:"'DM Mono',monospace"}}>
+              {ivLogs.filter(l=>!l._saveOk&&l._saveOk!==undefined).length > 0
+                ? '⚠ Certaines notes n'ont pas pu être sauvegardées — vérifiez la connexion'
+                : ivLogs.length > 0 && ivLogs[0]._saveOk
+                ? '✓ Dernière note sauvegardée'
+                : ''}
+            </div>
           </div>
         )}
 
@@ -2529,29 +2537,36 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
               style={{borderLeft:`3px solid ${lt.color}`,paddingLeft:12,
                 marginBottom:14,paddingBottom:10,borderBottom:'1px solid var(--border)'}}>
               {/* Log header */}
-              <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:5}}>
-                <span style={{fontSize:14}}>{lt.icon}</span>
-                <span style={{fontSize:12,fontWeight:700,color:lt.color}}>{lt.label}</span>
-                <span style={{fontSize:11,fontWeight:600,color:'var(--text)'}}>{log.author}</span>
-                <span style={{marginLeft:'auto',fontFamily:"'DM Mono',monospace",fontSize:10,
-                  color:'var(--xmuted)',whiteSpace:'nowrap'}}>
-                  {log.dateLabel} {log.timeLabel}
-                </span>
-              </div>
+              {(()=>{
+                const d = log.created_at ? new Date(log.created_at) : null;
+                const dl = d ? d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) : (log.dateLabel||'');
+                const tl = d ? d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : (log.timeLabel||'');
+                return (
+                  <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:5}}>
+                    <span style={{fontSize:14}}>{lt.icon}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:lt.color}}>{lt.label}</span>
+                    <span style={{fontSize:11,fontWeight:600,color:'var(--text)'}}>{log.author}</span>
+                    <span style={{marginLeft:'auto',fontFamily:"'DM Mono',monospace",fontSize:10,
+                      color:'var(--xmuted)',whiteSpace:'nowrap'}}>
+                      {dl} {tl}
+                    </span>
+                  </div>
+                );
+              })()}
               {/* Message */}
               {log.message && <div style={{fontSize:13,color:'var(--text)',lineHeight:1.5,marginBottom:log.photo?6:0}}>
                 {log.message}
               </div>}
               {/* Photo */}
-              {log.photo && (
-                <img src={log.photo} alt="photo" onClick={()=>setPhotoExpanded(log.photo)}
+              {(log.photo||log.photo_url) && (
+                <img src={log.photo||log.photo_url} alt="photo" onClick={()=>setPhotoExpanded(log.photo||log.photo_url)}
                   style={{marginTop:6,maxHeight:140,maxWidth:'100%',borderRadius:'var(--r-sm)',
                     border:'1px solid var(--border)',cursor:'zoom-in',objectFit:'cover',display:'block'}} />
               )}
               {/* Mentions */}
-              {log.mentions?.length > 0 && (
+              {((log.mentions||log.mentioned)||[]).length > 0 && (
                 <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
-                  {log.mentions.map(m=>(
+                  {((log.mentions||log.mentioned)||[]).map(m=>(
                     <span key={m} style={{fontSize:10,padding:'2px 7px',borderRadius:20,
                       background:'var(--primary-l)',color:'var(--primary)',fontWeight:600}}>
                       @{m}
@@ -2854,16 +2869,14 @@ function PlanifyApp() {
         predecessor_id: r.predecessor_id || null,
         attachments: [],
       })));
-      // Group logs by task_id
-      if (logsData.length) {
-        const grouped = {};
-        logsData.forEach(log => {
-          if (!grouped[log.task_id]) grouped[log.task_id] = [];
-          grouped[log.task_id].push(log);
-        });
-        setTaskLogs(grouped);
-      }
-      if (notifsData.length) setNotifs(notifsData);
+      // Group logs by task_id — always update state even if empty
+      const grouped = {};
+      (Array.isArray(logsData) ? logsData : []).forEach(log => {
+        if (!grouped[log.task_id]) grouped[log.task_id] = [];
+        grouped[log.task_id].push(log);
+      });
+      setTaskLogs(grouped);
+      if (Array.isArray(notifsData)) setNotifs(notifsData);
     } catch(e) {
       console.warn('[Planify] Supabase load failed, using local data:', e);
     }
@@ -2937,6 +2950,14 @@ function PlanifyApp() {
 
     // Reliable poll every 15s
     window._planifyNotifPoll = setInterval(() => pollNotifs(company), 15000);
+
+    // Poll when user returns to tab (catches notifs received while away)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') pollNotifs(company);
+    };
+    document.removeEventListener('visibilitychange', window._planifyVisHandler);
+    window._planifyVisHandler = onVisible;
+    document.addEventListener('visibilitychange', onVisible);
   }
 
   async function pollNotifs(company) {
@@ -2976,52 +2997,75 @@ function PlanifyApp() {
       'Content-Type': 'application/json', 'Prefer': 'return=representation',
     };
 
-    // 1. Save log
+    // 1. Save log to Supabase
     const logRow = {
       task_id: ivId, company: author, author,
-      type: logEntry.type, message: logEntry.message,
+      type: logEntry.type,
+      message: logEntry.message || '',
       photo_url: logEntry.photo || null,
       mentioned: logEntry.mentions || [],
     };
     let savedLogId = null;
+    let saveOk = false;
     try {
       const res = await fetch(SUPA_URL + '/rest/v1/task_logs', {
         method: 'POST', headers: hdrs, body: JSON.stringify(logRow),
       });
-      const [saved] = await res.json();
-      savedLogId = saved?.id;
-    } catch(e) { console.warn('[Planify] Log save error:', e); }
+      if (res.ok) {
+        const body = await res.json();
+        savedLogId = Array.isArray(body) ? body[0]?.id : body?.id;
+        saveOk = true;
+      } else {
+        const err = await res.text();
+        console.error('[Planify] Log save HTTP error:', res.status, err);
+        // Show user-visible error if table missing
+        if (res.status === 404 || res.status === 400) {
+          alert('Erreur sauvegarde : la table task_logs n'existe pas encore.\nExecutez task_logs_setup.sql dans Supabase.');
+        }
+      }
+    } catch(e) { console.error('[Planify] Log save network error:', e); }
 
-    // Update local taskLogs
-    const localLog = { ...logEntry, id: savedLogId || logEntry.id, created_at: new Date().toISOString() };
+    // Update local state immediately (optimistic)
+    const localLog = {
+      ...logEntry, id: savedLogId || logEntry.id,
+      created_at: new Date().toISOString(),
+      _saveOk: saveOk,
+    };
     setTaskLogs(prev => ({ ...prev, [ivId]: [localLog, ...(prev[ivId] || [])] }));
 
-    // 2. Build notification rows
-    // Always include Admin + explicitly mentioned companies, deduplicated
+    if (!saveOk) return; // Don't create notifs if log wasn't saved
+
+    // 2. Build notification rows — always include Admin
     const LOG_LABELS = { note:'Note', encours:'En cours', signalement:'Signalement', bloque:'Blocage', termine:'Terminé' };
     const taskRef  = iv?.task_number || (iv?.task?.slice(0, 35) + '…') || ivId;
     const notifMsg = `${author} · ${LOG_LABELS[logEntry.type] || logEntry.type} · ${taskRef}`;
-    const recipients = [...new Set([...(logEntry.mentions || []), 'Admin'])].filter(Boolean);
-    const now2     = new Date().toISOString();
+    // Always notify Admin + all mentioned, except the author themselves
+    const rawRecipients = [...new Set([...(logEntry.mentions || []), 'Admin'])].filter(Boolean);
+    const recipients = rawRecipients; // include even author so they get confirmation
+    const now2 = new Date().toISOString();
     const notifRows = recipients.map(co => ({
       company: co, task_id: ivId, log_id: savedLogId,
       type: logEntry.type, message: notifMsg, read: false, created_at: now2,
     }));
 
-    // 3. Insert notifications in Supabase
+    // 3. Insert notifications
     try {
-      await fetch(SUPA_URL + '/rest/v1/notifications', {
+      const nRes = await fetch(SUPA_URL + '/rest/v1/notifications', {
         method: 'POST',
         headers: { ...hdrs, Prefer: 'return=minimal' },
         body: JSON.stringify(notifRows),
       });
-    } catch(e) { console.warn('[Planify] Notif create error:', e); }
+      if (!nRes.ok) {
+        const nErr = await nRes.text();
+        console.error('[Planify] Notif insert error:', nRes.status, nErr);
+      }
+    } catch(e) { console.error('[Planify] Notif network error:', e); }
 
-    // 4. Immediately refresh notifs for current user (no wait for poll)
+    // 4. Immediately poll notifs for current user + trigger browser notif
     const myCompany = session?.role === 'admin' ? 'Admin' : (session?.company?.name || '');
     if (myCompany) {
       await pollNotifs(myCompany);
-      // Browser notif if someone else triggered this and we are a recipient
+      // Browser notif for self only if mentioned (excluding author's own submission)
       if (author !== myCompany && recipients.includes(myCompany)) {
         triggerBrowserNotif(notifMsg, ivId);
       }
