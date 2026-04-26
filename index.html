@@ -46,6 +46,8 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}
 
 </script>
 <script type="text/babel">
+// ── TWEAKS ──────────────────────────────────
+
 
 // tweaks-panel.jsx
 // Reusable Tweaks shell + form-control helpers.
@@ -472,8 +474,10 @@ Object.assign(window, {
   TweakText, TweakNumber, TweakColor, TweakButton,
 });
 
-</script>
-<script type="text/babel">
+
+
+// ── COMPONENTS ──────────────────────────────
+
 // planify-components.jsx — Shared UI components
 // Exports all to window.*
 
@@ -905,8 +909,10 @@ Object.assign(window, {
   hdrBtnStyle, btnPrimaryStyle, btnSecStyle, btnDangerStyle,
 });
 
-</script>
-<script type="text/babel">
+
+
+// ── SCREENS + APP ───────────────────────────
+
 // planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
 
@@ -2913,10 +2919,14 @@ function PlanifyApp() {
 
 
 
-</script>
-<script type="text/babel">
+
+
+// ── MOUNT ───────────────────────────────────
+
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(<PlanifyApp />);
+
 </script>
+
 </body>
 </html>
