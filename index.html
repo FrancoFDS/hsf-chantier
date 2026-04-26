@@ -2217,9 +2217,9 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
             <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',marginTop:5,
               fontFamily:"'DM Mono',monospace"}}>
               {ivLogs.filter(l=>!l._saveOk&&l._saveOk!==undefined).length > 0
-                ? '⚠ Certaines notes n'ont pas pu être sauvegardées — vérifiez la connexion'
+                ? "⚠ Certaines notes n'ont pas pu être sauvegardées — vérifiez la connexion"
                 : ivLogs.length > 0 && ivLogs[0]._saveOk
-                ? '✓ Dernière note sauvegardée'
+                ? "✓ Dernière note sauvegardée"
                 : ''}
             </div>
           </div>
@@ -3243,7 +3243,7 @@ function PlanifyApp() {
         console.error('[Planify] Log save HTTP error:', res.status, err);
         // Show user-visible error if table missing
         if (res.status === 404 || res.status === 400) {
-          alert('Erreur sauvegarde : la table task_logs n'existe pas encore.\nExecutez task_logs_setup.sql dans Supabase.');
+          alert("Erreur sauvegarde : table task_logs manquante. Executez task_logs_setup.sql dans Supabase.");
         }
       }
     } catch(e) { console.error('[Planify] Log save network error:', e); }
