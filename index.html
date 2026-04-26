@@ -229,7 +229,7 @@ function weekDays(offset = 0) {
 function multiWeekDays(offset = 0, weeks = 1) {
   return Array.from({length: weeks}, (_, w) => weekDays(offset + w)).flat();
 }
-function dateStr(d)   { return d.toISOString().split('T')[0]; }
+function dateStr(d)   { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function dateFR(d)    { return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
 function fmtDate(s)   { if(!s) return ''; const p=s.split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s; }
 function isToday(d)   { return d.toDateString() === new Date().toDateString(); }
@@ -1126,14 +1126,14 @@ const { useState, useEffect, useRef, useCallback, useMemo } = React;
 // ── Self-contained helpers (Babel scope) ──────────────────────
 const _HOLIDAYS = new Set(['2026-01-01','2026-04-06','2026-05-01','2026-05-08',
   '2026-05-14','2026-05-25','2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25']);
-function isHoliday(d) { return _HOLIDAYS.has(d.toISOString().split('T')[0]); }
+function isHoliday(d) { return _HOLIDAYS.has(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')); }
 function workingDaysUntil(ds) {
   if (!ds) return 9999;
   const target = new Date(ds+'T00:00:00'), now = new Date(); now.setHours(0,0,0,0);
   let count = 0, dir = target >= now ? 1 : -1, cur = new Date(now);
   while (cur.toDateString() !== target.toDateString()) {
     cur.setDate(cur.getDate() + dir);
-    const dow = cur.getDay(), s = cur.toISOString().split('T')[0];
+    const dow = cur.getDay(), s = cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
     if (dow !== 0 && dow !== 6 && !_HOLIDAYS.has(s)) count += dir;
   }
   return count;
