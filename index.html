@@ -806,7 +806,7 @@ function ConfirmDialog({ open, message, onConfirm, onCancel }) {
 }
 
 /* ── TASK CARD (planning grid) ────────────────────────────── */
-function TaskCard({ iv, trades, isDark, onClick }) {
+function TaskCard({ iv, trades, isDark, onClick, hasNote, myNote }) {
   const tr = trades.find(t => t.id === iv.trade);
   const c  = getTC(tr?.color || 'blue');
   const m  = STATUS_META[iv.status] || STATUS_META.arealis;
@@ -824,8 +824,8 @@ function TaskCard({ iv, trades, isDark, onClick }) {
         </span>
         <div style={{display:'flex',alignItems:'center',gap:3}}>
           {hasNote && <span style={{fontSize:10,lineHeight:1,
-            filter:myNote?'none':'grayscale(1) opacity(.35)'}}
-            title={myNote?'Vous êtes concerné·e par une note':'Note sur cette tâche'}>📝</span>}
+            filter:myNote?'none':'grayscale(1)'}}
+            title={myNote?'Vous êtes concerné(e) par une note':'Note sur cette tâche'}>📝</span>}
           <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
         </div>
       </div>
@@ -1834,7 +1834,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                           const _m=STATUS_META[iv.status]||STATUS_META.arealis;
                           const _hasNote = (taskLogs||{})[iv.id]?.length > 0;
                           const myComp = session?.role==='admin'?'Admin':(session?.company?.name||'');
-                          const _myNote = _hasNote && (taskLogs[iv.id].some(l=>l.author===myComp||l.mentioned?.includes(myComp)));
+                          const _myNote = _hasNote && ((taskLogs||{})[iv.id]||[]).some(l=>l.author===myComp||l.mentioned?.includes(myComp));
                           return (
                             <div key={iv.id} onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}}
                               style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
@@ -1848,7 +1848,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                                 </span>
                                 <div style={{display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
                                   {_hasNote && <span style={{fontSize:9,lineHeight:1,
-                                    color:_myNote?'#D97706':'rgba(0,0,0,.3)'}} title="Cette tâche a des notes">📝</span>}
+                                    color:_myNote?'#D97706':'rgba(0,0,0,.3)'}}>📝</span>}
                                   <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot}}></span>
                                 </div>
                               </div>
@@ -1861,7 +1861,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                         }
                         const hasNote = (taskLogs||{})[iv.id]?.length > 0;
                         const myC2 = session?.role==='admin'?'Admin':(session?.company?.name||'');
-                        const myNote = hasNote && (taskLogs[iv.id].some(l=>l.author===myC2||l.mentioned?.includes(myC2)));
+                        const myNote = hasNote && ((taskLogs||{})[iv.id]||[]).some(l=>l.author===myC2||l.mentioned?.includes(myC2));
                         return (
                           <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
                             hasNote={hasNote} myNote={myNote}
