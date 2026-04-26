@@ -1497,7 +1497,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const isFirstOfWeek = di%5===0 && di>0;
                   const holiday = isHoliday(day);
                   const isDeadline = ds === zone.deadline;
-                  const cards = filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
+                  const cards = holiday ? [] : filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
                     .sort((a,b)=>(a.priority||3)-(b.priority||3));
                   const shown = cards; // show all, no truncation
                   const isPastDeadline = zone.deadline && ds > zone.deadline;
