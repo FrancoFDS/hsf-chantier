@@ -2776,6 +2776,19 @@ function PlanifyApp() {
   }
 
   
+  async function markNotifsRead() {
+    const company = session?.role === 'admin' ? 'Admin' : (session?.company?.name || '');
+    if (!company) return;
+    setNotifs(prev => prev.map(n => ({...n, read: true})));
+    try {
+      await fetch(SUPA_URL + '/rest/v1/notifications?company=eq.' + encodeURIComponent(company) + '&read=eq.false', {
+        method: 'PATCH',
+        headers: {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'},
+        body: JSON.stringify({read: true}),
+      });
+    } catch(e) {}
+  }
+
   function handleSave(iv) {
     setData(prev => {
       const idx = prev.findIndex(i=>i.id===iv.id);
