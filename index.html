@@ -2179,7 +2179,10 @@ function PlanifyApp() {
       if (!zRes.ok || !tRes.ok || !iRes.ok) throw new Error('Supabase fetch failed');
       const [zData, tData, iData] = await Promise.all([zRes.json(), tRes.json(), iRes.json()]);
       if (zData.length) setZones(zData);
-      if (tData.length) setTrades(tData);
+      if (tData.length) setTrades(tData.map(t => {
+        const local = TRADES.find(lt => lt.id === t.id);
+        return local ? {...t, color: local.color} : t;
+      }));
       if (iData.length) setData(iData.map(r => ({
         ...r, start: r.start_date, end: r.end_date,
         predecessor_id: r.predecessor_id || null,
