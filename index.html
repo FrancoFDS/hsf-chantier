@@ -2770,6 +2770,10 @@ function PlanifyApp() {
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
+  const [notifs,     setNotifs]     = useState([]);
+  const [notifPanel, setNotifPanel] = useState(false);
+  const [taskLogs,   setTaskLogs]   = useState({});
+  const unreadCount = notifs.filter(n=>!n.read).length;
 
   // Apply theme
   useEffect(() => {
