@@ -9,13 +9,11 @@
 <link rel="manifest" href="/hsf-chantier/manifest.json">
 <meta name="theme-color" content="#1A1A1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Planify">
-<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(()=>{});});}</script>
+<script>if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(()=>{});});}</script>
 <style>
 :root,[data-theme="terrain"]{--bg:#F4F2EE;--surface:#FFFFFF;--surface-2:#F9F8F5;--hdr:#1A1A1A;--hdr-text:#FFFFFF;--primary:#2152C8;--primary-l:#EEF2FC;--text:#1A1A1A;--muted:#6B6860;--xmuted:#ABA8A0;--border:#E8E4DC;--border-s:#C8C4BB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#16A34A;--success-l:#F0FDF4;--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.10);--shadow-lg:0 8px 32px rgba(0,0,0,.16)}
-[data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px;--shadow:0 2px 8px rgba(67,56,202,.07);--shadow-md:0 8px 24px rgba(67,56,202,.12);--shadow-lg:0 16px 48px rgba(67,56,202,.18)}
-[data-theme="nuit"]{--bg:#0D0D10;--surface:#18181C;--surface-2:#1F1F26;--hdr:#0D0D10;--hdr-text:#F1F1F5;--primary:#60A5FA;--primary-l:rgba(96,165,250,.14);--text:#F1F1F5;--muted:#8A8A9A;--xmuted:#55555F;--border:#28282F;--border-s:#38383F;--danger:#F87171;--danger-l:rgba(248,113,113,.12);--success:#34D399;--success-l:rgba(52,211,153,.12);--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 4px rgba(0,0,0,.45);--shadow-md:0 4px 20px rgba(0,0,0,.55);--shadow-lg:0 8px 40px rgba(0,0,0,.65)}
+[data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px}
+[data-theme="nuit"]{--bg:#0D0D10;--surface:#18181C;--surface-2:#1F1F26;--hdr:#0D0D10;--hdr-text:#F1F1F5;--primary:#60A5FA;--primary-l:rgba(96,165,250,.14);--text:#F1F1F5;--muted:#8A8A9A;--xmuted:#55555F;--border:#28282F;--border-s:#38383F;--danger:#F87171;--danger-l:rgba(248,113,113,.12);--success:#34D399;--success-l:rgba(52,211,153,.12);--r:12px;--r-sm:8px;--r-xs:5px}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;transition:background .3s,color .3s}
@@ -36,6 +34,8 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}
 </head>
 <body>
 <div id="root"></div>
+
+<!-- Data layer -->
 <script>
 
   if ('serviceWorker' in navigator) {
@@ -45,9 +45,15 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}
   }
 
 </script>
-<script type="text/babel">
-// ── TWEAKS ──────────────────────────────────
 
+<!-- All React code in ONE babel script to avoid scope conflicts -->
+<script type="text/babel">
+var useState=React.useState, useEffect=React.useEffect, useRef=React.useRef,
+    useCallback=React.useCallback, useMemo=React.useMemo;
+
+// ═══════════════════════════════════════════════════════════
+// TWEAKS PANEL
+// ═══════════════════════════════════════════════════════════
 
 // tweaks-panel.jsx
 // Reusable Tweaks shell + form-control helpers.
@@ -475,13 +481,13 @@ Object.assign(window, {
 });
 
 
-
-// ── COMPONENTS ──────────────────────────────
-
+// ═══════════════════════════════════════════════════════════
+// SHARED COMPONENTS
+// ═══════════════════════════════════════════════════════════
 // planify-components.jsx — Shared UI components
 // Exports all to window.*
 
-// React hooks available from screens script
+/* using var declarations above */
 
 
 /* ── STATUS BADGE ─────────────────────────────────────────── */
@@ -556,7 +562,7 @@ function ConfirmDialog({ open, message, onConfirm, onCancel }) {
 }
 
 /* ── TASK CARD (planning grid) ────────────────────────────── */
-function TaskCard({ iv, trades, isDark, onClick, hasNote, myNote }) {
+function TaskCard({ iv, trades, isDark, onClick }) {
   const tr = trades.find(t => t.id === iv.trade);
   const c  = getTC(tr?.color || 'blue');
   const m  = STATUS_META[iv.status] || STATUS_META.arealis;
@@ -572,11 +578,7 @@ function TaskCard({ iv, trades, isDark, onClick, hasNote, myNote }) {
         <span style={{fontFamily:"'DM Mono',monospace",fontSize:'8.5px',color:c.t,opacity:.7,fontWeight:600}}>
           {iv.task_number}
         </span>
-        <div style={{display:'flex',alignItems:'center',gap:3}}>
-          {hasNote && <span style={{fontSize:10,lineHeight:1,filter:myNote?'none':'grayscale(1)'}}
-            title="Note disponible">📝</span>}
-          <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
-        </div>
+        <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
       </div>
       <div style={{fontSize:11,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.2}}>{iv.company}</div>
       <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',
@@ -629,8 +631,8 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, unreadCount, onBell, onToday, onRefresh }) {
-  const weeks = viewMode==='3s'?3:viewMode==='2s'?2:1;
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode }) {
+  const weeks = viewMode === '3w' ? 3 : 1;
   const days  = multiWeekDays(weekOffset, weeks);
   const start = days[0], end = days[days.length - 1];
 
@@ -680,27 +682,9 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             </span>
             <button onClick={()=>onWeekChange(1)} style={hdrBtnStyle}>›</button>
           </div>
-          <button onClick={onToday} title="Aujourd'hui"
-            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-              borderRadius:6,width:26,height:26,fontSize:11}}>◎</button>
-          <button onClick={onRefresh} title="Rafraichir"
-            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-              borderRadius:6,width:26,height:26,fontSize:13}}>↻</button>
           {session?.role==='admin'&&
             <button onClick={onSettings} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:28,height:28,fontSize:14}}>⚙</button>}
-          <button onClick={onBell} style={{position:'relative',background:'rgba(255,255,255,.08)',
-            border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,
-            color:'rgba(255,255,255,.8)',fontSize:14,cursor:'pointer',
-            display:'flex',alignItems:'center',justifyContent:'center'}}>
-            🔔
-            {unreadCount>0 && <span style={{position:'absolute',top:-5,right:-5,background:'#DC2626',
-              color:'#fff',borderRadius:'50%',width:15,height:15,fontSize:9,fontWeight:800,
-              display:'flex',alignItems:'center',justifyContent:'center',
-              border:'2px solid var(--hdr)',fontFamily:"'DM Mono',monospace"}}>
-              {unreadCount>9?'9+':unreadCount}
-            </span>}
-          </button>
           <button onClick={onUserMenu} style={{background:'var(--primary)',border:'none',borderRadius:6,
             width:28,height:28,color:'#fff',fontSize:10,fontWeight:700,cursor:'pointer',
             fontFamily:"'DM Mono',monospace",letterSpacing:'.03em'}}>
@@ -910,13 +894,13 @@ Object.assign(window, {
 });
 
 
-
-// ── SCREENS + APP ───────────────────────────
-
+// ═══════════════════════════════════════════════════════════
+// SCREENS + APP
+// ═══════════════════════════════════════════════════════════
 // planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
 
-const { useState, useEffect, useRef, useCallback, useMemo } = React;
+/* using var declarations above */
 
 // ── Self-contained helpers (Babel scope) ──────────────────────
 const _HOLIDAYS = new Set(['2026-01-01','2026-04-06','2026-05-01','2026-05-08',
@@ -1387,14 +1371,14 @@ function SectionCard({ title, children, accent }) {
 ═══════════════════════════════════════════════════════════ */
 function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, setZones, taskLogs }) {
   const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
+  const isMulti = weeks > 1;
   const days = multiWeekDays(weekOffset, weeks);
   const isDark = document.documentElement.getAttribute('data-theme') === 'nuit';
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
   const isAdmin = session?.role === 'admin';
-  const isMulti = weeks > 1;
-  const zoneColW = isMulti ? '44px' : '54px';
-  const deadlineColW = '34px';
-  const dayColW = '1fr';
+  const zoneColW = '58px';
+  const deadlineColW = '52px';
+  const dayColW = weeks === 1 ? '1fr' : weeks === 2 ? '60px' : '52px';
   const gridCols = `${zoneColW} repeat(${days.length}, ${dayColW}) ${deadlineColW}`;
 
   const [zoneFilter, setZoneFilter] = useState([]);
@@ -1424,8 +1408,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
 
   return (
     <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
-      <div style={{background:'var(--surface)',
-        border:isMulti?'none':'1px solid var(--border)',
+      <div style={{background:'var(--surface)',border:isMulti?'none':'1px solid var(--border)',
         margin:isMulti?0:'0 8px',borderRadius:isMulti?0:'var(--r)',
         boxShadow:isMulti?'none':'var(--shadow)',overflowX:'hidden'}}>
         <div style={{width:'100%'}}>
@@ -1483,15 +1466,13 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
               return (
                 <div key={i} style={{padding:'6px 2px',textAlign:'center',
                   borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                  background:holiday?'#D0D3D8':isToday(d)?'var(--primary-l)':'transparent'}}>
-                  {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
+                  background:holiday?'#C8CBD2':isToday(d)?'var(--primary-l)':'transparent'}}>
+                  <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
                     color:holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)'}}>
                     {DAYS_FR[d.getDay()-1]}
-                  </div>}
-                  <div style={{fontSize:isMulti?8:10,fontWeight:isMulti?700:400,
-                    color:holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)',
-                    fontFamily:isMulti?"'DM Mono',monospace":undefined}}>
-                    {isMulti ? d.getDate() : `${d.getDate()}/${d.getMonth()+1}`}
+                  </div>
+                  <div style={{fontSize:10,color:holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)'}}>
+                    {d.getDate()}/{d.getMonth()+1}
                   </div>
                   {holiday && <div style={{fontSize:7,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
                   {weeks>1&&i%5===0&&!holiday&&<div style={{fontSize:8,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>
@@ -1502,10 +1483,9 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
             })}
 
             {/* Deadline header */}
-            <div style={{padding:'4px 1px',textAlign:'center',borderLeft:'2px solid var(--border-s)',
-              background:'rgba(220,38,38,.07)',display:'flex',alignItems:'center',justifyContent:'center',minHeight:28}}>
-              <span style={{fontSize:7,fontWeight:800,color:'#DC2626',fontFamily:"'DM Mono',monospace",
-                letterSpacing:'.06em',writingMode:'vertical-rl',transform:'rotate(180deg)',lineHeight:1}}>FIN</span>
+            <div style={{padding:'6px 2px',textAlign:'center',borderLeft:'2px solid var(--border-s)',
+              background:'rgba(220,38,38,.07)'}}>
+              <div style={{fontSize:8,fontWeight:700,color:'#DC2626',fontFamily:"'DM Mono',monospace",letterSpacing:'.03em'}}>FIN</div>
             </div>
           </div>
 
@@ -1526,11 +1506,11 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                 borderBottom:'1px solid var(--border)',background:rowBg}}>
 
                 {/* Zone label */}
-                <div style={{padding:isMulti?'3px 1px':'5px 3px',borderRight:'3px solid '+fc,
+                <div style={{padding:'5px 3px',borderRight:'3px solid '+fc,
                   display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',
-                  minHeight:isMulti?44:56,background:`${fc}12`}}>
-                  <span style={{fontSize:isMulti?6:8,fontWeight:800,color:fc,lineHeight:1.2,
-                    fontFamily:"'DM Mono',monospace",letterSpacing:'.03em',textTransform:'uppercase',
+                  minHeight:64,background:`${fc}12`}}>
+                  <span style={{fontSize:8,fontWeight:800,color:fc,lineHeight:1.3,
+                    fontFamily:"'DM Mono',monospace",letterSpacing:'.04em',textTransform:'uppercase',
                     wordBreak:'break-all'}}>{zone.short}</span>
                 </div>
 
@@ -1546,7 +1526,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const cellBg = holiday?'rgba(156,163,175,.1)':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                   return (
                     <div key={di} onClick={()=>isAdmin&&!holiday&&onOpenAdd(zone.id,ds)}
-                      style={{padding:isMulti?1:2,minHeight:isMulti?44:56,
+                      style={{padding:2,minHeight:64,
                         borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                         background:cellBg,
                         cursor:isAdmin&&!holiday?'pointer':'default',transition:'background .1s'}}
@@ -1560,85 +1540,26 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                           ⚑ JALON
                         </div>
                       )}
-                      {shown.map(iv=>{
-                        const _tr=trades.find(t=>t.id===iv.trade);
-                        const _c=getTC(_tr?.color||'blue');
-                        const _m=STATUS_META[iv.status]||STATUS_META.arealis;
-                        const _hasNote=!!((taskLogs||{})[iv.id]?.length);
-                        const _myComp=session?.role==='admin'?'Admin':(session?.company?.name||'');
-                        const _myNote=_hasNote&&((taskLogs[iv.id]||[]).some(l=>l.author===_myComp||(l.mentioned||l.mentions||[]).includes(_myComp)));
-                        if(isMulti) return (
-                          <div key={iv.id} onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}}
-                            style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
-                              background:_c.bg,borderLeft:`2px solid ${_c.b}`,overflow:'hidden'}}>
-                            <div style={{display:'flex',alignItems:'center',gap:2,justifyContent:'space-between'}}>
-                              <span style={{fontSize:weeks===2?7.5:7,fontWeight:700,color:_c.t,
-                                overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',lineHeight:1.2,flex:1}}>
-                                {iv.company}
-                              </span>
-                              <div style={{display:'flex',alignItems:'center',gap:2}}>
-                                {_hasNote&&<span style={{fontSize:9,filter:_myNote?'none':'grayscale(1)'}}>📝</span>}
-                                <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot,flexShrink:0}}></span>
-                              </div>
-                            </div>
-                            {weeks===2&&<div style={{fontSize:7,color:_c.t,opacity:.7,lineHeight:1.2,
-                              overflow:'hidden',display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical'}}>
-                              {iv.task}
-                            </div>}
-                          </div>
-                        );
-                        return (
-                          <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
-                            hasNote={_hasNote} myNote={_myNote}
-                            onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}} />
-                        );
-                      })}
+                      {shown.map(iv=>(
+                        <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
+                          onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}} />
+                      ))}
 
                     </div>
                   );
                 })}
 
-                {/* Deadline cell — inline editable */}
-                {(()=>{
-                  const wd=workingDaysUntil(zone.deadline);
-                  const lbl=wd<0?'▲':`J-${wd}`;
-                  const ds2=zone.deadline?.slice(5,10).replace('-','/');
-                  const [editing,setEditing]=React.useState(false);
-                  return editing?(
-                    <div style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
-                      alignItems:'center',justifyContent:'center',padding:'3px 2px',
-                      background:`${dc}18`,minHeight:isMulti?44:56}}>
-                      <input type="date" defaultValue={zone.deadline||''} autoFocus
-                        onBlur={e=>{
-                          const val=e.target.value;
-                          if(val&&val!==zone.deadline){
-                            const updated={...zone,deadline:val};
-                            setZones(prev=>prev.map(z=>z.id===zone.id?updated:z));
-                            if(window._supaWrite)window._supaWrite('PATCH','zones',{deadline:val},'id=eq.'+zone.id);
-                          }
-                          setEditing(false);
-                        }}
-                        onKeyDown={e=>{if(e.key==='Escape')setEditing(false);}}
-                        style={{width:'100%',border:'none',background:'transparent',fontSize:7,
-                          fontFamily:"'DM Mono',monospace",color:dc,textAlign:'center',outline:'none'}}/>
-                    </div>
-                  ):(
-                    <div onClick={isAdmin?()=>setEditing(true):undefined}
-                      style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
-                        alignItems:'center',justifyContent:'center',padding:'2px 1px',
-                        background:`${dc}12`,minHeight:isMulti?44:56,
-                        cursor:isAdmin?'pointer':'default'}}>
-                      <span style={{fontSize:isMulti?7.5:8.5,fontWeight:800,color:dc,
-                        fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.15,whiteSpace:'nowrap'}}>
-                        {zone.deadline?lbl:'—'}
-                      </span>
-                      <span style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",
-                        marginTop:2,textAlign:'center',lineHeight:1,whiteSpace:'nowrap'}}>
-                        {ds2||'ajouter'}
-                      </span>
-                    </div>
-                  );
-                })()}
+                {/* Deadline cell — working days */}
+                <div style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
+                  alignItems:'center',justifyContent:'center',padding:'4px 3px',
+                  background:`${dc}12`,minHeight:64}}>
+                  <span style={{fontSize:9,fontWeight:800,color:dc,fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.3}}>
+                    {workingDaysUntil(zone.deadline)<0?'▲':`J-${workingDaysUntil(zone.deadline)}`}
+                  </span>
+                  <span style={{fontSize:7,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2,textAlign:'center'}}>
+                    {fmtDate(zone.deadline).slice(0,5)}
+                  </span>
+                </div>
               </div>
             );
           })}
@@ -1731,30 +1652,20 @@ function SettingsScreen({ zones, trades, setZones, setTrades }) {
   function saveZone(z) {
     setZones(prev => prev.map(x => x.id===z.id ? z : x));
     setEditingZone(null);
-    if (window._supaWrite) window._supaWrite('PATCH', 'zones',
-      {name:z.name, short:z.short, floor:z.floor, deadline:z.deadline}, 'id=eq.'+z.id);
   }
   function saveTrade(t) {
     setTrades(prev => prev.map(x => x.id===t.id ? t : x));
     setEditingTrade(null);
-    if (window._supaWrite) window._supaWrite('PATCH', 'trades',
-      {name:t.name, short:t.short, color:t.color}, 'id=eq.'+t.id);
   }
   function addZone() {
     if (!newZone?.name||!newZone?.short) return;
-    const z = {id:'z_'+genId(), name:newZone.name, short:newZone.short,
-      floor:newZone.floor||'', deadline:newZone.deadline||null, display_order:zones.length};
-    setZones(prev=>[...prev, z]);
+    setZones(prev=>[...prev,{id:'z_'+genId(),name:newZone.name,short:newZone.short}]);
     setNewZone(null);
-    if (window._supaWrite) window._supaWrite('POST', 'zones', z);
   }
   function addTrade() {
     if (!newTrade?.name||!newTrade?.short) return;
-    const t = {id:'tr_'+genId(), name:newTrade.name, short:newTrade.short,
-      color:newTrade.color||'blue', display_order:trades.length};
-    setTrades(prev=>[...prev, t]);
+    setTrades(prev=>[...prev,{id:'tr_'+genId(),name:newTrade.name,short:newTrade.short,color:newTrade.color||'blue'}]);
     setNewTrade(null);
-    if (window._supaWrite) window._supaWrite('POST', 'trades', t);
   }
 
   return (
@@ -1778,35 +1689,19 @@ function SettingsScreen({ zones, trades, setZones, setTrades }) {
             <div key={z.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
               borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
               {editingZone?.id===z.id ? (
-                <div style={{display:'flex',flexDirection:'column',gap:7}}>
-                  <div style={{display:'flex',flexWrap:'wrap',gap:7,alignItems:'center'}}>
-                    <input value={editingZone.name} onChange={e=>setEditingZone({...editingZone,name:e.target.value})}
-                      style={{flex:1,minWidth:120,...inputSt}} placeholder="Nom complet" />
-                    <input value={editingZone.short} onChange={e=>setEditingZone({...editingZone,short:e.target.value})}
-                      style={{width:80,...inputSt}} placeholder="Court" />
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <label style={{fontSize:11,fontWeight:600,color:'var(--muted)',whiteSpace:'nowrap',fontFamily:"'DM Sans',sans-serif"}}>Date de fin :</label>
-                    <input type="date" value={editingZone.deadline||''} onChange={e=>setEditingZone({...editingZone,deadline:e.target.value})}
-                      style={{flex:1,...inputSt}} />
-                  </div>
-                  <div style={{display:'flex',gap:7}}>
-                    <button onClick={()=>saveZone(editingZone)} style={{...miniBtn,flex:1,background:'var(--primary)',color:'#fff',border:'none'}}>Enregistrer</button>
-                    <button onClick={()=>setEditingZone(null)} style={miniBtn}>Annuler</button>
-                  </div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:7,alignItems:'center'}}>
+                  <input value={editingZone.name} onChange={e=>setEditingZone({...editingZone,name:e.target.value})}
+                    style={{flex:1,minWidth:120,...inputSt}} placeholder="Nom complet" />
+                  <input value={editingZone.short} onChange={e=>setEditingZone({...editingZone,short:e.target.value})}
+                    style={{width:80,...inputSt}} placeholder="Court" />
+                  <button onClick={()=>saveZone(editingZone)} style={miniBtn}>✓</button>
+                  <button onClick={()=>setEditingZone(null)} style={miniBtn}>✕</button>
                 </div>
               ) : (
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:10,height:10,borderRadius:'50%',background:FLOOR_COLORS[z.floor]||'#9CA3AF',flexShrink:0}}></div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
-                    <div style={{display:'flex',gap:8,alignItems:'center',marginTop:2}}>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)'}}>{z.short}</span>
-                      {z.deadline && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,
-                        color:deadlineColor(z.deadline),fontWeight:700}}>
-                        J-{workingDaysUntil(z.deadline)} · {z.deadline?.slice(5).replace('-','/')}
-                      </span>}
-                    </div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>{z.short}</div>
                   </div>
                   <button onClick={()=>setEditingZone(z)} style={miniBtn}>✎</button>
                 </div>
@@ -1917,6 +1812,109 @@ const miniBtn = {padding:'5px 10px',borderRadius:'var(--r-xs)',border:'1px solid
 
 /* ════════════════════════════════════════════════════════════
    DETAIL MODAL
+═══════════════════════════════════════════════════════════ */
+function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit }) {
+  const iv = data.find(x=>x.id===ivId);
+  if (!iv) return null;
+  const z  = zones.find(x=>x.id===iv.zone);
+  const tr = trades.find(t=>t.id===iv.trade);
+  const c  = getTC(tr?.color||'blue');
+  const pred = iv.predecessor_id ? data.find(x=>x.id===iv.predecessor_id) : null;
+
+  return (
+    <SheetModal open={open} onClose={onClose}>
+      {/* Trade color accent strip */}
+      <div style={{height:4,background:c.b,margin:'-18px -18px 18px',borderRadius:'4px 4px 0 0'}}></div>
+
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
+        <div>
+          <div style={{fontSize:19,fontWeight:700,color:'var(--text)',marginBottom:3}}>{iv.company}</div>
+          {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{iv.task_number}</span>}
+        </div>
+        <StatusBadge status={iv.status} />
+      </div>
+      <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
+
+      {/* Task */}
+      <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
+        padding:'11px 13px',margin:'12px 0',fontSize:14,color:'var(--text)',lineHeight:1.5}}>{iv.task}</div>
+
+      {/* KV grid */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
+        {[
+          {l:'Zone',  v: z?.name||iv.zone},
+          {l:'Dates', v: fmtDate(iv.start)+(iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''), mono:true},
+        ].map(kv=>(
+          <div key={kv.l} style={{background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:'9px 11px',
+            border:'1px solid var(--border)'}}>
+            <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,fontFamily:"'DM Mono',monospace"}}>{kv.l}</div>
+            <div style={{fontSize:12,fontWeight:600,color:'var(--text)',
+              fontFamily:kv.mono?"'DM Mono',monospace":undefined}}>{kv.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {pred&&<div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',borderRadius:'0 6px 6px 0',
+        padding:'8px 12px',marginBottom:10,fontSize:12}}>
+        <b>Prédécesseur : {pred.task_number}</b><br/>
+        <span style={{color:'var(--muted)'}}>{pred.company} — {pred.task}</span>
+      </div>}
+
+      {iv.prereq&&<div style={{background:'rgba(220,38,38,.1)',borderLeft:'3px solid #DC2626',
+        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#991B1B'}}>
+        <b>⚠ Prérequis</b><br/>{iv.prereq}
+      </div>}
+      {iv.notes&&<div style={{background:'rgba(22,163,74,.08)',borderLeft:'3px solid #16A34A',
+        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'var(--text)'}}>
+        <b>Notes</b><br/>{iv.notes}
+      </div>}
+
+      {/* Attachments */}
+      {iv.attachments&&iv.attachments.length>0&&(
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
+            fontFamily:"'DM Mono',monospace",marginBottom:8}}>Pièces jointes</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+            {iv.attachments.map(f=>(
+              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
+                style={{display:'flex',alignItems:'center',gap:5,padding:'5px 9px',
+                  background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',
+                  fontSize:12,color:'var(--text)',textDecoration:'none'}}>
+                <span>{f.type==='application/pdf'?'📄':'🖼'}</span>
+                <span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Status update */}
+      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
+        fontFamily:"'DM Mono',monospace",marginBottom:8}}>Mettre à jour le statut</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
+        {Object.entries(STATUS_META).map(([k,m])=>(
+          <button key={k} onClick={()=>onStatusChange(iv.id,k)}
+            style={{padding:'9px 6px',borderRadius:'var(--r-sm)',border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
+              background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',fontSize:12,fontWeight:500,
+              color:iv.status===k?m.text:'var(--text)',display:'flex',alignItems:'center',justifyContent:'center',
+              gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
+            <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {session?.role==='admin'&&(
+        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l'intervention</button>
+      )}
+      <button onClick={onClose} style={btnSecStyle}>Fermer</button>
+    </SheetModal>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   ADD / EDIT MODAL
 ═══════════════════════════════════════════════════════════ */
 function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, taskLogs, onSubmitLog }) {
   const iv = data.find(x=>x.id===ivId);
@@ -2440,8 +2438,524 @@ function UserMenuModal({ open, session, onClose, onLogout }) {
 /* ════════════════════════════════════════════════════════════
    ROOT APP
 ═══════════════════════════════════════════════════════════ */
+function PlanifyApp() {
+  const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
+    "theme": "terrain",
+    "density": "normal"
+  }/*EDITMODE-END*/);
+
+  const [session,    setSession]    = useState(null);
+  const [screen,     setScreen]     = useState('planning');
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [filter,     setFilter]     = useState('all');
+  const [data,       setData]       = useState([...INTERVENTIONS]);
+  const [zones,      setZones]      = useState([...ZONES]);
+  const [trades,     setTrades]     = useState([...TRADES]);
+  const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
+  const [userMenu,   setUserMenu]   = useState(false);
+  const [viewMode,   setViewMode]   = useState('1s');
+
+  // Apply theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', tweaks.theme);
+  }, [tweaks.theme]);
+
+  function handleLogin(s)  { setSession(s); }
+  function handleLogout()  { setSession(null); setUserMenu(false); }
+
+  function openDetail(id)          { setModal({type:'detail', id}); }
+  function openAdd(zone='',date='') { setModal({type:'add', zone, date}); }
+  function openEdit(id)            { setModal({type:'edit', id}); }
+  function closeModal()            { setModal(null); }
+
+  function handleStatusChange(id, status) {
+    setData(prev => prev.map(i => i.id===id ? {...i, status} : i));
+  }
+  function handleSave(iv) {
+    setData(prev => {
+      const idx = prev.findIndex(i=>i.id===iv.id);
+      if (idx>=0) { const n=[...prev]; n[idx]=iv; return n; }
+      return [...prev, iv];
+    });
+    closeModal();
+  }
+  function handleDelete(id) {
+    setData(prev => prev.filter(i=>i.id!==id));
+    closeModal();
+  }
+
+  const isAdmin = session?.role === 'admin';
+  const navScreens = ['dashboard','planning','list',...(isAdmin?['settings']:[])];
+
+  if (!session) return (
+    <>
+      <LoginScreen onLogin={handleLogin} />
+      <TweaksPanel>
+        <TweakSection label="Apparence" />
+        <TweakRadio label="Thème" value={tweaks.theme}
+          options={['terrain','studio','nuit']}
+          onChange={v => setTweak('theme', v)} />
+      </TweaksPanel>
+    </>
+  );
+
+  const mainContent = () => {
+    switch (screen) {
+      case 'dashboard': return <DashboardScreen data={data} zones={zones} trades={trades}
+        weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
+      case 'planning':  return <PlanningScreen  data={data} zones={zones} trades={trades}
+        weekOffset={weekOffset} filter={filter} session={session}
+        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} />;
+      case 'list':      return <ListScreen      data={data} zones={zones} trades={trades}
+        weekOffset={weekOffset} filter={filter} onOpenDetail={openDetail} />;
+      case 'settings':  return <SettingsScreen  zones={zones} trades={trades}
+        setZones={setZones} setTrades={setTrades} />;
+      default:          return null;
+    }
+  };
+
+  return (
+    <>
+      <div style={{display:'flex',flexDirection:'column',height:'100vh',overflow:'hidden'}}>
+        <AppHeader session={session} weekOffset={weekOffset}
+          onWeekChange={d=>setWeekOffset(o=>o+d)}
+          onSettings={()=>setScreen('settings')}
+          onUserMenu={()=>setUserMenu(true)}
+          filter={filter} trades={trades} onFilter={setFilter}
+          zones={zones} data={data}
+          viewMode={viewMode} onViewMode={setViewMode} />
+        <div style={{flex:1,overflow:'hidden',position:'relative'}}>
+          {mainContent()}
+        </div>
+        <BottomNav screen={screen} onNav={setScreen}
+          onAdd={()=>openAdd()} isAdmin={isAdmin} />
+      </div>
+
+      {/* Modals */}
+      <DetailModal open={modal?.type==='detail'} ivId={modal?.id}
+        data={data} zones={zones} trades={trades} session={session}
+        onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit} />
+      <AddEditModal open={modal?.type==='add'||modal?.type==='edit'}
+        editId={modal?.type==='edit'?modal?.id:null}
+        preZone={modal?.zone} preDate={modal?.date}
+        data={data} zones={zones} trades={trades}
+        onClose={closeModal} onSave={handleSave} onDelete={handleDelete} />
+      <UserMenuModal open={userMenu} session={session}
+        onClose={()=>setUserMenu(false)} onLogout={handleLogout} />
+
+      <TweaksPanel>
+        <TweakSection label="Apparence" />
+        <TweakRadio label="Thème" value={tweaks.theme}
+          options={['terrain','studio','nuit']}
+          onChange={v => setTweak('theme', v)} />
+      </TweaksPanel>
+    </>
+  );
+}
+function SettingsScreen({ zones, trades, setZones, setTrades }) {
+  const [tab, setTab] = useState('zones');
+  const [editingZone, setEditingZone] = useState(null);
+  const [editingTrade, setEditingTrade] = useState(null);
+  const [newZone, setNewZone] = useState(null);
+  const [newTrade, setNewTrade] = useState(null);
+  const PALETTE = Object.keys(TRADE_COLORS);
+
+  function saveZone(z) {
+    setZones(prev => prev.map(x => x.id===z.id ? z : x));
+    setEditingZone(null);
+  }
+  function saveTrade(t) {
+    setTrades(prev => prev.map(x => x.id===t.id ? t : x));
+    setEditingTrade(null);
+  }
+  function addZone() {
+    if (!newZone?.name||!newZone?.short) return;
+    setZones(prev=>[...prev,{id:'z_'+genId(),name:newZone.name,short:newZone.short}]);
+    setNewZone(null);
+  }
+  function addTrade() {
+    if (!newTrade?.name||!newTrade?.short) return;
+    setTrades(prev=>[...prev,{id:'tr_'+genId(),name:newTrade.name,short:newTrade.short,color:newTrade.color||'blue'}]);
+    setNewTrade(null);
+  }
+
+  return (
+    <div style={{overflowY:'auto',height:'100%',padding:'16px 14px 100px'}}>
+      <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:16}}>Configuration</div>
+      {/* Tabs */}
+      <div style={{display:'flex',borderBottom:'1px solid var(--border)',marginBottom:16}}>
+        {['zones','trades'].map(t=>(
+          <button key={t} onClick={()=>setTab(t)}
+            style={{flex:1,padding:'9px',background:'transparent',border:'none',fontSize:13,fontWeight:600,
+              cursor:'pointer',color:tab===t?'var(--primary)':'var(--muted)',fontFamily:"'DM Sans',sans-serif",
+              borderBottom:tab===t?'2px solid var(--primary)':'2px solid transparent',marginBottom:-1}}>
+            {t==='zones'?'Zones':'Corps de métier'}
+          </button>
+        ))}
+      </div>
+
+      {tab==='zones' && (
+        <div>
+          {zones.map((z,i)=>(
+            <div key={z.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
+              borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
+              {editingZone?.id===z.id ? (
+                <div style={{display:'flex',flexWrap:'wrap',gap:7,alignItems:'center'}}>
+                  <input value={editingZone.name} onChange={e=>setEditingZone({...editingZone,name:e.target.value})}
+                    style={{flex:1,minWidth:120,...inputSt}} placeholder="Nom complet" />
+                  <input value={editingZone.short} onChange={e=>setEditingZone({...editingZone,short:e.target.value})}
+                    style={{width:80,...inputSt}} placeholder="Court" />
+                  <button onClick={()=>saveZone(editingZone)} style={miniBtn}>✓</button>
+                  <button onClick={()=>setEditingZone(null)} style={miniBtn}>✕</button>
+                </div>
+              ) : (
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>{z.short}</div>
+                  </div>
+                  <button onClick={()=>setEditingZone(z)} style={miniBtn}>✎</button>
+                </div>
+              )}
+            </div>
+          ))}
+          {newZone ? (
+            <div style={{background:'var(--surface)',border:'1px solid var(--primary)',borderRadius:'var(--r-sm)',
+              padding:'11px 13px',marginBottom:7,display:'flex',flexWrap:'wrap',gap:7,alignItems:'center'}}>
+              <input value={newZone.name||''} onChange={e=>setNewZone({...newZone,name:e.target.value})}
+                style={{flex:1,minWidth:120,...inputSt}} placeholder="Nom complet" autoFocus />
+              <input value={newZone.short||''} onChange={e=>setNewZone({...newZone,short:e.target.value})}
+                style={{width:80,...inputSt}} placeholder="Court (ex: R3-TIS)" />
+              <button onClick={addZone} style={{...miniBtn,background:'var(--primary)',color:'#fff',border:'none'}}>Ajouter</button>
+              <button onClick={()=>setNewZone(null)} style={miniBtn}>✕</button>
+            </div>
+          ) : (
+            <button onClick={()=>setNewZone({})}
+              style={{display:'flex',alignItems:'center',gap:6,color:'var(--primary)',fontSize:13,
+                fontWeight:600,background:'transparent',border:'none',cursor:'pointer',padding:'8px 0',
+                fontFamily:"'DM Sans',sans-serif"}}>
+              <span style={{fontSize:18,lineHeight:1}}>+</span> Ajouter une zone
+            </button>
+          )}
+        </div>
+      )}
+
+      {tab==='trades' && (
+        <div>
+          {trades.map(tr=>{
+            const c=getTC(tr.color);
+            return (
+              <div key={tr.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
+                borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
+                {editingTrade?.id===tr.id ? (
+                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    <div style={{display:'flex',gap:7}}>
+                      <input value={editingTrade.name} onChange={e=>setEditingTrade({...editingTrade,name:e.target.value})}
+                        style={{flex:1,...inputSt}} placeholder="Nom" />
+                      <input value={editingTrade.short} onChange={e=>setEditingTrade({...editingTrade,short:e.target.value})}
+                        style={{width:70,...inputSt}} placeholder="Court" />
+                    </div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                      {PALETTE.map(cl=>{const cc=getTC(cl);return(
+                        <div key={cl} onClick={()=>setEditingTrade({...editingTrade,color:cl})}
+                          style={{width:22,height:22,borderRadius:'50%',background:cc.b,cursor:'pointer',
+                            border:editingTrade.color===cl?'3px solid var(--text)':'2px solid transparent',
+                            transition:'transform .1s',transform:editingTrade.color===cl?'scale(1.2)':'scale(1)'}}></div>
+                      );})}
+                    </div>
+                    <div style={{display:'flex',gap:6}}>
+                      <button onClick={()=>saveTrade(editingTrade)} style={{...miniBtn,flex:1}}>Enregistrer</button>
+                      <button onClick={()=>setEditingTrade(null)} style={miniBtn}>Annuler</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <span style={{width:12,height:12,borderRadius:'50%',background:c.b,flexShrink:0,
+                      border:`2px solid ${c.b}40`}}></span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{tr.name}</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:1}}>{tr.short}</div>
+                    </div>
+                    <button onClick={()=>setEditingTrade(tr)} style={miniBtn}>✎</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {newTrade ? (
+            <div style={{background:'var(--surface)',border:'1px solid var(--primary)',borderRadius:'var(--r-sm)',
+              padding:'12px 13px',marginBottom:7}}>
+              <div style={{display:'flex',gap:7,marginBottom:8}}>
+                <input value={newTrade.name||''} onChange={e=>setNewTrade({...newTrade,name:e.target.value})}
+                  style={{flex:1,...inputSt}} placeholder="Nom du lot" autoFocus />
+                <input value={newTrade.short||''} onChange={e=>setNewTrade({...newTrade,short:e.target.value})}
+                  style={{width:70,...inputSt}} placeholder="Court" />
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
+                {PALETTE.map(cl=>{const cc=getTC(cl);return(
+                  <div key={cl} onClick={()=>setNewTrade({...newTrade,color:cl})}
+                    style={{width:22,height:22,borderRadius:'50%',background:cc.b,cursor:'pointer',
+                      border:(newTrade.color||'blue')===cl?'3px solid var(--text)':'2px solid transparent'}}></div>
+                );})}
+              </div>
+              <div style={{display:'flex',gap:6}}>
+                <button onClick={addTrade} style={{...miniBtn,background:'var(--primary)',color:'#fff',border:'none',flex:1}}>Ajouter</button>
+                <button onClick={()=>setNewTrade(null)} style={miniBtn}>Annuler</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={()=>setNewTrade({color:'blue'})}
+              style={{display:'flex',alignItems:'center',gap:6,color:'var(--primary)',fontSize:13,
+                fontWeight:600,background:'transparent',border:'none',cursor:'pointer',padding:'8px 0',
+                fontFamily:"'DM Sans',sans-serif"}}>
+              <span style={{fontSize:18,lineHeight:1}}>+</span> Ajouter un corps de métier
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+const inputSt = {padding:'7px 9px',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',
+  fontSize:12,fontFamily:"'DM Sans',sans-serif",color:'var(--text)',background:'var(--surface)',outline:'none'};
+const miniBtn = {padding:'5px 10px',borderRadius:'var(--r-xs)',border:'1px solid var(--border)',
+  background:'var(--surface-2)',color:'var(--text)',fontSize:12,cursor:'pointer',fontFamily:"'DM Sans',sans-serif"};
+
 /* ════════════════════════════════════════════════════════════
-   NOTIFICATIONS PANEL
+   DETAIL MODAL
+═══════════════════════════════════════════════════════════ */
+function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit }) {
+  const iv = data.find(x=>x.id===ivId);
+  if (!iv) return null;
+  const z  = zones.find(x=>x.id===iv.zone);
+  const tr = trades.find(t=>t.id===iv.trade);
+  const c  = getTC(tr?.color||'blue');
+  const pred = iv.predecessor_id ? data.find(x=>x.id===iv.predecessor_id) : null;
+
+  return (
+    <SheetModal open={open} onClose={onClose}>
+      {/* Trade color accent strip */}
+      <div style={{height:4,background:c.b,margin:'-18px -18px 18px',borderRadius:'4px 4px 0 0'}}></div>
+
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
+        <div>
+          <div style={{fontSize:19,fontWeight:700,color:'var(--text)',marginBottom:3}}>{iv.company}</div>
+          {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{iv.task_number}</span>}
+        </div>
+        <StatusBadge status={iv.status} />
+      </div>
+      <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
+
+      {/* Task */}
+      <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
+        padding:'11px 13px',margin:'12px 0',fontSize:14,color:'var(--text)',lineHeight:1.5}}>{iv.task}</div>
+
+      {/* KV grid */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
+        {[
+          {l:'Zone',  v: z?.name||iv.zone},
+          {l:'Dates', v: fmtDate(iv.start)+(iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''), mono:true},
+        ].map(kv=>(
+          <div key={kv.l} style={{background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:'9px 11px',
+            border:'1px solid var(--border)'}}>
+            <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,fontFamily:"'DM Mono',monospace"}}>{kv.l}</div>
+            <div style={{fontSize:12,fontWeight:600,color:'var(--text)',
+              fontFamily:kv.mono?"'DM Mono',monospace":undefined}}>{kv.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {pred&&<div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',borderRadius:'0 6px 6px 0',
+        padding:'8px 12px',marginBottom:10,fontSize:12}}>
+        <b>Prédécesseur : {pred.task_number}</b><br/>
+        <span style={{color:'var(--muted)'}}>{pred.company} — {pred.task}</span>
+      </div>}
+
+      {iv.prereq&&<div style={{background:'rgba(220,38,38,.1)',borderLeft:'3px solid #DC2626',
+        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#991B1B'}}>
+        <b>⚠ Prérequis</b><br/>{iv.prereq}
+      </div>}
+      {iv.notes&&<div style={{background:'rgba(22,163,74,.08)',borderLeft:'3px solid #16A34A',
+        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'var(--text)'}}>
+        <b>Notes</b><br/>{iv.notes}
+      </div>}
+
+      {/* Attachments */}
+      {iv.attachments&&iv.attachments.length>0&&(
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
+            fontFamily:"'DM Mono',monospace",marginBottom:8}}>Pièces jointes</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+            {iv.attachments.map(f=>(
+              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
+                style={{display:'flex',alignItems:'center',gap:5,padding:'5px 9px',
+                  background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',
+                  fontSize:12,color:'var(--text)',textDecoration:'none'}}>
+                <span>{f.type==='application/pdf'?'📄':'🖼'}</span>
+                <span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Status update */}
+      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
+        fontFamily:"'DM Mono',monospace",marginBottom:8}}>Mettre à jour le statut</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
+        {Object.entries(STATUS_META).map(([k,m])=>(
+          <button key={k} onClick={()=>onStatusChange(iv.id,k)}
+            style={{padding:'9px 6px',borderRadius:'var(--r-sm)',border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
+              background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',fontSize:12,fontWeight:500,
+              color:iv.status===k?m.text:'var(--text)',display:'flex',alignItems:'center',justifyContent:'center',
+              gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
+            <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {session?.role==='admin'&&(
+        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l'intervention</button>
+      )}
+      <button onClick={onClose} style={btnSecStyle}>Fermer</button>
+    </SheetModal>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   ADD / EDIT MODAL
+═══════════════════════════════════════════════════════════ */
+function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, onClose, onSave, onDelete }) {
+  const existing = editId ? data.find(i=>i.id===editId) : null;
+  const [form, setForm] = useState({});
+  const [attachments, setAttachments] = useState([]);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const companyNames = [...new Set(COMPANIES.map(c=>c.name))].sort();
+
+  useEffect(()=>{
+    if (open) {
+      setForm(existing ? {
+        zone: existing.zone||'', start: existing.start||'', end: existing.end||'',
+        trade: existing.trade||'', company: existing.company||'', task: existing.task||'',
+        priority: existing.priority||3, prereq: existing.prereq||'', notes: existing.notes||'',
+        predecessor_id: existing.predecessor_id||'', status: existing.status||'arealis',
+      } : {
+        zone: preZone||'', start: preDate||dateStr(new Date()),
+        end: preDate||dateStr(new Date()), trade:'', company:'', task:'',
+        priority:3, prereq:'', notes:'', predecessor_id:'', status:'arealis',
+      });
+      setAttachments(existing?.attachments||[]);
+    }
+  }, [open, editId, preZone, preDate]);
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const PRIOS = [{v:1,l:'Urgente',c:'#DC2626'},{v:2,l:'Haute',c:'#EA580C'},{v:3,l:'Normale',c:'#CA8A04'},{v:4,l:'Basse',c:'#6B7280'},{v:5,l:'À conf.',c:'#9CA3AF'}];
+
+  function handleSave() {
+    if (!form.trade||!form.company||!form.task) { alert('Corps de métier, entreprise et description sont requis.'); return; }
+    const tn = existing?.task_number || genTaskNum(data, form.company);
+    onSave({
+      id: editId||genId(), ...form,
+      priority: form.priority||3, staff:1, progress:0, delay:0,
+      task_number:tn, attachments,
+    });
+  }
+
+  const predecessorList = data.filter(i=>i.id!==editId&&i.task_number)
+    .sort((a,b)=>(a.task_number||'').localeCompare(b.task_number||''));
+
+  return (
+    <>
+      <SheetModal open={open} onClose={onClose} maxH="95vh">
+        <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:18}}>
+          {editId?'Modifier l\'intervention':'Nouvelle intervention'}
+        </div>
+        <Field label="Zone *">
+          <Select value={form.zone||''} onChange={e=>set('zone',e.target.value)}>
+            <option value="">Sélectionner une zone…</option>
+            {zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}
+          </Select>
+        </Field>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:13}}>
+          <Field label="Date début *"><Input type="date" value={form.start||''} onChange={e=>set('start',e.target.value)} /></Field>
+          <Field label="Date fin"><Input type="date" value={form.end||''} onChange={e=>set('end',e.target.value)} /></Field>
+        </div>
+        <Field label="Corps de métier *">
+          <Select value={form.trade||''} onChange={e=>set('trade',e.target.value)}>
+            <option value="">Sélectionner…</option>
+            {trades.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Entreprise *">
+          <Select value={form.company||''} onChange={e=>set('company',e.target.value)}>
+            <option value="">Sélectionner…</option>
+            {companyNames.map(n=><option key={n} value={n}>{n}</option>)}
+          </Select>
+        </Field>
+        <Field label="Description *">
+          <Input value={form.task||''} onChange={e=>set('task',e.target.value)} placeholder="ex : Pose cloisons R+3 plateau Est" />
+        </Field>
+
+        <Field label="Prédécesseur" hint="(optionnel)">
+          <Select value={form.predecessor_id||''} onChange={e=>set('predecessor_id',e.target.value)}>
+            <option value="">Aucun</option>
+            {predecessorList.map(i=>{
+              const z=zones.find(x=>x.id===i.zone);
+              return <option key={i.id} value={i.id}>{i.task_number} — {i.company} — {i.task.slice(0,30)}{z?` (${z.short})`:''}</option>;
+            })}
+          </Select>
+        </Field>
+        <Field label="Prérequis / Point bloquant">
+          <Textarea value={form.prereq||''} onChange={e=>set('prereq',e.target.value)}
+            placeholder="ex : Zone libérée avant intervention…" rows={2} />
+        </Field>
+        <Field label="Notes / Consignes">
+          <Textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)}
+            placeholder="Informations complémentaires…" rows={2} />
+        </Field>
+        <Field label="Pièces jointes" hint="PDF ou image">
+          <AttachmentZone files={attachments} setFiles={setAttachments} />
+        </Field>
+
+        <button onClick={handleSave} style={btnPrimaryStyle}>Enregistrer</button>
+        {editId&&<button onClick={()=>setConfirmDel(true)}
+          style={{...btnSecStyle,width:'100%',marginTop:8,color:'var(--danger)',borderColor:'var(--danger)'}}>
+          Supprimer cette intervention
+        </button>}
+        <button onClick={onClose} style={{...btnSecStyle,width:'100%',marginTop:8}}>Annuler</button>
+      </SheetModal>
+      <ConfirmDialog open={confirmDel} message="Supprimer définitivement cette intervention ?"
+        onConfirm={()=>{setConfirmDel(false);onDelete(editId);}}
+        onCancel={()=>setConfirmDel(false)} />
+    </>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   USER MENU MODAL
+═══════════════════════════════════════════════════════════ */
+function UserMenuModal({ open, session, onClose, onLogout }) {
+  return (
+    <SheetModal open={open} onClose={onClose}>
+      <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:14}}>Mon compte</div>
+      <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
+        padding:14,marginBottom:16}}>
+        <div style={{fontSize:14,fontWeight:700,color:'var(--text)',marginBottom:3}}>{session?.name}</div>
+        <div style={{fontSize:12,color:'var(--muted)'}}>{session?.role==='admin'?'Administrateur':session?.company?.name}</div>
+      </div>
+      <button onClick={onLogout}
+        style={{...btnSecStyle,width:'100%',color:'var(--danger)',borderColor:'var(--danger)',marginBottom:8}}>
+        Se déconnecter
+      </button>
+      <button onClick={onClose} style={{...btnSecStyle,width:'100%'}}>Fermer</button>
+    </SheetModal>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   ROOT APP
 ═══════════════════════════════════════════════════════════ */
 function NotificationsPanel({ notifs, onClose, taskLogs, data, onOpenDetail }) {
   const LOG_ICONS = {note:'📝',encours:'🔵',signalement:'⚠️',bloque:'🔴',termine:'✅',undefined:'🔔'};
@@ -2926,7 +3440,13 @@ function PlanifyApp() {
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(<PlanifyApp />);
 
-</script>
 
+
+// ═══════════════════════════════════════════════════════════
+// MOUNT
+// ═══════════════════════════════════════════════════════════
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(PlanifyApp));
+</script>
 </body>
 </html>
