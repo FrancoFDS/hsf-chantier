@@ -6,6 +6,12 @@
 <title>Planify — HSF Av. Marceau</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="manifest" href="/hsf-chantier/manifest.json">
+<meta name="theme-color" content="#1A1A1A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Planify">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(()=>{});});}</script>
 <style>
 :root,[data-theme="terrain"]{--bg:#F4F2EE;--surface:#FFFFFF;--surface-2:#F9F8F5;--hdr:#1A1A1A;--hdr-text:#FFFFFF;--primary:#2152C8;--primary-l:#EEF2FC;--text:#1A1A1A;--muted:#6B6860;--xmuted:#ABA8A0;--border:#E8E4DC;--border-s:#C8C4BB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#16A34A;--success-l:#F0FDF4;--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.10);--shadow-lg:0 8px 32px rgba(0,0,0,.16)}
 [data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px;--shadow:0 2px 8px rgba(67,56,202,.07);--shadow-md:0 8px 24px rgba(67,56,202,.12);--shadow-lg:0 16px 48px rgba(67,56,202,.18)}
@@ -23,18 +29,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 button,select,input,textarea{font-family:'DM Sans',sans-serif}
 </style>
-<link rel="manifest" href="/hsf-chantier/manifest.json">
-<meta name="theme-color" content="#1A1A1A">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Planify">
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(()=>{});
-    });
-  }
-</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
@@ -44,259 +38,11 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}
 <div id="root"></div>
 <script>
 
-// planify-data.js — Data layer, constants & utilities
-
-const TRADE_COLORS = {
-  crimson:   {b:'#B91C1C',bg:'#FEF2F2',bgD:'rgba(185,28,28,.18)',t:'#7F1D1D'},      // rouge foncé
-  coral:     {b:'#F97316',bg:'#FFF7ED',bgD:'rgba(249,115,22,.18)',t:'#7C2D12'},      // orange vif
-  amber:     {b:'#D97706',bg:'#FFFBEB',bgD:'rgba(217,119,6,.18)',t:'#78350F'},       // ambre
-  brown:     {b:'#92400E',bg:'#FEF3C7',bgD:'rgba(146,64,14,.18)',t:'#451A03'},       // marron
-  forest:    {b:'#166534',bg:'#F0FDF4',bgD:'rgba(22,101,52,.18)',t:'#14532D'},       // vert foncé
-  lime:      {b:'#4ADE80',bg:'#F0FDF4',bgD:'rgba(74,222,128,.18)',t:'#166534'},      // vert clair
-  navy:      {b:'#1E3A8A',bg:'#EFF6FF',bgD:'rgba(30,58,138,.18)',t:'#172554'},       // bleu foncé
-  sky:       {b:'#38BDF8',bg:'#F0F9FF',bgD:'rgba(56,189,248,.18)',t:'#0C4A6E'},      // bleu clair
-  violet:    {b:'#7C3AED',bg:'#F5F3FF',bgD:'rgba(124,58,237,.18)',t:'#4C1D95'},      // violet
-  pink:      {b:'#EC4899',bg:'#FDF2F8',bgD:'rgba(236,72,153,.18)',t:'#831843'},      // rose vif
-  slate:     {b:'#475569',bg:'#F8FAFC',bgD:'rgba(71,85,105,.18)',t:'#1E293B'},       // gris ardoise
-};
-
-function getTC(colorId) {
-  // backward-compat aliases from old color names
-  const alias = {gold:'amber',blue:'navy',green:'forest',teal:'slate',
-                 rose:'pink',orange:'coral',indigo:'pink',purple:'violet',red:'crimson'};
-  return TRADE_COLORS[alias[colorId]||colorId] || TRADE_COLORS.navy;
-}
-
-const ZONES = [
-  {id:'z_1',name:'R+3 — Sanitaire H/F',    short:'R3-SANI',deadline:'2026-06-04',floor:'R+3'},
-  {id:'z_2',name:'R+3 — Bureaux + circ.', short:'R3-BUR', deadline:'2026-06-04',floor:'R+3'},
-  {id:'z_3',name:'R+3 — Tisanerie',        short:'R3-TIS', deadline:'2026-06-04',floor:'R+3'},
-  {id:'z_4',name:'R+3 — LT VDI',           short:'R3-VDI', deadline:'2026-06-04',floor:'R+3'},
-  {id:'z_5',name:'R+2 — Tisanerie',        short:'R2-TIS', deadline:'2026-05-29',floor:'R+2'},
-  {id:'z_6',name:'R+1 — Tisanerie',        short:'R1-TIS', deadline:'2026-05-29',floor:'R+1'},
-  {id:'z_7',name:'R+1 — Cafétéria',        short:'R1-CAF', deadline:'2026-05-29',floor:'R+1'},
-  {id:'z_8',name:'R+1 — Lounge',           short:'R1-LGE', deadline:'2026-05-29',floor:'R+1'},
-];
-
-// Floor accent colors
-const FLOOR_COLORS = {'R+3':'#2152C8','R+2':'#0D9488','R+1':'#8B5CF6'};
-
-function daysUntil(dateStr) {
-  const d = new Date(dateStr+'T00:00:00'), now = new Date();
-  now.setHours(0,0,0,0);
-  return Math.round((d - now) / (1000*60*60*24));
-}
-function deadlineColor(dateStr) {
-  const d = daysUntil(dateStr);
-  if (d < 0)  return '#DC2626';   // past
-  if (d < 14) return '#DC2626';   // danger
-  if (d < 21) return '#EA580C';   // warning
-  return '#16A34A';               // ok
-}
-
-const TRADES = [
-  {id:'tr_1',name:'STD',short:'STD',color:'crimson'},
-  {id:'tr_2',name:'BARRE BOUILLET',short:'BB',color:'brown'},
-  {id:'tr_3',name:'ELPHITEC',short:'ELPH',color:'navy'},
-  {id:'tr_4',name:'PROST',short:'PROST',color:'forest'},
-  {id:'tr_5',name:'AM FRANCE',short:'AMF',color:'amber'},
-  {id:'tr_6',name:'SOA-A',short:'SOAA',color:'violet'},
-  {id:'tr_7',name:'BENE',short:'BENE',color:'slate'},
-  {id:'tr_8',name:'9ème sens',short:'9ÈM',color:'coral'},
-  {id:'tr_9',name:'Jeanne',short:'JEAN',color:'sky'},
-  {id:'tr_10',name:'Papier peint',short:'PAP',color:'pink'},
-  {id:'tr_11',name:'Move Company',short:'MOVE',color:'lime'},
-];
-
-const COMPANIES = [
-  {id:'std',        name:'STD',           contact:'Tibor Salak',        code:'1001', tradeId:'tr_1'},
-  {id:'elph_cvc',   name:'ELPHITEC',      contact:'Laurent Testa',      code:'2002', tradeId:'tr_3'},
-  {id:'elph_elec',  name:'ELPHITEC',      contact:'Thibault Brousseau', code:'3003', tradeId:'tr_3'},
-  {id:'amfrance',   name:'AM FRANCE',     contact:'Ahmed El Sabbagh',   code:'4004', tradeId:'tr_5'},
-  {id:'prost',      name:'PROST',         contact:'Bruno Machado',      code:'5005', tradeId:'tr_4'},
-  {id:'soaa',       name:'SOA-A',         contact:'Antoine Delalande',  code:'6006', tradeId:'tr_6'},
-  {id:'barreb',     name:'BARRE BOUILLET',contact:'Cyrille Mazaleyrat', code:'7007', tradeId:'tr_2'},
-  {id:'bene',       name:'BENE',          contact:'Francois Corbin',    code:'8008', tradeId:'tr_7'},
-  {id:'move',       name:'Move Company',  contact:'',                   code:'9009', tradeId:'tr_11'},
-];
-
-const STATUS_META = {
-  arealis:{label:'À réaliser',dot:'#9CA3AF',text:'#4B5563',bg:'rgba(156,163,175,.13)',pill:'#6B7280'},
-  encours:{label:'En cours',  dot:'#2563EB',text:'#1D4ED8',bg:'rgba(37,99,235,.12)', pill:'#2563EB'},
-  termine:{label:'Terminé',   dot:'#16A34A',text:'#065F46',bg:'rgba(22,163,74,.12)', pill:'#16A34A'},
-  bloque: {label:'Bloqué',    dot:'#DC2626',text:'#991B1B',bg:'rgba(220,38,38,.12)', pill:'#DC2626'},
-};
-
-const INTERVENTIONS = [
-  {id:'imp_1', trade:'tr_1',company:'STD',         task:'Déposer placage imposte porte + doublage GEBERIT',     zone:'z_1',start:'2026-04-15',end:'2026-04-15',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-001',predecessor_id:null,attachments:[]},
-  {id:'imp_2', trade:'tr_1',company:'STD',         task:'Dépose équipement toilette (WC + vasque + miroir)',     zone:'z_1',start:'2026-04-15',end:'2026-04-15',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-002',predecessor_id:null,attachments:[]},
-  {id:'imp_3', trade:'tr_2',company:'BARRE BOUILLET',task:'Dépose porte + amener en atelier',                   zone:'z_1',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-001',predecessor_id:null,attachments:[]},
-  {id:'imp_4', trade:'tr_3',company:'ELPHITEC',    task:'Dépose + mise en réserve radiateur + condamner EF/EC', zone:'z_1',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-001',predecessor_id:null,attachments:[]},
-  {id:'imp_5', trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_1',start:'2026-04-20',end:'2026-04-20',status:'encours',priority:2,prereq:'Support Geberit posé',notes:'Étage: R+3',task_number:'ELP-002',predecessor_id:'imp_7',attachments:[]},
-  {id:'imp_6', trade:'tr_3',company:'ELPHITEC',    task:'Installation corps encastrement mitigeur',             zone:'z_1',start:'2026-04-21',end:'2026-04-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-003',predecessor_id:null,attachments:[]},
-  {id:'imp_7', trade:'tr_3',company:'ELPHITEC',    task:'Installation Support Geberit',                         zone:'z_1',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-004',predecessor_id:null,attachments:[]},
-  {id:'imp_8', trade:'tr_1',company:'STD',         task:'Doublage / rebouchage pour corps du mitigeur',         zone:'z_1',start:'2026-04-17',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-003',predecessor_id:null,attachments:[]},
-  {id:'imp_9', trade:'tr_1',company:'STD',         task:'Doublage support GEBERIT',                             zone:'z_1',start:'2026-04-17',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-004',predecessor_id:null,attachments:[]},
-  {id:'imp_10',trade:'tr_3',company:'ELPHITEC',    task:'Repositionner alim éclairage suivant plan implantation',zone:'z_1',start:'2026-04-17',end:'2026-04-17',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-005',predecessor_id:null,attachments:[]},
-  {id:'imp_11',trade:'tr_2',company:'BARRE BOUILLET',task:'Pose vasque',                                        zone:'z_1',start:'2026-05-06',end:'2026-05-06',status:'arealis',priority:3,prereq:'Enduits secs',notes:'Étage: R+3',task_number:'BAR-002',predecessor_id:null,attachments:[]},
-  {id:'imp_12',trade:'tr_4',company:'PROST',       task:'Pose faience coin vasque',                             zone:'z_1',start:'2026-05-11',end:'2026-05-12',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-001',predecessor_id:null,attachments:[]},
-  {id:'imp_13',trade:'tr_2',company:'BARRE BOUILLET',task:'Pose porte + habillage encadrement',                 zone:'z_1',start:'2026-05-06',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-003',predecessor_id:null,attachments:[]},
-  {id:'imp_14',trade:'tr_2',company:'BARRE BOUILLET',task:'Tablette fond de cabine',                            zone:'z_1',start:'2026-05-06',end:'2026-05-06',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-004',predecessor_id:null,attachments:[]},
-  {id:'imp_15',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit + ponçage — Plafond & Mur', zone:'z_1',start:'2026-04-22',end:'2026-04-24',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-001',predecessor_id:null,attachments:[]},
-  {id:'imp_16',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_1',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-002',predecessor_id:null,attachments:[]},
-  {id:'imp_17',trade:'tr_3',company:'ELPHITEC',    task:'Pose cuvette + plaque déclenchement + barre relevage', zone:'z_1',start:'2026-05-26',end:'2026-05-26',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-006',predecessor_id:null,attachments:[]},
-  {id:'imp_18',trade:'tr_3',company:'ELPHITEC',    task:'Pose terminaux faux-plafond (elec. + cvc)',            zone:'z_1',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-007',predecessor_id:null,attachments:[]},
-  {id:'imp_19',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_1',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-003',predecessor_id:null,attachments:[]},
-  {id:'imp_20',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_1',start:'2026-05-04',end:'2026-05-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-008',predecessor_id:null,attachments:[]},
-  {id:'imp_21',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre + pose butée de sol',            zone:'z_1',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-002',predecessor_id:null,attachments:[]},
-  {id:'imp_22',trade:'tr_4',company:'PROST',       task:'Dépose moquette',                                      zone:'z_2',start:'2026-04-10',end:'2026-04-24',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-003',predecessor_id:null,attachments:[]},
-  {id:'imp_23',trade:'tr_6',company:'SOA-A',       task:'Dépose cloison',                                       zone:'z_2',start:'2026-04-10',end:'2026-04-10',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-001',predecessor_id:null,attachments:[]},
-  {id:'imp_24',trade:'tr_3',company:'ELPHITEC',    task:'Curage câble CFO/CFA sol R+1 — raccordement',          zone:'z_2',start:'2026-04-13',end:'2026-04-17',status:'encours',priority:2,prereq:'Accès plateau libre',notes:'Étage: R+3',task_number:'ELP-009',predecessor_id:null,attachments:[]},
-  {id:'imp_25',trade:'tr_3',company:'ELPHITEC',    task:'Tirage des RJ au sol',                                 zone:'z_2',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-010',predecessor_id:null,attachments:[]},
-  {id:'imp_26',trade:'tr_3',company:'ELPHITEC',    task:'Distribution wifi',                                    zone:'z_2',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-011',predecessor_id:null,attachments:[]},
-  {id:'imp_27',trade:'tr_3',company:'ELPHITEC',    task:'Reprise des réseaux CVC',                              zone:'z_2',start:'2026-04-22',end:'2026-05-07',status:'bloque',priority:1,prereq:'Zone libérée par les menuisiers',notes:'Étage: R+3',task_number:'ELP-012',predecessor_id:null,attachments:[]},
-  {id:'imp_28',trade:'tr_3',company:'ELPHITEC',    task:'Transfert d\'air — distribution',                     zone:'z_2',start:'2026-04-22',end:'2026-05-04',status:'encours',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-013',predecessor_id:null,attachments:[]},
-  {id:'imp_29',trade:'tr_3',company:'ELPHITEC',    task:'Remplacer MR soufflage bureaux + extraction circulation',zone:'z_2',start:'2026-04-23',end:'2026-04-30',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-014',predecessor_id:null,attachments:[]},
-  {id:'imp_30',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture plafond & mur',     zone:'z_2',start:'2026-04-15',end:'2026-05-13',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-004',predecessor_id:null,attachments:[]},
-  {id:'imp_31',trade:'tr_4',company:'PROST',       task:'Pose moquette TTZ + barre de seuil + local VDI',       zone:'z_2',start:'2026-05-06',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-004',predecessor_id:null,attachments:[]},
-  {id:'imp_32',trade:'tr_3',company:'ELPHITEC',    task:'Refixer boitier de sol / Recettage',                   zone:'z_2',start:'2026-05-13',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-015',predecessor_id:null,attachments:[]},
-  {id:'imp_33',trade:'tr_2',company:'BARRE BOUILLET',task:'Traitement acoustique + support cloisons SOAA',      zone:'z_2',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-005',predecessor_id:null,attachments:[]},
-  {id:'imp_34',trade:'tr_5',company:'AM FRANCE',   task:'Enduit cloisons SOA-A',                                zone:'z_2',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-005',predecessor_id:null,attachments:[]},
-  {id:'imp_35',trade:'tr_6',company:'SOA-A',       task:'Tracer cloison + passage de porte / retracer terrain', zone:'z_2',start:'2026-04-16',end:'2026-04-28',status:'encours',priority:2,prereq:'',notes:'Étage: R+3',task_number:'SOA-002',predecessor_id:null,attachments:[]},
-  {id:'imp_36',trade:'tr_6',company:'SOA-A',       task:'Pose ossature + placo + bande',                        zone:'z_2',start:'2026-05-12',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-003',predecessor_id:null,attachments:[]},
-  {id:'imp_37',trade:'tr_6',company:'SOA-A',       task:'Pose vitrage (+6j après pose ossature)',               zone:'z_2',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-004',predecessor_id:null,attachments:[]},
-  {id:'imp_38',trade:'tr_6',company:'SOA-A',       task:'Pose porte',                                           zone:'z_2',start:'2026-05-20',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-005',predecessor_id:null,attachments:[]},
-  {id:'imp_39',trade:'tr_5',company:'AM FRANCE',   task:'2ème couche de peinture',                              zone:'z_2',start:'2026-05-11',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-006',predecessor_id:null,attachments:[]},
-  {id:'imp_40',trade:'tr_3',company:'ELPHITEC',    task:'Pose grille transfert d\'air',                         zone:'z_2',start:'2026-05-25',end:'2026-05-27',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-016',predecessor_id:null,attachments:[]},
-  {id:'imp_41',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin de chantier',                            zone:'z_2',start:'2026-05-28',end:'2026-05-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'JEA-001',predecessor_id:null,attachments:[]},
-  {id:'imp_42',trade:'tr_3',company:'ELPHITEC',    task:'Raccordement bureaux',                                 zone:'z_2',start:'2026-06-01',end:'2026-06-03',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-017',predecessor_id:null,attachments:[]},
-  {id:'imp_43',trade:'tr_7',company:'BENE',        task:'Installation du mobilier',                             zone:'z_2',start:'2026-06-01',end:'2026-06-03',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BEN-001',predecessor_id:null,attachments:[]},
-  {id:'imp_44',trade:'tr_3',company:'ELPHITEC',    task:'Dépose radiateur',                                     zone:'z_3',start:'2026-04-21',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-018',predecessor_id:null,attachments:[]},
-  {id:'imp_45',trade:'tr_1',company:'STD',         task:'Dépose meuble évier + faience + BECS',                 zone:'z_3',start:'2026-04-15',end:'2026-04-20',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-005',predecessor_id:null,attachments:[]},
-  {id:'imp_46',trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_3',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-019',predecessor_id:null,attachments:[]},
-  {id:'imp_47',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit — Plafond & Mur',           zone:'z_3',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-007',predecessor_id:null,attachments:[]},
-  {id:'imp_48',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_3',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-008',predecessor_id:null,attachments:[]},
-  {id:'imp_49',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation meuble cuisine',                        zone:'z_3',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-006',predecessor_id:null,attachments:[]},
-  {id:'imp_50',trade:'tr_3',company:'ELPHITEC',    task:'Installation BECS',                                    zone:'z_3',start:'2026-05-04',end:'2026-05-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-020',predecessor_id:null,attachments:[]},
-  {id:'imp_51',trade:'tr_3',company:'ELPHITEC',    task:'Installation robinetterie',                            zone:'z_3',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-021',predecessor_id:null,attachments:[]},
-  {id:'imp_52',trade:'tr_4',company:'PROST',       task:'Pose faience',                                         zone:'z_3',start:'2026-05-20',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-005',predecessor_id:null,attachments:[]},
-  {id:'imp_53',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_3',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-009',predecessor_id:null,attachments:[]},
-  {id:'imp_54',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_3',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-022',predecessor_id:null,attachments:[]},
-  {id:'imp_55',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre',                                zone:'z_3',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-006',predecessor_id:null,attachments:[]},
-  {id:'imp_56',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin de chantier',                            zone:'z_3',start:'2026-05-27',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'JEA-002',predecessor_id:null,attachments:[]},
-  {id:'imp_57',trade:'tr_3',company:'ELPHITEC',    task:'Dépose et évacuation de la baie existante',            zone:'z_4',start:'2026-04-15',end:'2026-04-15',status:'termine',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-023',predecessor_id:null,attachments:[]},
-  {id:'imp_58',trade:'tr_4',company:'PROST',       task:'Curage du sol',                                        zone:'z_4',start:'2026-04-17',end:'2026-04-17',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-007',predecessor_id:null,attachments:[]},
-  {id:'imp_59',trade:'tr_1',company:'STD',         task:'Curage faux-plafond',                                  zone:'z_4',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-006',predecessor_id:null,attachments:[]},
-  {id:'imp_60',trade:'tr_3',company:'ELPHITEC',    task:'Remplacement ventilo',                                 zone:'z_4',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-024',predecessor_id:null,attachments:[]},
-  {id:'imp_61',trade:'tr_3',company:'ELPHITEC',    task:'Installation de la clim',                              zone:'z_4',start:'2026-04-29',end:'2026-04-29',status:'bloque',priority:1,prereq:'Livraison unité extérieure confirmée',notes:'Étage: R+3',task_number:'ELP-025',predecessor_id:null,attachments:[]},
-  {id:'imp_62',trade:'tr_1',company:'STD',         task:'Pose du nouveau plafond',                              zone:'z_4',start:'2026-05-04',end:'2026-05-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-007',predecessor_id:null,attachments:[]},
-  {id:'imp_63',trade:'tr_4',company:'PROST',       task:'Pose du nouveau sol souple + barre de seuil',         zone:'z_4',start:'2026-06-01',end:'2026-06-02',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-008',predecessor_id:null,attachments:[]},
-  {id:'imp_64',trade:'tr_3',company:'ELPHITEC',    task:'Installation baie + câblage baie info',                zone:'z_4',start:'2026-05-19',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-026',predecessor_id:null,attachments:[]},
-  {id:'imp_65',trade:'tr_3',company:'ELPHITEC',    task:'Recettage + raccordement fibre',                       zone:'z_4',start:'2026-05-25',end:'2026-05-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-027',predecessor_id:null,attachments:[]},
-  {id:'imp_66',trade:'tr_3',company:'ELPHITEC',    task:'Dépose radiateur',                                     zone:'z_5',start:'2026-04-21',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-028',predecessor_id:null,attachments:[]},
-  {id:'imp_67',trade:'tr_1',company:'STD',         task:'Dépose meuble évier + faience + BECS',                 zone:'z_5',start:'2026-04-15',end:'2026-04-20',status:'termine',priority:3,prereq:'',notes:'Étage: R+2',task_number:'STD-008',predecessor_id:null,attachments:[]},
-  {id:'imp_68',trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_5',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-029',predecessor_id:null,attachments:[]},
-  {id:'imp_69',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit — Plafond & Mur',           zone:'z_5',start:'2026-04-23',end:'2026-04-24',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'AMF-010',predecessor_id:null,attachments:[]},
-  {id:'imp_70',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_5',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'AMF-011',predecessor_id:null,attachments:[]},
-  {id:'imp_71',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation meuble cuisine',                        zone:'z_5',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'BAR-007',predecessor_id:null,attachments:[]},
-  {id:'imp_72',trade:'tr_3',company:'ELPHITEC',    task:'Installation BECS',                                    zone:'z_5',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-030',predecessor_id:null,attachments:[]},
-  {id:'imp_73',trade:'tr_3',company:'ELPHITEC',    task:'Installation robinetterie',                            zone:'z_5',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-031',predecessor_id:null,attachments:[]},
-  {id:'imp_74',trade:'tr_4',company:'PROST',       task:'Pose faience',                                         zone:'z_5',start:'2026-05-20',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'PRO-009',predecessor_id:null,attachments:[]},
-  {id:'imp_75',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_5',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'AMF-012',predecessor_id:null,attachments:[]},
-  {id:'imp_76',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_5',start:'2026-05-13',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-032',predecessor_id:null,attachments:[]},
-  {id:'imp_77',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre',                                zone:'z_5',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'PRO-010',predecessor_id:null,attachments:[]},
-  {id:'imp_78',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin',                                        zone:'z_5',start:'2026-05-26',end:'2026-05-26',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'JEA-003',predecessor_id:null,attachments:[]},
-  {id:'imp_79',trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_6',start:'2026-05-04',end:'2026-05-05',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-033',predecessor_id:null,attachments:[]},
-  {id:'imp_80',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit — Plafond & Mur',           zone:'z_6',start:'2026-04-23',end:'2026-04-24',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-013',predecessor_id:null,attachments:[]},
-  {id:'imp_81',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_6',start:'2026-05-06',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-014',predecessor_id:null,attachments:[]},
-  {id:'imp_82',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation meuble cuisine',                        zone:'z_6',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-008',predecessor_id:null,attachments:[]},
-  {id:'imp_83',trade:'tr_3',company:'ELPHITEC',    task:'Installation BECS',                                    zone:'z_6',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-034',predecessor_id:null,attachments:[]},
-  {id:'imp_84',trade:'tr_3',company:'ELPHITEC',    task:'Installation robinetterie',                            zone:'z_6',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-035',predecessor_id:null,attachments:[]},
-  {id:'imp_85',trade:'tr_4',company:'PROST',       task:'Pose faience',                                         zone:'z_6',start:'2026-05-20',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-011',predecessor_id:null,attachments:[]},
-  {id:'imp_86',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_6',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-015',predecessor_id:null,attachments:[]},
-  {id:'imp_87',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_6',start:'2026-05-13',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-036',predecessor_id:null,attachments:[]},
-  {id:'imp_88',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre',                                zone:'z_6',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-012',predecessor_id:null,attachments:[]},
-  {id:'imp_89',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin',                                        zone:'z_6',start:'2026-05-26',end:'2026-05-26',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'JEA-004',predecessor_id:null,attachments:[]},
-  {id:'imp_90',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture — plafond & mur',  zone:'z_7',start:'2026-04-27',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-016',predecessor_id:null,attachments:[]},
-  {id:'imp_91',trade:'tr_3',company:'ELPHITEC',    task:'Création des attentes plomberie',                      zone:'z_7',start:'2026-04-27',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-037',predecessor_id:null,attachments:[]},
-  {id:'imp_92',trade:'tr_4',company:'PROST',       task:'Pose revêtement de sol',                               zone:'z_7',start:'2026-05-04',end:'2026-05-07',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-013',predecessor_id:null,attachments:[]},
-  {id:'imp_93',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation cuisine + pose crédence',               zone:'z_7',start:'2026-05-08',end:'2026-05-08',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-009',predecessor_id:null,attachments:[]},
-  {id:'imp_94',trade:'tr_5',company:'AM FRANCE',   task:'2ème couche de peinture',                              zone:'z_7',start:'2026-05-18',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-017',predecessor_id:null,attachments:[]},
-  {id:'imp_95',trade:'tr_3',company:'ELPHITEC',    task:'Pose appareillage',                                    zone:'z_7',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-038',predecessor_id:null,attachments:[]},
-  {id:'imp_96',trade:'tr_8',company:'9ème sens',   task:'Vitrophanie',                                          zone:'z_7',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'9EM-001',predecessor_id:null,attachments:[]},
-  {id:'imp_97',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture — plafond & mur',  zone:'z_8',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-018',predecessor_id:null,attachments:[]},
-  {id:'imp_98',trade:'tr_4',company:'PROST',       task:'Remanier position boitier de sol',                     zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-014',predecessor_id:null,attachments:[]},
-  {id:'imp_99',trade:'tr_3',company:'ELPHITEC',    task:'Distribution au sol + repositionner boitier',          zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-039',predecessor_id:null,attachments:[]},
-  {id:'imp_100',trade:'tr_4',company:'PROST',      task:'Pose moquette + PVC TTZ + barre de seuil',             zone:'z_8',start:'2026-05-04',end:'2026-05-07',status:'arealis',priority:3,prereq:'Euler vers Marceau',notes:'Étage: R+1',task_number:'PRO-015',predecessor_id:null,attachments:[]},
-  {id:'imp_101',trade:'tr_5',company:'AM FRANCE',  task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-019',predecessor_id:null,attachments:[]},
-  {id:'imp_102',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation et pose des aménagements',             zone:'z_8',start:'2026-05-11',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-010',predecessor_id:null,attachments:[]},
-  {id:'imp_103',trade:'tr_1',company:'STD',        task:'Installation des panneaux acoustiques',                zone:'z_8',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'STD-009',predecessor_id:null,attachments:[]},
-  {id:'imp_104',trade:'tr_10',company:'Papier peint',task:'Préparation des supports + pose papier peint',       zone:'z_8',start:'2026-05-18',end:'2026-05-18',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PAP-001',predecessor_id:null,attachments:[]},
-  {id:'imp_105',trade:'tr_5',company:'AM FRANCE',  task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_8',start:'2026-05-26',end:'2026-05-27',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-020',predecessor_id:null,attachments:[]},
-  {id:'imp_106',trade:'tr_3',company:'ELPHITEC',   task:'Installation des appliques + éclairage',               zone:'z_8',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-040',predecessor_id:null,attachments:[]},
-  {id:'imp_107',trade:'tr_11',company:'Move Company',task:'Installation bras écran',zone:'z_2',start:'2026-06-01',end:'2026-06-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'MOV-001',predecessor_id:null,attachments:[]},
-];
-
-// ─── UTILITIES ──────────────────────────────────────────────────
-function getMonday(offset = 0) {
-  const t = new Date(); const d = t.getDay();
-  const diff = d === 0 ? -6 : 1 - d;
-  const m = new Date(t); m.setDate(t.getDate() + diff + offset * 7); m.setHours(0,0,0,0);
-  return m;
-}
-function weekDays(offset = 0) {
-  const m = getMonday(offset);
-  return Array.from({length:5}, (_,i) => { const d = new Date(m); d.setDate(m.getDate()+i); return d; });
-}
-function multiWeekDays(offset = 0, weeks = 1) {
-  return Array.from({length: weeks}, (_, w) => weekDays(offset + w)).flat();
-}
-function dateStr(d)   { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function dateFR(d)    { return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
-function fmtDate(s)   { if(!s) return ''; const p=s.split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s; }
-function isToday(d)   { return d.toDateString() === new Date().toDateString(); }
-function inDay(iv,day){ const s=new Date(iv.start+'T00:00:00'),e=new Date((iv.end||iv.start)+'T00:00:00'),dd=new Date(day); dd.setHours(0,0,0,0); return dd>=s&&dd<=e; }
-function genId()      { return 'u_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6); }
-function genTaskNum(interventions, company) {
-  const prefix = (company||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
-  const existing = interventions.filter(i=>i.company===company&&i.task_number);
-  const nums = existing.map(i=>parseInt((i.task_number||'').replace(/[^0-9]/g,''))||0);
-  return `${prefix}-${String((nums.length?Math.max(...nums):0)+1).padStart(3,'0')}`;
-}
-const DAYS_FR = ['Lun','Mar','Mer','Jeu','Ven'];
-
-// French public holidays 2026
-const HOLIDAYS_2026 = new Set([
-  '2026-01-01','2026-04-06','2026-05-01','2026-05-08',
-  '2026-05-14','2026-05-25','2026-07-14','2026-08-15',
-  '2026-11-01','2026-11-11','2026-12-25'
-]);
-function isHoliday(d) { return HOLIDAYS_2026.has(dateStr(d)); }
-
-// Working-days countdown (excluding weekends + holidays)
-function workingDaysUntil(ds) {
-  if (!ds) return 9999;
-  const target = new Date(ds+'T00:00:00');
-  const now = new Date(); now.setHours(0,0,0,0);
-  let count = 0;
-  const dir = target >= now ? 1 : -1;
-  let cur = new Date(now);
-  while (cur.toDateString() !== target.toDateString()) {
-    cur.setDate(cur.getDate() + dir);
-    const dow = cur.getDay();
-    if (dow !== 0 && dow !== 6 && !HOLIDAYS_2026.has(dateStr(cur))) count += dir;
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(()=>{});
+    });
   }
-  return count;
-}
-
-// Expose all globals so Babel-compiled scripts can access them
-Object.assign(window, {
-  ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, FLOOR_COLORS, DAYS_FR,
-  HOLIDAYS_2026, isHoliday, workingDaysUntil,
-  getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay,
-  genId, genTaskNum, daysUntil, deadlineColor,
-});
-
 
 </script>
 <script type="text/babel">
@@ -823,9 +569,8 @@ function TaskCard({ iv, trades, isDark, onClick, hasNote, myNote }) {
           {iv.task_number}
         </span>
         <div style={{display:'flex',alignItems:'center',gap:3}}>
-          {hasNote && <span style={{fontSize:10,lineHeight:1,
-            filter:myNote?'none':'grayscale(1)'}}
-            title={myNote?'Vous êtes concerné(e) par une note':'Note sur cette tâche'}>📝</span>}
+          {hasNote && <span style={{fontSize:10,lineHeight:1,filter:myNote?'none':'grayscale(1)'}}
+            title="Note disponible">📝</span>}
           <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
         </div>
       </div>
@@ -881,7 +626,7 @@ function FilterChips({ trades, filter, onFilter }) {
 
 /* ── APP HEADER ───────────────────────────────────────────── */
 function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, unreadCount, onBell, onToday, onRefresh }) {
-  const weeks = viewMode === '3w' ? 3 : 1;
+  const weeks = viewMode==='3s'?3:viewMode==='2s'?2:1;
   const days  = multiWeekDays(weekOffset, weeks);
   const start = days[0], end = days[days.length - 1];
 
@@ -921,7 +666,7 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
               </button>
             ))}
           </div>
-          {/* Week nav + Today + Refresh */}
+          {/* Week nav */}
           <div style={{display:'flex',alignItems:'center',gap:4,background:'rgba(255,255,255,.08)',
             border:'1px solid rgba(255,255,255,.14)',borderRadius:8,padding:'4px 6px'}}>
             <button onClick={()=>onWeekChange(-1)} style={hdrBtnStyle}>‹</button>
@@ -931,33 +676,26 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             </span>
             <button onClick={()=>onWeekChange(1)} style={hdrBtnStyle}>›</button>
           </div>
-          <button onClick={onToday} title="Revenir à aujourd'hui"
+          <button onClick={onToday} title="Aujourd'hui"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-              borderRadius:6,width:28,height:28,fontSize:12,letterSpacing:0}}>
-            ⬤
-          </button>
-          <button onClick={onRefresh} title="Rafraîchir les données"
+              borderRadius:6,width:26,height:26,fontSize:11}}>◎</button>
+          <button onClick={onRefresh} title="Rafraichir"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-              borderRadius:6,width:28,height:28,fontSize:13}}>
-            ↻
-          </button>
+              borderRadius:6,width:26,height:26,fontSize:13}}>↻</button>
           {session?.role==='admin'&&
             <button onClick={onSettings} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:28,height:28,fontSize:14}}>⚙</button>}
-          {/* Bell notification button */}
-          <button onClick={onBell}
-            style={{position:'relative',background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-              borderRadius:6,width:28,height:28,color:'rgba(255,255,255,.8)',fontSize:15,cursor:'pointer',
-              display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <button onClick={onBell} style={{position:'relative',background:'rgba(255,255,255,.08)',
+            border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,
+            color:'rgba(255,255,255,.8)',fontSize:14,cursor:'pointer',
+            display:'flex',alignItems:'center',justifyContent:'center'}}>
             🔔
-            {unreadCount > 0 && (
-              <span style={{position:'absolute',top:-5,right:-5,background:'#DC2626',color:'#fff',
-                borderRadius:'50%',width:16,height:16,fontSize:9,fontWeight:800,
-                display:'flex',alignItems:'center',justifyContent:'center',
-                fontFamily:"'DM Mono',monospace",border:'2px solid var(--hdr)'}}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
+            {unreadCount>0 && <span style={{position:'absolute',top:-5,right:-5,background:'#DC2626',
+              color:'#fff',borderRadius:'50%',width:15,height:15,fontSize:9,fontWeight:800,
+              display:'flex',alignItems:'center',justifyContent:'center',
+              border:'2px solid var(--hdr)',fontFamily:"'DM Mono',monospace"}}>
+              {unreadCount>9?'9+':unreadCount}
+            </span>}
           </button>
           <button onClick={onUserMenu} style={{background:'var(--primary)',border:'none',borderRadius:6,
             width:28,height:28,color:'#fff',fontSize:10,fontWeight:700,cursor:'pointer',
@@ -1169,7 +907,6 @@ Object.assign(window, {
 
 </script>
 <script type="text/babel">
-
 // planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
 
@@ -1178,14 +915,14 @@ const { useState, useEffect, useRef, useCallback, useMemo } = React;
 // ── Self-contained helpers (Babel scope) ──────────────────────
 const _HOLIDAYS = new Set(['2026-01-01','2026-04-06','2026-05-01','2026-05-08',
   '2026-05-14','2026-05-25','2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25']);
-function isHoliday(d) { return _HOLIDAYS.has(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')); }
+function isHoliday(d) { return _HOLIDAYS.has(d.toISOString().split('T')[0]); }
 function workingDaysUntil(ds) {
   if (!ds) return 9999;
   const target = new Date(ds+'T00:00:00'), now = new Date(); now.setHours(0,0,0,0);
   let count = 0, dir = target >= now ? 1 : -1, cur = new Date(now);
   while (cur.toDateString() !== target.toDateString()) {
     cur.setDate(cur.getDate() + dir);
-    const dow = cur.getDay(), s = cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
+    const dow = cur.getDay(), s = cur.toISOString().split('T')[0];
     if (dow !== 0 && dow !== 6 && !_HOLIDAYS.has(s)) count += dir;
   }
   return count;
@@ -1644,11 +1381,11 @@ function SectionCard({ title, children, accent }) {
 ═══════════════════════════════════════════════════════════ */
 function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, setZones, taskLogs }) {
   const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
-  const isMulti = weeks > 1;
   const days = multiWeekDays(weekOffset, weeks);
   const isDark = document.documentElement.getAttribute('data-theme') === 'nuit';
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
   const isAdmin = session?.role === 'admin';
+  const isMulti = weeks > 1;
   const zoneColW = isMulti ? '44px' : '54px';
   const deadlineColW = '34px';
   const dayColW = '1fr';
@@ -1680,13 +1417,11 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
   const floorOf = id => zones.find(z=>z.id===id)?.floor||'';
 
   return (
-    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0 100px',paddingBottom:100}}>
+    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
       <div style={{background:'var(--surface)',
         border:isMulti?'none':'1px solid var(--border)',
-        margin:isMulti?0:'0 8px',
-        borderRadius:isMulti?0:'var(--r)',
-        boxShadow:isMulti?'none':'var(--shadow)',
-        overflowX:'hidden'}}>
+        margin:isMulti?0:'0 8px',borderRadius:isMulti?0:'var(--r)',
+        boxShadow:isMulti?'none':'var(--shadow)',overflowX:'hidden'}}>
         <div style={{width:'100%'}}>
 
           {/* Header row */}
@@ -1739,23 +1474,22 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
             {days.map((d,i) => {
               const isFirstOfWeek = i % 5 === 0 && i > 0;
               const holiday = isHoliday(d);
-              const tcol = holiday?'#666':isToday(d)?'var(--primary)':'var(--muted)';
               return (
-                <div key={i} style={{padding:isMulti?'4px 1px':'6px 2px',textAlign:'center',
+                <div key={i} style={{padding:'6px 2px',textAlign:'center',
                   borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                  background:holiday?'#D0D3D8':isToday(d)?'var(--primary-l)':'transparent',
-                  overflow:'hidden'}}>
+                  background:holiday?'#D0D3D8':isToday(d)?'var(--primary-l)':'transparent'}}>
                   {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
-                    color:tcol,letterSpacing:'.02em'}}>
+                    color:holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)'}}>
                     {DAYS_FR[d.getDay()-1]}
                   </div>}
-                  <div style={{fontSize:isMulti?8:10,fontWeight:isMulti?700:400,color:tcol,lineHeight:1.2,
+                  <div style={{fontSize:isMulti?8:10,fontWeight:isMulti?700:400,
+                    color:holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)',
                     fontFamily:isMulti?"'DM Mono',monospace":undefined}}>
                     {isMulti ? d.getDate() : `${d.getDate()}/${d.getMonth()+1}`}
                   </div>
-                  {holiday && <div style={{fontSize:6.5,color:'#555',fontWeight:700,fontFamily:"'DM Mono',monospace",marginTop:1,lineHeight:1}}>JF</div>}
-                  {isMulti && isFirstOfWeek && <div style={{fontSize:6,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>
-                    S{Math.floor(d.getDate()/7)+1}
+                  {holiday && <div style={{fontSize:7,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
+                  {weeks>1&&i%5===0&&!holiday&&<div style={{fontSize:8,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>
+                    S{Math.ceil(d.getDate()/7)}
                   </div>}
                 </div>
               );
@@ -1763,7 +1497,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
 
             {/* Deadline header */}
             <div style={{padding:'4px 1px',textAlign:'center',borderLeft:'2px solid var(--border-s)',
-              background:'rgba(220,38,38,.07)',display:'flex',alignItems:'center',justifyContent:'center',minHeight:30}}>
+              background:'rgba(220,38,38,.07)',display:'flex',alignItems:'center',justifyContent:'center',minHeight:28}}>
               <span style={{fontSize:7,fontWeight:800,color:'#DC2626',fontFamily:"'DM Mono',monospace",
                 letterSpacing:'.06em',writingMode:'vertical-rl',transform:'rotate(180deg)',lineHeight:1}}>FIN</span>
             </div>
@@ -1782,14 +1516,14 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
 
             return (
               <div key={zone.id} style={{display:'grid',gridTemplateColumns:gridCols,
-                borderTop:floorChange?`3px solid ${fc}`:`1px solid ${fc}40`,
-                borderBottom:'none',background:rowBg}}>
+                borderTop:floorChange?`3px solid ${fc}`:'none',
+                borderBottom:'1px solid var(--border)',background:rowBg}}>
 
                 {/* Zone label */}
                 <div style={{padding:isMulti?'3px 1px':'5px 3px',borderRight:'3px solid '+fc,
                   display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',
-                  minHeight:isMulti?44:64,background:`${fc}12`}}>
-                  <span style={{fontSize:isMulti?5.5:8,fontWeight:800,color:fc,lineHeight:1.2,
+                  minHeight:isMulti?44:56,background:`${fc}12`}}>
+                  <span style={{fontSize:isMulti?6:8,fontWeight:800,color:fc,lineHeight:1.2,
                     fontFamily:"'DM Mono',monospace",letterSpacing:'.03em',textTransform:'uppercase',
                     wordBreak:'break-all'}}>{zone.short}</span>
                 </div>
@@ -1802,20 +1536,13 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const isDeadline = ds === zone.deadline;
                   const cards = holiday ? [] : filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
                     .sort((a,b)=>(a.priority||3)-(b.priority||3));
-                  const shown = cards; // show all, no truncation
-                  const isPastDeadline = zone.deadline && ds > zone.deadline;
-                  const cellBg = holiday?'#D0D3D8'
-                    : isPastDeadline ? 'rgba(220,38,38,.09)'
-                    : isDeadline ? 'rgba(220,38,38,.18)'
-                    : isToday(day) ? 'color-mix(in srgb, var(--primary) 5%, transparent)'
-                    : 'transparent';
+                  const shown = cards;
+                  const cellBg = holiday?'rgba(156,163,175,.1)':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                   return (
                     <div key={di} onClick={()=>isAdmin&&!holiday&&onOpenAdd(zone.id,ds)}
-                      style={{padding:isMulti?1:2,minHeight:isMulti?44:64,
+                      style={{padding:isMulti?1:2,minHeight:isMulti?44:56,
                         borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                         background:cellBg,
-                        borderLeftColor:isDeadline?'rgba(220,38,38,.6)':undefined,
-                        borderLeftWidth:isDeadline?2:undefined,
                         cursor:isAdmin&&!holiday?'pointer':'default',transition:'background .1s'}}
                       onMouseEnter={e=>{if(isAdmin&&!holiday)e.currentTarget.style.background='var(--surface-2)';}}
                       onMouseLeave={e=>{e.currentTarget.style.background=cellBg;}}>
@@ -1828,43 +1555,35 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                         </div>
                       )}
                       {shown.map(iv=>{
-                        if (isMulti) {
-                          const _tr=trades.find(t=>t.id===iv.trade);
-                          const _c=getTC(_tr?.color||'blue');
-                          const _m=STATUS_META[iv.status]||STATUS_META.arealis;
-                          const _hasNote = (taskLogs||{})[iv.id]?.length > 0;
-                          const myComp = session?.role==='admin'?'Admin':(session?.company?.name||'');
-                          const _myNote = _hasNote && ((taskLogs||{})[iv.id]||[]).some(l=>l.author===myComp||l.mentioned?.includes(myComp));
-                          return (
-                            <div key={iv.id} onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}}
-                              style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
-                                background:_c.bg,borderLeft:`2px solid ${_c.b}`,overflow:'hidden',
-                                border:`0.5px solid ${_c.b}25`,borderLeftWidth:2,borderLeftColor:_c.b,
-                                position:'relative'}}>
-                              <div style={{display:'flex',alignItems:'center',gap:2,justifyContent:'space-between'}}>
-                                <span style={{fontSize:weeks===2?7.5:7,fontWeight:700,color:_c.t,
-                                  overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',lineHeight:1.2,flex:1}}>
-                                  {iv.company}
-                                </span>
-                                <div style={{display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
-                                  {_hasNote && <span style={{fontSize:9,lineHeight:1,
-                                    color:_myNote?'#D97706':'rgba(0,0,0,.3)'}}>📝</span>}
-                                  <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot}}></span>
-                                </div>
+                        const _tr=trades.find(t=>t.id===iv.trade);
+                        const _c=getTC(_tr?.color||'blue');
+                        const _m=STATUS_META[iv.status]||STATUS_META.arealis;
+                        const _hasNote=!!((taskLogs||{})[iv.id]?.length);
+                        const _myComp=session?.role==='admin'?'Admin':(session?.company?.name||'');
+                        const _myNote=_hasNote&&((taskLogs[iv.id]||[]).some(l=>l.author===_myComp||(l.mentioned||l.mentions||[]).includes(_myComp)));
+                        if(isMulti) return (
+                          <div key={iv.id} onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}}
+                            style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
+                              background:_c.bg,borderLeft:`2px solid ${_c.b}`,overflow:'hidden'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:2,justifyContent:'space-between'}}>
+                              <span style={{fontSize:weeks===2?7.5:7,fontWeight:700,color:_c.t,
+                                overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',lineHeight:1.2,flex:1}}>
+                                {iv.company}
+                              </span>
+                              <div style={{display:'flex',alignItems:'center',gap:2}}>
+                                {_hasNote&&<span style={{fontSize:9,filter:_myNote?'none':'grayscale(1)'}}>📝</span>}
+                                <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot,flexShrink:0}}></span>
                               </div>
-                              {weeks===2 && <div style={{fontSize:7,color:_c.t,opacity:.7,lineHeight:1.2,
-                                overflow:'hidden',display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical'}}>
-                                {iv.task}
-                              </div>}
                             </div>
-                          );
-                        }
-                        const hasNote = (taskLogs||{})[iv.id]?.length > 0;
-                        const myC2 = session?.role==='admin'?'Admin':(session?.company?.name||'');
-                        const myNote = hasNote && ((taskLogs||{})[iv.id]||[]).some(l=>l.author===myC2||l.mentioned?.includes(myC2));
+                            {weeks===2&&<div style={{fontSize:7,color:_c.t,opacity:.7,lineHeight:1.2,
+                              overflow:'hidden',display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical'}}>
+                              {iv.task}
+                            </div>}
+                          </div>
+                        );
                         return (
                           <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
-                            hasNote={hasNote} myNote={myNote}
+                            hasNote={_hasNote} myNote={_myNote}
                             onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}} />
                         );
                       })}
@@ -1873,60 +1592,44 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   );
                 })}
 
-                {/* Deadline cell — click to edit deadline */}
+                {/* Deadline cell — inline editable */}
                 {(()=>{
-                  const wd = workingDaysUntil(zone.deadline);
-                  const lbl = wd < 0 ? '▲' : `J-${wd}`;
-                  const ds2 = zone.deadline?.slice(5,10).replace('-','/');
-                  const [editing, setEditing] = React.useState(false);
-                  return editing ? (
+                  const wd=workingDaysUntil(zone.deadline);
+                  const lbl=wd<0?'▲':`J-${wd}`;
+                  const ds2=zone.deadline?.slice(5,10).replace('-','/');
+                  const [editing,setEditing]=React.useState(false);
+                  return editing?(
                     <div style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
                       alignItems:'center',justifyContent:'center',padding:'3px 2px',
                       background:`${dc}18`,minHeight:isMulti?44:56}}>
-                      <input
-                        type="date"
-                        defaultValue={zone.deadline||''}
-                        autoFocus
-                        onBlur={e => {
-                          const val = e.target.value;
-                          if (val && val !== zone.deadline) {
-                            const updated = {...zone, deadline: val};
-                            setZones(prev => prev.map(z => z.id===zone.id ? updated : z));
-                            if (window._supaWrite) window._supaWrite('PATCH','zones',{deadline:val},'id=eq.'+zone.id);
+                      <input type="date" defaultValue={zone.deadline||''} autoFocus
+                        onBlur={e=>{
+                          const val=e.target.value;
+                          if(val&&val!==zone.deadline){
+                            const updated={...zone,deadline:val};
+                            setZones(prev=>prev.map(z=>z.id===zone.id?updated:z));
+                            if(window._supaWrite)window._supaWrite('PATCH','zones',{deadline:val},'id=eq.'+zone.id);
                           }
                           setEditing(false);
                         }}
-                        onKeyDown={e => { if(e.key==='Escape') setEditing(false); }}
-                        style={{width:'100%',border:'none',background:'transparent',
-                          fontSize:7,fontFamily:"'DM Mono',monospace",color:dc,
-                          textAlign:'center',cursor:'pointer',outline:'none',padding:'1px'}}
-                      />
-                      <span style={{fontSize:6,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",lineHeight:1}}>
-                        ↵ valider
-                      </span>
+                        onKeyDown={e=>{if(e.key==='Escape')setEditing(false);}}
+                        style={{width:'100%',border:'none',background:'transparent',fontSize:7,
+                          fontFamily:"'DM Mono',monospace",color:dc,textAlign:'center',outline:'none'}}/>
                     </div>
-                  ) : (
-                    <div
-                      onClick={isAdmin ? ()=>setEditing(true) : undefined}
-                      title={isAdmin ? 'Cliquer pour modifier la date de fin' : undefined}
+                  ):(
+                    <div onClick={isAdmin?()=>setEditing(true):undefined}
                       style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
                         alignItems:'center',justifyContent:'center',padding:'2px 1px',
                         background:`${dc}12`,minHeight:isMulti?44:56,
-                        cursor:isAdmin?'pointer':'default',
-                        transition:'background .15s'}}
-                      onMouseEnter={e=>{if(isAdmin)e.currentTarget.style.background=`${dc}25`;}}
-                      onMouseLeave={e=>{e.currentTarget.style.background=`${dc}12`;}}>
+                        cursor:isAdmin?'pointer':'default'}}>
                       <span style={{fontSize:isMulti?7.5:8.5,fontWeight:800,color:dc,
-                        fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.15,
-                        whiteSpace:'nowrap',letterSpacing:'-.01em'}}>
-                        {zone.deadline ? lbl : '—'}
+                        fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.15,whiteSpace:'nowrap'}}>
+                        {zone.deadline?lbl:'—'}
                       </span>
                       <span style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",
                         marginTop:2,textAlign:'center',lineHeight:1,whiteSpace:'nowrap'}}>
                         {ds2||'ajouter'}
                       </span>
-                      {isAdmin && <span style={{fontSize:5.5,color:dc,opacity:.5,marginTop:1,
-                        fontFamily:"'DM Mono',monospace",lineHeight:1}}>✎</span>}
                     </div>
                   );
                 })()}
@@ -3194,6 +2897,7 @@ function PlanifyApp() {
     </>
   );
 }
+
 
 
 </script>
