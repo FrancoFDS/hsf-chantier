@@ -26,6 +26,7 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -949,7 +950,7 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil }) {
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil, syncing, busyActions = {} }) {
   const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const days  = multiWeekDays(weekOffset, weeks);
   const start = days[0], end = days[days.length - 1];
@@ -1023,32 +1024,35 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
           <button onClick={onToday} title="Aujourd'hui"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:11}}>◎</button>
-          <button onClick={onRefresh} title="Rafraichir"
+          <button onClick={onRefresh} disabled={!!syncing} title="Synchroniser les données avec Supabase"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
-              border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:13}}>↻</button>
+              border:'1px solid rgba(255,255,255,.14)',borderRadius:6,minWidth:42,height:26,
+              fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:syncing ? .65 : 1}}>
+            {syncing?'…':'Sync'}
+          </button>
           <button onClick={onHistory} title="Historique détaillé"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,minWidth:40,height:26,
               fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Hist.</button>
           {session?.role==='admin' && !planningValidated && (
-            <button onClick={onToggleLock} title={planningLocked?'Déverrouiller le planning':'Verrouiller le planning'}
+            <button onClick={onToggleLock} disabled={!!busyActions.planning_lock} title={planningLocked?'Déverrouiller le planning':'Verrouiller le planning'}
               style={{...hdrBtnStyle,background:planningLocked?'rgba(220,38,38,.22)':'rgba(255,255,255,.08)',
                 border:'1px solid '+(planningLocked?'rgba(248,113,113,.45)':'rgba(255,255,255,.14)'),
-                borderRadius:6,minWidth:34,height:26,fontSize:12}}>
-              {planningLocked?'🔒':'🔓'}
+                borderRadius:6,minWidth:34,height:26,fontSize:12,opacity:busyActions.planning_lock ? .65 : 1,cursor:busyActions.planning_lock?'wait':'pointer'}}>
+              {busyActions.planning_lock?'…':(planningLocked?'🔒':'🔓')}
             </button>
           )}
           {session?.role==='admin' && !planningValidated && (
-            <button onClick={onValidatePlanning} title="Valider le planning : choisit une date de validité, fige cette version et inscrit l’action dans l’historique."
+            <button onClick={onValidatePlanning} disabled={!!busyActions.planning_validate} title="Valider le planning : choisit une date de validité, fige cette version et inscrit l’action dans l’historique."
               style={{...hdrBtnStyle,background:'rgba(22,163,74,.22)',
                 border:'1px solid rgba(74,222,128,.45)',borderRadius:6,minWidth:48,height:26,
-                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Valider</button>
+                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:busyActions.planning_validate ? .65 : 1,cursor:busyActions.planning_validate?'wait':'pointer'}}>{busyActions.planning_validate?'…':'Valider'}</button>
           )}
           {session?.role==='admin' && planningValidated && (
-            <button onClick={onReindexPlanning} title="Réindexer une nouvelle version"
+            <button onClick={onReindexPlanning} disabled={!!busyActions.planning_reindex} title="Réindexer une nouvelle version"
               style={{...hdrBtnStyle,background:'rgba(249,115,22,.22)',
                 border:'1px solid rgba(251,146,60,.55)',borderRadius:6,minWidth:60,height:26,
-                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Réindexer</button>
+                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:busyActions.planning_reindex ? .65 : 1,cursor:busyActions.planning_reindex?'wait':'pointer'}}>{busyActions.planning_reindex?'…':'Réindexer'}</button>
           )}
           {statusLabel && (
             <span title={statusLabel} style={{height:26,display:'inline-flex',alignItems:'center',
@@ -1315,9 +1319,17 @@ function supaWrite(method, table, body, query) {
   var hdrs = {'apikey':_SUPA_KEY,'Authorization':'Bearer '+_SUPA_KEY,
     'Content-Type':'application/json',
     'Prefer':method==='POST'?'return=representation':'return=minimal'};
-  fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
-    .then(function(r){if(!r.ok)console.error('[Planify] '+table+' '+method+' '+r.status);})
-    .catch(function(e){console.error('[Planify]',e);});
+  return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
+    .then(function(r){
+      if(!r.ok) throw new Error('[Planify] '+table+' '+method+' '+r.status);
+      if (window.PLANIFY_NOTIFY) window.PLANIFY_NOTIFY('Sauvegardé ✓','success');
+      return r;
+    })
+    .catch(function(e){
+      console.error('[Planify]',e);
+      if (window.PLANIFY_NOTIFY) window.PLANIFY_NOTIFY('Erreur de sauvegarde','error');
+      return null;
+    });
 }
 
 
@@ -2738,14 +2750,25 @@ function StatusWithNote({ iv, session, onStatusChange }) {
   var [pendingStatus, setPendingStatus] = React.useState(null);
   var [noteText, setNoteText] = React.useState('');
   var [saved, setSaved] = React.useState(false);
+  var [saving, setSaving] = React.useState(false);
+  var [error, setError] = React.useState('');
   var m2 = pendingStatus ? (STATUS_META[pendingStatus]||STATUS_META.arealis) : null;
 
-  function confirm() {
-    onStatusChange(iv.id, pendingStatus, noteText.trim());
-    setSaved(true);
-    setTimeout(function(){ setSaved(false); setPendingStatus(null); setNoteText(''); }, 1800);
+  async function confirm() {
+    if (saving || !pendingStatus) return;
+    setSaving(true);
+    setError('');
+    try {
+      await onStatusChange(iv.id, pendingStatus, noteText.trim());
+      setSaved(true);
+      setTimeout(function(){ setSaved(false); setPendingStatus(null); setNoteText(''); }, 1600);
+    } catch(e) {
+      setError(e&&e.message?e.message:'Erreur de sauvegarde. Synchronisez puis réessayez.');
+    } finally {
+      setSaving(false);
+    }
   }
-  function cancel() { setPendingStatus(null); setNoteText(''); }
+  function cancel() { if (!saving) { setPendingStatus(null); setNoteText(''); setError(''); } }
 
   return (
     <div style={{marginBottom:14}}>
@@ -2757,12 +2780,12 @@ function StatusWithNote({ iv, session, onStatusChange }) {
         {Object.entries(STATUS_META).map(function(entry){
           var k=entry[0], m=entry[1];
           return (
-            <button key={k} onClick={function(){ setPendingStatus(k); setNoteText(''); setSaved(false); }}
+            <button key={k} disabled={saving} onClick={function(){ setPendingStatus(k); setNoteText(''); setSaved(false); setError(''); }}
               style={{padding:'9px 6px',borderRadius:'var(--r-sm)',
                 border:'1.5px solid '+(iv.status===k?m.dot:'var(--border)'),
                 background:iv.status===k?m.bg:'var(--surface)',
-                cursor:'pointer',fontSize:12,fontWeight:500,
-                color:iv.status===k?m.text:'var(--text)',
+                cursor:saving?'wait':'pointer',fontSize:12,fontWeight:500,
+                color:iv.status===k?m.text:'var(--text)',opacity:saving ? .65 : 1,
                 display:'flex',alignItems:'center',justifyContent:'center',
                 gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
               <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
@@ -2780,24 +2803,27 @@ function StatusWithNote({ iv, session, onStatusChange }) {
           </div>
           <textarea
             value={noteText}
+            disabled={saving}
             onChange={function(e){ setNoteText(e.target.value); }}
             placeholder="Ajouter un commentaire..."
             style={{width:'100%',padding:'9px 11px',border:'1px solid var(--border)',
               borderRadius:'var(--r-sm)',fontSize:13,fontFamily:"'DM Sans',sans-serif",
               color:'var(--text)',background:'var(--surface)',resize:'vertical',
-              minHeight:64,marginBottom:10}}
+              minHeight:64,marginBottom:10,opacity:saving ? .7 : 1}}
           />
+          {error && <div style={{fontSize:12,color:'var(--danger)',fontWeight:600,marginBottom:8,
+            lineHeight:1.4}}>{error}</div>}
           <div style={{display:'flex',gap:8}}>
-            <button onClick={confirm}
+            <button onClick={confirm} disabled={saving}
               style={{flex:1,padding:'10px',borderRadius:'var(--r-sm)',border:'none',
                 background:m2?m2.dot:'var(--primary)',color:'#fff',fontSize:13,fontWeight:700,
-                cursor:'pointer',fontFamily:"'DM Sans',sans-serif"}}>
-              Confirmer
+                cursor:saving?'wait':'pointer',opacity:saving ? .7 : 1,fontFamily:"'DM Sans',sans-serif"}}>
+              {saving?'Enregistrement…':'Confirmer'}
             </button>
-            <button onClick={cancel}
+            <button onClick={cancel} disabled={saving}
               style={{padding:'10px 14px',borderRadius:'var(--r-sm)',
                 border:'1px solid var(--border)',background:'var(--surface)',
-                color:'var(--muted)',fontSize:13,cursor:'pointer',
+                color:'var(--muted)',fontSize:13,cursor:saving?'wait':'pointer',opacity:saving ? .6 : 1,
                 fontFamily:"'DM Sans',sans-serif"}}>
               Annuler
             </button>
@@ -2807,7 +2833,7 @@ function StatusWithNote({ iv, session, onStatusChange }) {
       {saved && (
         <div style={{marginTop:8,padding:'8px 12px',background:'var(--success-l)',
           borderRadius:'var(--r-sm)',fontSize:12,color:'var(--success)',fontWeight:600,
-          textAlign:'center'}}>Statut mis à jour</div>
+          textAlign:'center'}}>Statut sauvegardé ✓</div>
       )}
     </div>
   );
@@ -3020,6 +3046,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
   const [form, setForm] = useState({});
   const [attachments, setAttachments] = useState([]);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [saving, setSaving] = useState(false);
   const companyNames = [...new Set((companies&&companies.length?companies:COMPANIES).map(c=>c.name))].sort();
 
   useEffect(()=>{
@@ -3029,6 +3056,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         trade: existing.trade||'', company: existing.company||'', task: existing.task||'',
         priority: existing.priority||3, prereq: existing.prereq||'', notes: existing.notes||'',
         predecessor_id: existing.predecessor_id||'', status: existing.status||'arealis',
+        _expected_updated_at: existing.updated_at||'',
       } : {
         zone: preZone||'', start: preDate||dateStr(new Date()),
         end: preDate||dateStr(new Date()), trade:'', company:'', task:'',
@@ -3041,15 +3069,23 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   const PRIOS = [{v:1,l:'Urgente',c:'#DC2626'},{v:2,l:'Haute',c:'#EA580C'},{v:3,l:'Normale',c:'#CA8A04'},{v:4,l:'Basse',c:'#6B7280'},{v:5,l:'À conf.',c:'#9CA3AF'}];
 
-  function handleSave() {
+  async function handleSave() {
+    if (saving) return;
     if (!form.trade||!form.company||!form.task) { alert('Corps de métier, entreprise et description sont requis.'); return; }
     const tn = existing?.task_number || genTaskNum(data, form.company);
-    onSave({
-      id: editId||genId(), ...form,
-      priority: form.priority||3, staff:1, progress:0, delay:0,
-      task_number:tn, attachments,
-      off_days: form.off_days||[],
-    });
+    setSaving(true);
+    try {
+      await onSave({
+        id: editId||genId(), ...form,
+        priority: form.priority||3, staff:1, progress:0, delay:0,
+        task_number:tn, attachments,
+        off_days: form.off_days||[],
+      });
+    } catch(e) {
+      alert((e&&e.message)||'Erreur de sauvegarde. Synchronisez puis réessayez.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const predecessorList = data.filter(i=>i.id!==editId&&i.task_number)
@@ -3101,7 +3137,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
           <AttachmentZone files={attachments} setFiles={setAttachments} />
         </Field>
 
-        <button onClick={handleSave} style={btnPrimaryStyle}>Enregistrer</button>
+        <button onClick={handleSave} disabled={saving} style={{...btnPrimaryStyle,opacity:saving ? .7 : 1,cursor:saving?'wait':'pointer'}}>{saving?'Enregistrement…':'Enregistrer'}</button>
         {editId&&<button onClick={()=>setConfirmDel(true)}
           style={{...btnSecStyle,width:'100%',marginTop:8,color:'var(--danger)',borderColor:'var(--danger)'}}>
           Supprimer cette intervention
@@ -3109,7 +3145,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         <button onClick={onClose} style={{...btnSecStyle,width:'100%',marginTop:8}}>Annuler</button>
       </SheetModal>
       <ConfirmDialog open={confirmDel} message="Supprimer définitivement cette intervention ?"
-        onConfirm={()=>{setConfirmDel(false);onDelete(editId);}}
+        onConfirm={async()=>{setConfirmDel(false);setSaving(true);try{await onDelete(editId, existing?.updated_at);}catch(e){alert((e&&e.message)||'Erreur de suppression. Synchronisez puis réessayez.');}finally{setSaving(false);}}}
         onCancel={()=>setConfirmDel(false)} />
     </>
   );
@@ -3427,11 +3463,27 @@ function PlanifyApp() {
   const [planningLocked, setPlanningLocked] = useState(false);
   const [planningValidated, setPlanningValidated] = useState(false);
   const [validateModal, setValidateModal] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [busy, setBusy] = useState({});
+  const realtimeRef = useRef(null);
+  const realtimeTimerRef = useRef(null);
 
   // Apply theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', tweaks.theme);
   }, [tweaks.theme]);
+
+  function notify(message, type = 'success', ms = 2600) {
+    setToast({message:message,type:type});
+    window.clearTimeout(window.__planifyToastTimer);
+    window.__planifyToastTimer = window.setTimeout(function(){ setToast(null); }, ms);
+  }
+  window.PLANIFY_NOTIFY = notify;
+
+  function setBusyKey(key, value) {
+    setBusy(function(prev){ return Object.assign({}, prev, {[key]: value}); });
+  }
+  function isBusy(key) { return !!busy[key]; }
 
   const SUPA = window.PLANIFY_SUPA || null;
   const SUPA_URL = 'https://xrfqlbhaxhraneflrfez.supabase.co';
@@ -3448,7 +3500,40 @@ function PlanifyApp() {
     };
     return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
       .then(function(r){ if(!r.ok) throw new Error(table+' '+method+' failed: '+r.status); return r; })
-      .catch(function(e){ console.error('[Planify] Supabase error:',e); });
+      .catch(function(e){ console.error('[Planify] Supabase error:',e); notify('Erreur de sauvegarde','error'); throw e; });
+  }
+
+  function sbFetchRows(method, table, body, query) {
+    var url = SUPA_URL+'/rest/v1/'+table+(query?'?'+query:'');
+    var hdrs = {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer '+SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    };
+    return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
+      .then(function(r){
+        if(!r.ok) throw new Error(table+' '+method+' failed: '+r.status);
+        return r.json().catch(function(){ return []; });
+      })
+      .catch(function(e){ console.error('[Planify] Supabase error:',e); notify('Erreur de sauvegarde','error'); throw e; });
+  }
+
+  function eqFilter(field, value) {
+    return field + '=eq.' + encodeURIComponent(value == null ? '' : String(value));
+  }
+  function conflictQuery(id, expectedUpdatedAt) {
+    var q = eqFilter('id', id);
+    if (expectedUpdatedAt) q += '&' + eqFilter('updated_at', expectedUpdatedAt);
+    return q;
+  }
+  function normalizeInterventionRow(r) {
+    return Object.assign({}, r, {
+      start: r.start_date,
+      end: r.end_date,
+      attachments: [],
+      off_days: r.off_days || []
+    });
   }
 
   function supaHeaders() {
@@ -3523,9 +3608,8 @@ function PlanifyApp() {
 
   // ── Load all data from Supabase ──────────────────────────────────────
   function loadFromSupabase(sess) {
-    var company = sess&&sess.role==='admin'?'Admin':(sess&&sess.company?sess.company.name:'');
     var hdrs = {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
-    Promise.all([
+    return Promise.all([
       fetch(SUPA_URL+'/rest/v1/zones?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/trades?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/companies?order=display_order',{headers:hdrs}),
@@ -3539,26 +3623,57 @@ function PlanifyApp() {
         return loc?Object.assign({},t,{color:loc.color}):t;
       }));
       if(cData&&cData.length) setCompanies(cData.map(function(c){
-        return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',tradeId:c.trade_id||c.tradeId||''};
+        return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',tradeId:c.trade_id||c.tradeId||'',updated_at:c.updated_at||''};
       }));
-      if(iData&&iData.length) setData(iData.map(function(r){
-        return Object.assign({},r,{
-          start:r.start_date, end:r.end_date,
-          attachments:[], off_days:r.off_days||[]
-        });
-      }));
-    }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); });
+      if(iData&&iData.length) setData(iData.map(normalizeInterventionRow));
+      return results;
+    }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); notify('Erreur de synchronisation','error'); throw e; });
   }
 
   function handleLogin(s) {
     setSession(s);
-    loadFromSupabase(s);
-    setTimeout(function(){
-      loadPlanningMeta();
-      loadHistory();
-    }, 0);
+    setBusyKey('sync', true);
+    Promise.all([loadFromSupabase(s), loadPlanningMeta(), loadHistory()])
+      .then(function(){ notify('Synchronisé ✓','success'); })
+      .catch(function(){ notify('Erreur de synchronisation','error'); })
+      .finally(function(){ setBusyKey('sync', false); });
   }
   function handleLogout() { setSession(null); setUserMenu(false); setHistoryOpen(false); }
+
+  function syncAll(showMessage = true) {
+    if (!session) return Promise.resolve();
+    setBusyKey('sync', true);
+    if (showMessage) notify('Synchronisation en cours…','info',1200);
+    return Promise.all([loadFromSupabase(session), loadPlanningMeta(), loadHistory()])
+      .then(function(){ if (showMessage) notify('Synchronisé ✓','success'); })
+      .catch(function(e){ if (showMessage) notify('Erreur de synchronisation','error'); throw e; })
+      .finally(function(){ setBusyKey('sync', false); });
+  }
+
+  function scheduleRealtimeSync() {
+    if (!session) return;
+    clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = setTimeout(function(){ syncAll(false).catch(function(){}); }, 550);
+  }
+
+  useEffect(function(){
+    if (!session || !window.supabase || !window.supabase.createClient) return;
+    var client = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    var channel = client.channel('planify-live-'+Date.now())
+      .on('postgres_changes', {event:'*', schema:'public', table:'interventions'}, scheduleRealtimeSync)
+      .on('postgres_changes', {event:'*', schema:'public', table:'planning_versions'}, scheduleRealtimeSync)
+      .on('postgres_changes', {event:'*', schema:'public', table:'planning_events'}, scheduleRealtimeSync)
+      .on('postgres_changes', {event:'*', schema:'public', table:'companies'}, scheduleRealtimeSync)
+      .on('postgres_changes', {event:'*', schema:'public', table:'zones'}, scheduleRealtimeSync)
+      .on('postgres_changes', {event:'*', schema:'public', table:'trades'}, scheduleRealtimeSync)
+      .subscribe(function(status){ console.log('[Planify realtime]', status); });
+    realtimeRef.current = {client:client, channel:channel};
+    return function(){
+      clearTimeout(realtimeTimerRef.current);
+      try { client.removeChannel(channel); } catch(e) {}
+      realtimeRef.current = null;
+    };
+  }, [session]);
 
   const isAdmin = session?.role === 'admin';
   const canEditPlanning = isAdmin && !planningLocked && !planningValidated;
@@ -3582,102 +3697,144 @@ function PlanifyApp() {
   function closeModal()             { setModal(null); }
 
   // ── Status change → save to Supabase ────────────────────────────────
-  function handleStatusChange(id, status, noteText) {
+  async function handleStatusChange(id, status, noteText) {
     if (!canChangeStatus) {
       alert('Planning validé : les statuts ne peuvent plus être modifiés sur cette version.');
-      return;
+      throw new Error('Planning validé.');
     }
     var iv = data.find(function(i){return i.id===id;});
-    var oldStatus = iv ? iv.status : '';
+    if (!iv) throw new Error('Tâche introuvable. Synchronisez puis réessayez.');
+    var oldStatus = iv.status || '';
     var oldMeta = STATUS_META[oldStatus] || {label:oldStatus || '—'};
     var newMeta = STATUS_META[status] || {label:status || '—'};
-    var z = iv ? zones.find(function(x){return x.id===iv.zone;}) : null;
+    var z = zones.find(function(x){return x.id===iv.zone;}) || null;
+    var newUpdatedAt = new Date().toISOString();
+    setBusyKey('status_'+id, true);
 
-    setData(function(prev){ return prev.map(function(i){ return i.id===id?Object.assign({},i,{status:status}):i; }); });
-    sbFetch('PATCH','interventions',{status:status,updated_at:new Date().toISOString()},'id=eq.'+id);
+    try {
+      var rows = await sbFetchRows('PATCH','interventions',{
+        status:status,
+        updated_at:newUpdatedAt
+      }, conflictQuery(id, iv.updated_at));
+      if (iv.updated_at && (!rows || !rows.length)) {
+        await syncAll(false).catch(function(){});
+        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Synchronisez avant de réessayer.');
+      }
+      var saved = rows && rows[0] ? normalizeInterventionRow(rows[0]) : Object.assign({}, iv, {status:status, updated_at:newUpdatedAt});
+      setData(function(prev){ return prev.map(function(i){ return i.id===id?saved:i; }); });
 
-    var author = actorName();
-    addPlanningEvent({
-      event_type:'status_change',
-      task_id:id,
-      task_number:iv?iv.task_number:'',
-      task_title:iv?iv.task:'',
-      task_company:iv?iv.company:'',
-      zone_id:iv?iv.zone:'',
-      zone_name:z?z.name:'',
-      old_status:oldMeta.label,
-      new_status:newMeta.label,
-      note:noteText&&noteText.trim()?noteText.trim():'',
-      message:author+' a modifié le statut de '+(iv?(iv.task_number||iv.task):id)+' : '+oldMeta.label+' → '+newMeta.label,
-      payload:{old_status:oldStatus,new_status:status}
-    });
+      var author = actorName();
+      await addPlanningEvent({
+        event_type:'status_change',
+        task_id:id,
+        task_number:iv.task_number||'',
+        task_title:iv.task||'',
+        task_company:iv.company||'',
+        zone_id:iv.zone||'',
+        zone_name:z?z.name:'',
+        old_status:oldMeta.label,
+        new_status:newMeta.label,
+        note:noteText&&noteText.trim()?noteText.trim():'',
+        message:author+' a modifié le statut de '+(iv.task_number||iv.task)+' : '+oldMeta.label+' → '+newMeta.label,
+        payload:{old_status:oldStatus,new_status:status}
+      });
 
-    // Save note if provided in the legacy task log table
-    if(noteText&&noteText.trim()) {
-      var logRow = {task_id:id,company:author,author:author,type:status,
-        message:noteText.trim(),photo_url:null,mentioned:['Admin']};
-      sbFetch('POST','task_logs',logRow)
-        .then(function(){
-          var taskRef = iv?iv.task_number||iv.task.slice(0,30):'';
-          var msg = author+' · '+status+' · '+taskRef;
-          sbFetch('POST','notifications',[{company:'Admin',task_id:id,message:msg,read:false}]);
-        });
+      if(noteText&&noteText.trim()) {
+        var logRow = {task_id:id,company:author,author:author,type:status,
+          message:noteText.trim(),photo_url:null,mentioned:['Admin']};
+        sbFetch('POST','task_logs',logRow)
+          .then(function(){
+            var taskRef = iv?iv.task_number||iv.task.slice(0,30):'';
+            var msg = author+' · '+status+' · '+taskRef;
+            sbFetch('POST','notifications',[{company:'Admin',task_id:id,message:msg,read:false}]);
+          }).catch(function(){});
+      }
+      notify('Statut sauvegardé ✓','success');
+      return saved;
+    } catch(e) {
+      notify(e.message || 'Erreur de sauvegarde','error',4200);
+      throw e;
+    } finally {
+      setBusyKey('status_'+id, false);
     }
   }
 
   // ── Save new/edited task → Supabase ─────────────────────────────────
-  function handleSave(iv) {
+  async function handleSave(iv) {
     if (!canEditPlanning) {
-      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour modifier les tâches.' : 'Planning verrouillé : seules les modifications de statut sont autorisées.');
-      return;
+      var msg = planningValidated ? 'Planning validé : réindexez une nouvelle version pour modifier les tâches.' : 'Planning verrouillé : seules les modifications de statut sont autorisées.';
+      alert(msg); throw new Error(msg);
     }
     var existing = data.find(function(i){return i.id===iv.id;});
-    setData(function(prev){
-      var idx = prev.findIndex(function(i){return i.id===iv.id;});
-      if(idx>=0){ var n=[].concat(prev); n[idx]=iv; return n; }
-      return prev.concat([iv]);
-    });
-    closeModal();
+    var expectedUpdatedAt = iv._expected_updated_at || (existing&&existing.updated_at) || '';
+    var cleanIv = Object.assign({}, iv);
+    delete cleanIv._expected_updated_at;
+    var newUpdatedAt = new Date().toISOString();
     var row = {
-      id:iv.id, trade:iv.trade, company:iv.company, task:iv.task,
-      zone:iv.zone, start_date:iv.start, end_date:iv.end||iv.start,
-      status:iv.status||'arealis', priority:iv.priority||3,
-      prereq:iv.prereq||'', notes:iv.notes||'',
-      task_number:iv.task_number||null, predecessor_id:null,
-      off_days:iv.off_days||[], updated_at:new Date().toISOString()
+      id:cleanIv.id, trade:cleanIv.trade, company:cleanIv.company, task:cleanIv.task,
+      zone:cleanIv.zone, start_date:cleanIv.start, end_date:cleanIv.end||cleanIv.start,
+      status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
+      prereq:cleanIv.prereq||'', notes:cleanIv.notes||'',
+      task_number:cleanIv.task_number||null, predecessor_id:null,
+      off_days:cleanIv.off_days||[], updated_at:newUpdatedAt
     };
-    if(existing) {
-      sbFetch('PATCH','interventions',row,'id=eq.'+iv.id);
-    } else {
-      sbFetch('POST','interventions',row);
-    }
 
-    var z = zones.find(function(x){return x.id===iv.zone;});
-    addPlanningEvent({
-      event_type:existing?'task_updated':'task_created',
-      task_id:iv.id,
-      task_number:iv.task_number||'',
-      task_title:iv.task||'',
-      task_company:iv.company||'',
-      zone_id:iv.zone||'',
-      zone_name:z?z.name:'',
-      message:(existing?'Tâche modifiée : ':'Tâche ajoutée : ')+(iv.task_number||iv.task),
-      payload:{intervention:iv}
-    });
+    setBusyKey('task_save', true);
+    try {
+      var rows = existing
+        ? await sbFetchRows('PATCH','interventions',row,conflictQuery(cleanIv.id, expectedUpdatedAt))
+        : await sbFetchRows('POST','interventions',row);
+      if (existing && expectedUpdatedAt && (!rows || !rows.length)) {
+        await syncAll(false).catch(function(){});
+        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Synchronisez avant d’enregistrer.');
+      }
+      var saved = rows && rows[0] ? normalizeInterventionRow(rows[0]) : Object.assign({}, cleanIv, {updated_at:newUpdatedAt});
+      setData(function(prev){
+        var idx = prev.findIndex(function(i){return i.id===saved.id;});
+        if(idx>=0){ var n=[].concat(prev); n[idx]=saved; return n; }
+        return prev.concat([saved]);
+      });
+      closeModal();
+      var z = zones.find(function(x){return x.id===cleanIv.zone;});
+      await addPlanningEvent({
+        event_type:existing?'task_updated':'task_created',
+        task_id:cleanIv.id,
+        task_number:cleanIv.task_number||'',
+        task_title:cleanIv.task||'',
+        task_company:cleanIv.company||'',
+        zone_id:cleanIv.zone||'',
+        zone_name:z?z.name:'',
+        message:(existing?'Tâche modifiée : ':'Tâche ajoutée : ')+(cleanIv.task_number||cleanIv.task),
+        payload:{intervention:saved}
+      });
+      notify('Tâche sauvegardée ✓','success');
+      return saved;
+    } catch(e) {
+      notify(e.message || 'Erreur de sauvegarde','error',4200);
+      throw e;
+    } finally {
+      setBusyKey('task_save', false);
+    }
   }
 
   // ── Delete task → Supabase ───────────────────────────────────────────
-  function handleDelete(id) {
+  async function handleDelete(id, expectedUpdatedAt) {
     if (!canEditPlanning) {
-      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour supprimer une tâche.' : 'Planning verrouillé : suppression désactivée.');
-      return;
+      var msg = planningValidated ? 'Planning validé : réindexez une nouvelle version pour supprimer une tâche.' : 'Planning verrouillé : suppression désactivée.';
+      alert(msg); throw new Error(msg);
     }
     var iv = data.find(function(i){return i.id===id;});
-    setData(function(prev){ return prev.filter(function(i){return i.id!==id;}); });
-    closeModal();
-    sbFetch('DELETE','interventions',null,'id=eq.'+id);
-    if (iv) {
-      addPlanningEvent({
+    if (!iv) throw new Error('Tâche introuvable. Synchronisez puis réessayez.');
+    setBusyKey('task_delete', true);
+    try {
+      var rows = await sbFetchRows('DELETE','interventions',null,conflictQuery(id, expectedUpdatedAt || iv.updated_at));
+      if ((expectedUpdatedAt || iv.updated_at) && (!rows || !rows.length)) {
+        await syncAll(false).catch(function(){});
+        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Synchronisez avant de supprimer.');
+      }
+      setData(function(prev){ return prev.filter(function(i){return i.id!==id;}); });
+      closeModal();
+      await addPlanningEvent({
         event_type:'task_deleted',
         task_id:id,
         task_number:iv.task_number||'',
@@ -3686,6 +3843,12 @@ function PlanifyApp() {
         message:'Tâche supprimée : '+(iv.task_number||iv.task),
         payload:{intervention:iv}
       });
+      notify('Tâche supprimée ✓','success');
+    } catch(e) {
+      notify(e.message || 'Erreur de suppression','error',4200);
+      throw e;
+    } finally {
+      setBusyKey('task_delete', false);
     }
   }
 
@@ -3694,65 +3857,93 @@ function PlanifyApp() {
     loadHistory();
   }
 
-  function handleToggleLock() {
-    if (!isAdmin) return;
+  async function handleToggleLock() {
+    if (!isAdmin || isBusy('planning_lock')) return;
     if (planningValidated) {
       alert('Planning validé : réindexez une nouvelle version pour le déverrouiller.');
       return;
     }
     var next = !planningLocked;
-    setPlanningLocked(next);
-    if (planningVersion&&planningVersion.id) {
-      sbFetch('PATCH','planning_versions',{
-        locked:next,
-        updated_at:new Date().toISOString()
-      },'id=eq.'+planningVersion.id);
+    setBusyKey('planning_lock', true);
+    try {
+      setPlanningLocked(next);
+      if (planningVersion&&planningVersion.id) {
+        await sbFetch('PATCH','planning_versions',{
+          locked:next,
+          updated_at:new Date().toISOString()
+        },'id=eq.'+planningVersion.id);
+      }
+      await addPlanningEvent({
+        event_type:next?'planning_locked':'planning_unlocked',
+        message:next?'Planning verrouillé : seules les modifications de statut restent possibles.':'Planning déverrouillé : ajouts et modifications réactivés.',
+        payload:{locked:next}
+      });
+      notify(next?'Planning verrouillé ✓':'Planning déverrouillé ✓','success');
+    } catch(e) {
+      setPlanningLocked(!next);
+      notify('Erreur de sauvegarde','error');
+    } finally {
+      setBusyKey('planning_lock', false);
     }
-    addPlanningEvent({
-      event_type:next?'planning_locked':'planning_unlocked',
-      message:next?'Planning verrouillé : seules les modifications de statut restent possibles.':'Planning déverrouillé : ajouts et modifications réactivés.',
-      payload:{locked:next}
-    });
   }
 
-  function handleValidatePlanning(validUntil) {
-    if (!isAdmin) return;
+  async function handleValidatePlanning(validUntil) {
+    if (!isAdmin || isBusy('planning_validate')) return;
     if (!validUntil) { alert('Indiquez une date de validation.'); return; }
     var snap = currentSnapshot({type:'validation',valid_until:validUntil});
-    setValidateModal(false);
-    setPlanningLocked(true);
-    setPlanningValidated(true);
-
-    if (planningVersion&&planningVersion.id) {
-      sbFetch('PATCH','planning_versions',{
-        status:'validated',
-        locked:true,
-        valid_until:validUntil,
-        validated_by:actorName(),
-        validated_at:new Date().toISOString(),
-        updated_at:new Date().toISOString(),
-        snapshot:snap
-      },'id=eq.'+planningVersion.id).then(loadPlanningMeta);
+    setBusyKey('planning_validate', true);
+    try {
+      if (planningVersion&&planningVersion.id) {
+        await sbFetch('PATCH','planning_versions',{
+          status:'validated',
+          locked:true,
+          valid_until:validUntil,
+          validated_by:actorName(),
+          validated_at:new Date().toISOString(),
+          updated_at:new Date().toISOString(),
+          snapshot:snap
+        },'id=eq.'+planningVersion.id);
+      }
+      await addPlanningEvent({
+        event_type:'planning_validated',
+        message:'Planning validé jusqu’au '+fmtDate(validUntil)+'. Cette version est figée.',
+        payload:{valid_until:validUntil,snapshot:snap}
+      });
+      setValidateModal(false);
+      setPlanningLocked(true);
+      setPlanningValidated(true);
+      await loadPlanningMeta();
+      notify('Planning validé ✓','success');
+    } catch(e) {
+      notify('Erreur de validation','error');
+      throw e;
+    } finally {
+      setBusyKey('planning_validate', false);
     }
-
-    addPlanningEvent({
-      event_type:'planning_validated',
-      message:'Planning validé jusqu’au '+fmtDate(validUntil)+'. Cette version est figée.',
-      payload:{valid_until:validUntil,snapshot:snap}
-    });
   }
 
-  function handleReindexPlanning() {
-    if (!isAdmin) return;
+  async function handleReindexPlanning() {
+    if (!isAdmin || isBusy('planning_reindex')) return;
     if (!planningValidated) return;
     if (!confirm('Créer une nouvelle version du planning à partir de la version validée/caduque ?')) return;
 
     var oldVersion = planningVersion || {};
     var nextVersionNumber = (oldVersion.version_number || 1) + 1;
     var snap = currentSnapshot({type:'reindex',source_version_id:oldVersion.id||null});
+    setBusyKey('planning_reindex', true);
 
-    function createNewVersion() {
-      return sbFetch('POST','planning_versions',{
+    try {
+      if (oldVersion.id) {
+        await sbFetch('PATCH','planning_versions',{
+          is_active:false,
+          status:'caduc',
+          locked:true,
+          reindexed_by:actorName(),
+          reindexed_at:new Date().toISOString(),
+          updated_at:new Date().toISOString()
+        },'id=eq.'+oldVersion.id);
+      }
+      await sbFetch('POST','planning_versions',{
         version_number:nextVersionNumber,
         status:'draft',
         is_active:true,
@@ -3761,31 +3952,22 @@ function PlanifyApp() {
         source_version_id:oldVersion.id||null,
         created_by:actorName(),
         snapshot:snap
-      }).then(function(){
-        setPlanningLocked(false);
-        setPlanningValidated(false);
-        loadPlanningMeta();
       });
+      await addPlanningEvent({
+        event_type:'planning_reindexed',
+        message:'Nouvelle version V'+nextVersionNumber+' créée à partir du planning validé/caduque.',
+        payload:{source_version_id:oldVersion.id||null,new_version_number:nextVersionNumber,snapshot:snap}
+      });
+      setPlanningLocked(false);
+      setPlanningValidated(false);
+      await loadPlanningMeta();
+      notify('Nouvelle version créée ✓','success');
+    } catch(e) {
+      notify('Erreur de réindexation','error');
+      throw e;
+    } finally {
+      setBusyKey('planning_reindex', false);
     }
-
-    if (oldVersion.id) {
-      sbFetch('PATCH','planning_versions',{
-        is_active:false,
-        status:'caduc',
-        locked:true,
-        reindexed_by:actorName(),
-        reindexed_at:new Date().toISOString(),
-        updated_at:new Date().toISOString()
-      },'id=eq.'+oldVersion.id).then(createNewVersion);
-    } else {
-      createNewVersion();
-    }
-
-    addPlanningEvent({
-      event_type:'planning_reindexed',
-      message:'Nouvelle version V'+nextVersionNumber+' créée à partir du planning validé/caduque.',
-      payload:{source_version_id:oldVersion.id||null,new_version_number:nextVersionNumber,snapshot:snap}
-    });
   }
 
   const navScreens = ['dashboard','planning','list',...(isAdmin?['settings']:[])];
@@ -4228,11 +4410,9 @@ function PlanifyApp() {
           planningLocked={planningLocked}
           planningValidated={planningValidated}
           planningValidUntil={planningVersion?.valid_until}
-          onRefresh={()=>{
-            loadFromSupabase(session);
-            loadPlanningMeta();
-            loadHistory();
-          }} />
+          onRefresh={()=>syncAll(true)}
+          syncing={isBusy('sync')}
+          busyActions={busy} />
         <div style={{flex:1,overflow:'hidden',position:'relative'}}>
           {mainContent()}
         </div>
@@ -4256,6 +4436,16 @@ function PlanifyApp() {
         onClose={()=>setHistoryOpen(false)} onRefresh={loadHistory} />
       <ValidatePlanningModal open={validateModal}
         onClose={()=>setValidateModal(false)} onConfirm={handleValidatePlanning} />
+
+      {toast && (
+        <div style={{position:'fixed',left:'50%',bottom:82,transform:'translateX(-50%)',zIndex:9999,
+          background:toast.type==='error'?'#991B1B':toast.type==='info'?'#1E3A8A':'#14532D',
+          color:'#fff',padding:'10px 14px',borderRadius:10,boxShadow:'0 8px 30px rgba(0,0,0,.25)',
+          fontSize:13,fontWeight:800,fontFamily:"'DM Sans',sans-serif",maxWidth:'calc(100vw - 32px)',
+          textAlign:'center'}}>
+          {toast.message}
+        </div>
+      )}
 
       <TweaksPanel>
         <TweakSection label="Apparence" />
