@@ -3268,7 +3268,7 @@ class ErrorBoundary extends React.Component {
 /* ════════════════════════════════════════════════════════════
    HISTORY + PLANNING VALIDATION MODALS
 ════════════════════════════════════════════════════════════ */
-function HistoryModal({ open, history, onClose, onRefresh }) {
+function HistoryModal({ open, history, session, onClose, onRefresh }) {
   function eventLabel(t) {
     return {
       status_change:'Changement de statut',
@@ -3297,6 +3297,15 @@ function HistoryModal({ open, history, onClose, onRefresh }) {
       });
     } catch(e) { return s; }
   }
+
+  function changeActionLabel(ch) {
+    if (!ch) return 'Modification';
+    if (ch.action) return ch.action;
+    if (ch.label) return ch.label + ' modifié';
+    return 'Modification';
+  }
+
+  const isAdminHistory = session?.role === 'admin';
 
   return (
     <SheetModal open={open} onClose={onClose} maxH="92vh">
@@ -3360,6 +3369,25 @@ function HistoryModal({ open, history, onClose, onRefresh }) {
                 {ev.message && (
                   <div style={{fontSize:12,color:'var(--muted)',marginTop:6,lineHeight:1.45}}>
                     {ev.message}
+                  </div>
+                )}
+                {isAdminHistory && ev.event_type === 'task_updated' && ev.payload && Array.isArray(ev.payload.changes) && ev.payload.changes.length > 0 && (
+                  <div style={{marginTop:8,padding:'9px 10px',borderRadius:8,
+                    background:'rgba(37,99,235,.06)',border:'1px solid rgba(37,99,235,.18)'}}>
+                    <div style={{fontSize:10,fontWeight:800,color:'#2563EB',fontFamily:"'DM Mono',monospace",
+                      letterSpacing:'.05em',textTransform:'uppercase',marginBottom:7}}>
+                      Détail administrateur des modifications
+                    </div>
+                    {ev.payload.changes.map(function(ch, idx){
+                      return (
+                        <div key={idx} style={{fontSize:11,color:'var(--text)',lineHeight:1.45,
+                          padding:'6px 0',borderTop:idx?'1px solid var(--border)':'none'}}>
+                          <div style={{fontWeight:800,color:'var(--text)',marginBottom:3}}>{changeActionLabel(ch)}</div>
+                          {ch.old_value ? <div><span style={{color:'var(--muted)'}}>Avant :</span> {ch.old_value}</div> : null}
+                          {ch.new_value ? <div><span style={{color:'var(--muted)'}}>Après :</span> {ch.new_value}</div> : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -3545,6 +3573,69 @@ function PlanifyApp() {
   function actorRole() {
     return session&&session.role==='admin'?'admin':'company';
   }
+
+  function valueTextForTaskField(key, value) {
+    if (value == null) return '';
+    if (key === 'zone') {
+      var z = zones.find(function(x){ return x.id === value; });
+      return z ? z.name + (z.short ? ' ('+z.short+')' : '') : String(value || '');
+    }
+    if (key === 'trade') {
+      var tr = trades.find(function(x){ return x.id === value; });
+      return tr ? tr.name : String(value || '');
+    }
+    if (key === 'status') {
+      var st = STATUS_META[value];
+      return st ? st.label : String(value || '');
+    }
+    if (key === 'priority') {
+      return ({1:'Urgente',2:'Haute',3:'Normale',4:'Basse',5:'À confirmer'}[value]) || String(value || '');
+    }
+    if (key === 'start' || key === 'end') {
+      return value ? fmtDate(String(value)) : '';
+    }
+    if (key === 'off_days') {
+      var arr = Array.isArray(value) ? value : [];
+      return arr.length ? arr.map(function(d){ return fmtDate(d); }).join(', ') : '';
+    }
+    return String(value || '').trim();
+  }
+
+  function buildTaskChangeDetails(before, after) {
+    if (!before || !after) return [];
+    var defs = [
+      {key:'task', label:'Description'},
+      {key:'company', label:'Entreprise'},
+      {key:'trade', label:'Corps de métier'},
+      {key:'zone', label:'Zone'},
+      {key:'start', label:'Date de début'},
+      {key:'end', label:'Date de fin'},
+      {key:'status', label:'Statut'},
+      {key:'priority', label:'Priorité'},
+      {key:'prereq', label:'Prérequis / point bloquant'},
+      {key:'notes', label:'Note'},
+      {key:'off_days', label:'Jours gelés'},
+    ];
+    return defs.map(function(def){
+      var oldVal = valueTextForTaskField(def.key, before[def.key]);
+      var newVal = valueTextForTaskField(def.key, after[def.key]);
+      if (oldVal === newVal) return null;
+      var action = def.label + ' modifié';
+      if (def.key === 'notes') action = 'Note modifiée';
+      if (def.key === 'task') action = 'Description modifiée';
+      if (def.key === 'off_days') action = 'Jours gelés modifiés';
+      if (!oldVal && newVal) action = def.key === 'notes' ? 'Note ajoutée' : def.label + ' ajouté';
+      if (oldVal && !newVal) action = def.key === 'notes' ? 'Note supprimée' : def.label + ' supprimé';
+      return {
+        field:def.key,
+        label:def.label,
+        action:action,
+        old_value:oldVal,
+        new_value:newVal
+      };
+    }).filter(Boolean);
+  }
+
   function currentSnapshot(extra) {
     return Object.assign({
       project:'HSF — Av. Marceau',
@@ -3796,6 +3887,7 @@ function PlanifyApp() {
       });
       closeModal();
       var z = zones.find(function(x){return x.id===cleanIv.zone;});
+      var taskChanges = existing ? buildTaskChangeDetails(existing, saved) : [];
       await addPlanningEvent({
         event_type:existing?'task_updated':'task_created',
         task_id:cleanIv.id,
@@ -3804,8 +3896,8 @@ function PlanifyApp() {
         task_company:cleanIv.company||'',
         zone_id:cleanIv.zone||'',
         zone_name:z?z.name:'',
-        message:(existing?'Tâche modifiée : ':'Tâche ajoutée : ')+(cleanIv.task_number||cleanIv.task),
-        payload:{intervention:saved}
+        message:(existing?'Tâche modifiée : ':'Tâche ajoutée : ')+(cleanIv.task_number||cleanIv.task)+(existing&&taskChanges.length?' · '+taskChanges.length+' champ'+(taskChanges.length>1?'s':'')+' modifié'+(taskChanges.length>1?'s':''):''),
+        payload:{intervention:saved,changes:taskChanges}
       });
       notify('Tâche sauvegardée ✓','success');
       return saved;
@@ -4142,15 +4234,15 @@ function PlanifyApp() {
       var doc = new JSPDF({orientation:'landscape', unit:'pt', format:'a4'});
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
-      var margin = 14;
-      var headerH = 34;
-      var top = 48;
+      var margin = 12;
+      var headerH = 30;
+      var top = 42;
       var bottom = 8;
       var tableW = pageW - margin * 2;
       var zoneW = 50;
       var finW = 34;
       var dayW = (tableW - zoneW - finW) / 5;
-      var th = 18;
+      var th = 24;
       var dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
       var exported = 0;
 
@@ -4215,8 +4307,8 @@ function PlanifyApp() {
         doc.setTextColor(90,90,90);
         doc.setFont('helvetica','bold');
         doc.setFontSize(7.5);
-        doc.text('ZONE', x0 + 8, y0 + 18);
-        doc.text('FIN', x0 + zoneW + 5 * dayW + 13, y0 + 18);
+        doc.text('ZONE', x0 + 8, y0 + 16);
+        doc.text('FIN', x0 + zoneW + 5 * dayW + 13, y0 + 16);
 
         days.forEach(function(day, di) {
           var x = x0 + zoneW + di * dayW;
@@ -4229,14 +4321,14 @@ function PlanifyApp() {
           doc.setFont('helvetica','bold');
           doc.setFontSize(7.5);
           doc.setTextColor(today ? 33 : 90, today ? 82 : 90, today ? 200 : 90);
-          doc.text(dayNames[day.getDay()].toUpperCase(), x + 8, y0 + 12);
+          doc.text(dayNames[day.getDay()].toUpperCase(), x + 8, y0 + 10);
           doc.setFont('helvetica','normal');
           doc.setFontSize(7);
-          doc.text(String(day.getDate()).padStart(2,'0') + '/' + String(day.getMonth()+1).padStart(2,'0'), x + 8, y0 + 23);
+          doc.text(String(day.getDate()).padStart(2,'0') + '/' + String(day.getMonth()+1).padStart(2,'0'), x + 8, y0 + 20);
           if (holiday) {
             doc.setFont('helvetica','bold');
             doc.setTextColor(70,70,70);
-            doc.text('JF', x + dayW - 18, y0 + 18);
+            doc.text('JF', x + dayW - 18, y0 + 16);
           }
         });
 
@@ -4432,7 +4524,7 @@ function PlanifyApp() {
         onClose={closeModal} onSave={handleSave} onDelete={handleDelete} />
       <UserMenuModal open={userMenu} session={session}
         onClose={()=>setUserMenu(false)} onLogout={handleLogout} />
-      <HistoryModal open={historyOpen} history={history}
+      <HistoryModal open={historyOpen} history={history} session={session}
         onClose={()=>setHistoryOpen(false)} onRefresh={loadHistory} />
       <ValidatePlanningModal open={validateModal}
         onClose={()=>setValidateModal(false)} onConfirm={handleValidatePlanning} />
