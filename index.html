@@ -510,7 +510,7 @@ const __TWEAKS_STYLE = `
 // Single source of truth for tweak values. setTweak persists via the host
 // (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
 function useTweaks(defaults) {
-  const [values, setValues] = React.React.useState(defaults);
+  const [values, setValues] = React.useState(defaults);
   // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
   // useState-style call doesn't write a "[object Object]" key into the persisted
   // JSON block.
@@ -531,9 +531,9 @@ function useTweaks(defaults) {
 // flips off in lockstep; the host echoes __deactivate_edit_mode back which
 // is what actually hides the panel.
 function TweaksPanel({ title = 'Tweaks', children }) {
-  const [open, setOpen] = React.React.useState(false);
-  const dragRef = React.React.useRef(null);
-  const offsetRef = React.React.useRef({ x: 16, y: 16 });
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef({ x: 16, y: 16 });
   const PAD = 16;
 
   const clampToViewport = React.useCallback(() => {
@@ -550,7 +550,7 @@ function TweaksPanel({ title = 'Tweaks', children }) {
     panel.style.bottom = offsetRef.current.y + 'px';
   }, []);
 
-  React.React.useEffect(() => {
+  React.useEffect(() => {
     if (!open) return;
     clampToViewport();
     if (typeof ResizeObserver === 'undefined') {
@@ -562,7 +562,7 @@ function TweaksPanel({ title = 'Tweaks', children }) {
     return () => ro.disconnect();
   }, [open, clampToViewport]);
 
-  React.React.useEffect(() => {
+  React.useEffect(() => {
     const onMsg = (e) => {
       const t = e?.data?.type;
       if (t === '__activate_edit_mode') setOpen(true);
@@ -664,15 +664,15 @@ function TweakToggle({ label, value, onChange }) {
 }
 
 function TweakRadio({ label, value, options, onChange }) {
-  const trackRef = React.React.useRef(null);
-  const [dragging, setDragging] = React.React.useState(false);
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
   const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
   const idx = Math.max(0, opts.findIndex((o) => o.value === value));
   const n = opts.length;
 
   // The active value is read by pointer-move handlers attached for the lifetime
   // of a drag — ref it so a stale closure doesn't fire onChange for every move.
-  const valueRef = React.React.useRef(value);
+  const valueRef = React.useRef(value);
   valueRef.current = value;
 
   const segAt = (clientX) => {
@@ -746,7 +746,7 @@ function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) 
     if (max != null && n > max) return max;
     return n;
   };
-  const startRef = React.React.useRef({ x: 0, val: 0 });
+  const startRef = React.useRef({ x: 0, val: 0 });
   const onScrubStart = (e) => {
     e.preventDefault();
     startRef.current = { x: e.clientX, val: value };
@@ -839,7 +839,7 @@ function TradeBadge({ tradeId, trades, size = 'sm' }) {
 
 /* ── SHEET MODAL ──────────────────────────────────────────── */
 function SheetModal({ open, onClose, children, maxH = '92vh' }) {
-  React.useEffect(() => {
+  useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [open]);
@@ -1144,8 +1144,8 @@ function Textarea({ value, onChange, placeholder, rows=3 }) {
 
 /* ── ATTACHMENT DROPZONE ──────────────────────────────────── */
 function AttachmentZone({ files, setFiles }) {
-  const [dragging, setDragging] = React.useState(false);
-  const inputRef = React.useRef();
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef();
   const accept = (fileList) => {
     const valid = [...fileList].filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
     setFiles(prev => [...prev, ...valid.map(f => ({id:genId(), file:f, name:f.name,
@@ -1473,43 +1473,9 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   const [drawer, setDrawer] = useState(null); // 'encours' | 'bloque'
   function toggle(k) { setDrawer(d => d === k ? null : k); }
 
-  // Task row
-) {
-    const z  = zones.find(x => x.id === iv.zone);
-    const tr = trades.find(x => x.id === iv.trade);
-    const c  = getTC(tr?.color || 'blue');
-    return (
-      <div onClick={() => onOpenDetail(iv.id)}
-        style={{display:'flex',gap:10,padding:'10px 0',borderBottom:'1px solid var(--border)',
-          cursor:'pointer',alignItems:'flex-start'}}
-        onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
-        onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-        <div style={{width:3,alignSelf:'stretch',borderRadius:2,background:c.b,flexShrink:0}}></div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
-            <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{iv.company}</span>
-            {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--xmuted)',
-              background:'var(--surface-2)',padding:'1px 4px',borderRadius:3,border:'1px solid var(--border)'}}>
-              {iv.task_number}</span>}
-            <StatusBadge status={iv.status} size="sm" />
-          </div>
-          <div style={{fontSize:12,color:'var(--muted)',marginBottom:3,overflow:'hidden',
-            display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
-          {iv.prereq&&iv.prereq.trim()&&<div style={{fontSize:10,color:'#DC2626',background:'#FEF2F2',
-            padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:2}}>
-            ⚠ {iv.prereq}
-          </div>}
-          <div style={{display:'flex',gap:8,marginTop:4,alignItems:'center'}}>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
-              {fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}
-            </span>
-            {z&&<span style={{fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',
-              padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>{z.short}</span>}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // (no inline TaskRow in DashboardScreen - use TaskRowAdmin below)
+
+
 
   // ── ADMIN VIEW ─────────────────────────────────────────────
   if (isAdmin) {
