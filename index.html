@@ -30,25 +30,10 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <script>
 window.onerror = function(m, s, l, c, e) {
   console.error('[Planify runtime error]', m, s, l, c, e);
-
-  var box = document.getElementById('runtime-error-box');
-
-  if (!box) {
-    box = document.createElement('pre');
-    box.id = 'runtime-error-box';
-    document.body.appendChild(box);
-  }
-
-  box.style.cssText =
-    'position:fixed;left:12px;right:12px;bottom:12px;z-index:999999;' +
-    'max-height:40vh;overflow:auto;background:#111;color:#ff6b6b;' +
-    'padding:12px;border-radius:8px;font-size:11px;white-space:pre-wrap;' +
-    'box-shadow:0 8px 30px rgba(0,0,0,.35);';
-
-  box.textContent =
-    String(m) + '\n' +
-    String(s) + ':' + String(l) + ':' + String(c);
 };
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[Planify unhandled promise rejection]', e.reason || e);
+});
 </script>
 <script>// planify-data.js — Data layer, constants & utilities
 
@@ -1466,35 +1451,42 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
 }
 
 
-
 function SectionCard({ title, children, accent }) {
   return (
-    <section style={{
-      background:'var(--surface)',
-      border:'1px solid var(--border)',
-      borderRadius:'var(--r)',
-      padding:'12px',
-      marginBottom:12,
-      boxShadow:'var(--shadow)',
-      borderLeft:accent ? `4px solid ${accent}` : '1px solid var(--border)'
+    <div style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderLeft: accent ? `4px solid ${accent}` : '1px solid var(--border)',
+      borderRadius: 'var(--r)',
+      padding: 12,
+      marginBottom: 14,
+      boxShadow: 'var(--shadow)'
     }}>
-      <div style={{
-        display:'flex',
-        alignItems:'center',
-        justifyContent:'space-between',
-        gap:8,
-        marginBottom:10
-      }}>
-        <h2 style={{
-          fontSize:13,
-          fontWeight:700,
-          color:'var(--text)',
-          letterSpacing:'-.01em',
-          margin:0
-        }}>{title}</h2>
-      </div>
-      <div>{children}</div>
-    </section>
+      {title && (
+        <div style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: 'var(--text)',
+          marginBottom: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6
+        }}>
+          {accent && (
+            <span style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: accent,
+              flexShrink: 0,
+              display: 'inline-block'
+            }} />
+          )}
+          {title}
+        </div>
+      )}
+      {children}
+    </div>
   );
 }
 
@@ -2728,6 +2720,98 @@ function UserMenuModal({ open, session, onClose, onLogout }) {
 }
 
 /* ════════════════════════════════════════════════════════════
+   ERROR BOUNDARY
+═══════════════════════════════════════════════════════════ */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[Planify ErrorBoundary]', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: 'var(--bg)',
+          color: 'var(--text)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 20
+        }}>
+          <div style={{
+            maxWidth: 520,
+            width: '100%',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--r)',
+            padding: 20,
+            boxShadow: 'var(--shadow-md)'
+          }}>
+            <div style={{
+              fontSize: 18,
+              fontWeight: 700,
+              marginBottom: 8,
+              color: 'var(--danger)'
+            }}>
+              Une erreur est survenue
+            </div>
+            <div style={{
+              fontSize: 13,
+              color: 'var(--muted)',
+              marginBottom: 14,
+              lineHeight: 1.5
+            }}>
+              L’application a rencontré une erreur. Le DOM React reste intact.
+            </div>
+            <pre style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 11,
+              whiteSpace: 'pre-wrap',
+              color: 'var(--danger)',
+              marginBottom: 14
+            }}>
+              {String(this.state.error?.message || this.state.error)}
+            </pre>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                width: '100%',
+                padding: 12,
+                background: 'var(--primary)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 'var(--r-sm)',
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: "'DM Sans', sans-serif"
+              }}
+            >
+              Recharger l’application
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
    ROOT APP
 ═══════════════════════════════════════════════════════════ */
 function PlanifyApp() {
@@ -3174,7 +3258,11 @@ function PlanifyApp() {
 </script>
 <script type="text/babel" data-presets="env,react">
   const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(<PlanifyApp />);
+  root.render(
+    <ErrorBoundary>
+      <PlanifyApp />
+    </ErrorBoundary>
+  );
 </script>
 </body>
 </html>
