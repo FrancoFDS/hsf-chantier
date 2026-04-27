@@ -1660,204 +1660,258 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
   const floorOf = id => zones.find(z=>z.id===id)?.floor||'';
 
   return (
-    <div style={{overflowY:'scroll',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
+    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
       <div style={{background:'var(--surface)',
         border:isMulti?'none':'1px solid var(--border)',
         margin:isMulti?0:'0 8px',
         borderRadius:isMulti?0:'var(--r)',
-        boxShadow:isMulti?'none':'var(--shadow)',
-        overflowX:'hidden',width:'100%',boxSizing:'border-box',
-        scrollbarGutter:'stable'}}>
+        boxShadow:isMulti?'none':'var(--shadow)'}}>
 
-        <div style={{width:'100%'}}>
+        {/* TABLE-LAYOUT for guaranteed column alignment */}
+        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
+          <colgroup>
+            <col style={{width:isMulti?'40px':'58px'}} />
+            {days.map((_,i) => <col key={i} />)}
+            <col style={{width:isMulti?'28px':'50px'}} />
+          </colgroup>
 
-          {/* Header row */}
-          <div style={{display:'grid',gridTemplateColumns:gridCols,background:'var(--surface-2)',
-            borderBottom:'2px solid var(--border)',position:'sticky',top:0,zIndex:10}}>
+          {/* ── STICKY HEADER ── */}
+          <thead>
+            <tr style={{background:'var(--surface-2)',borderBottom:'2px solid var(--border)'}}>
 
-            {/* Zone filter cell */}
-            <div ref={dropRef} style={{padding:'5px 3px',borderRight:'3px solid var(--border-s)',
-              display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
-              <button onClick={() => setDropOpen(o => !o)}
-                style={{width:'100%',padding:'4px 2px',borderRadius:'var(--r-xs)',
-                  border:`1px solid ${dropOpen||activeCount?'var(--primary)':'var(--border)'}`,
-                  background:activeCount?'var(--primary-l)':'transparent',
-                  color:activeCount?'var(--primary)':'var(--muted)',
-                  fontSize:8,fontWeight:700,cursor:'pointer',fontFamily:"'DM Mono',monospace",
-                  letterSpacing:'.04em',textTransform:'uppercase',lineHeight:1.3}}>
-                {activeCount ? `Zones\n(${activeCount})` : 'Zones ▾'}
-              </button>
-              {dropOpen && (
-                <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,minWidth:220,
-                  background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-                  boxShadow:'var(--shadow-md)',zIndex:50,overflow:'hidden'}}>
-                  <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:11,fontWeight:700,color:'var(--muted)',fontFamily:"'DM Mono',monospace",textTransform:'uppercase',letterSpacing:'.05em'}}>Zones</span>
-                    <button onClick={()=>{setZoneFilter([]);setDropOpen(false);}}
-                      style={{fontSize:10,color:'var(--primary)',background:'none',border:'none',cursor:'pointer',fontWeight:600}}>Toutes</button>
+              {/* Zone filter */}
+              <th ref={dropRef} style={{padding:'5px 3px',borderRight:'3px solid var(--border-s)',
+                position:'sticky',top:0,zIndex:12,background:'var(--surface-2)',
+                verticalAlign:'middle',textAlign:'center'}}>
+                <button onClick={() => setDropOpen(o => !o)}
+                  style={{width:'100%',padding:'4px 2px',borderRadius:'var(--r-xs)',
+                    border:`1px solid ${dropOpen||activeCount?'var(--primary)':'var(--border)'}`,
+                    background:activeCount?'var(--primary-l)':'transparent',
+                    color:activeCount?'var(--primary)':'var(--muted)',
+                    fontSize:8,fontWeight:700,cursor:'pointer',fontFamily:"'DM Mono',monospace",
+                    letterSpacing:'.04em',textTransform:'uppercase',lineHeight:1.3}}>
+                  {activeCount ? 'Zones' : 'Zones'}
+                </button>
+                {dropOpen && (
+                  <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,minWidth:220,
+                    background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
+                    boxShadow:'var(--shadow-md)',zIndex:50,overflow:'hidden',textAlign:'left'}}>
+                    <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',
+                      display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:11,fontWeight:700,color:'var(--muted)',
+                        fontFamily:"'DM Mono',monospace",textTransform:'uppercase',letterSpacing:'.05em'}}>Zones</span>
+                      <button onClick={()=>{setZoneFilter([]);setDropOpen(false);}}
+                        style={{fontSize:10,color:'var(--primary)',background:'none',border:'none',
+                          cursor:'pointer',fontWeight:600}}>Toutes</button>
+                    </div>
+                    {zones.map(z => {
+                      const checked = zoneFilter.length===0||zoneFilter.includes(z.id);
+                      const fc = FLOOR_COLORS[z.floor]||'#9CA3AF';
+                      return (
+                        <label key={z.id} style={{display:'flex',alignItems:'center',gap:10,
+                          padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid var(--border)',
+                          background:checked?'var(--primary-l)':'transparent',transition:'background .1s'}}>
+                          <input type="checkbox" checked={checked} onChange={()=>toggleZone(z.id)}
+                            style={{width:14,height:14,accentColor:'var(--primary)',cursor:'pointer',flexShrink:0}} />
+                          <span style={{width:8,height:8,borderRadius:'50%',background:fc,flexShrink:0}}></span>
+                          <div>
+                            <div style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
+                            <div style={{fontSize:10,fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{z.short}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
-                  {zones.map(z => {
-                    const checked = zoneFilter.length===0||zoneFilter.includes(z.id);
-                    const fc = FLOOR_COLORS[z.floor]||'#9CA3AF';
+                )}
+              </th>
+
+              {/* Day headers */}
+              {days.map((d,i) => {
+                const isFirstOfWeek = i % 5 === 0 && i > 0;
+                const holiday = isHoliday(d);
+                return (
+                  <th key={i} style={{
+                    padding:isMulti?'3px 0':'6px 2px',
+                    textAlign:'center',
+                    overflow:'hidden',
+                    position:'sticky',top:0,zIndex:11,
+                    borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
+                    background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'var(--surface-2)',
+                    fontWeight:'normal',
+                    verticalAlign:'middle'}}>
+                    {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
+                      color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)'}}>
+                      {DAYS_FR[d.getDay()-1]}
+                    </div>}
+                    <div style={{fontSize:isMulti?8:10,fontWeight:isMulti?600:400,
+                      fontFamily:"'DM Mono',monospace",
+                      color:holiday?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)'}}>
+                      {isMulti ? d.getDate() : `${d.getDate()}/${d.getMonth()+1}`}
+                    </div>
+                    {holiday && <div style={{fontSize:7,fontWeight:700,color:'#4B5563',
+                      fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
+                  </th>
+                );
+              })}
+
+              {/* FIN header */}
+              <th style={{padding:'4px 1px',textAlign:'center',
+                borderLeft:'2px solid var(--border-s)',
+                position:'sticky',top:0,zIndex:12,
+                background:'rgba(220,38,38,.07)',
+                verticalAlign:'middle'}}>
+                <span style={{fontSize:7,fontWeight:800,color:'#DC2626',
+                  fontFamily:"'DM Mono',monospace",
+                  writingMode:'vertical-rl',transform:'rotate(180deg)',lineHeight:1}}>FIN</span>
+              </th>
+            </tr>
+          </thead>
+
+          {/* ── ZONE ROWS ── */}
+          <tbody>
+            {visibleZones.map((zone, zi) => {
+              const prevZone = visibleZones[zi - 1];
+              const floorChange = zi > 0 && prevZone?.floor !== zone.floor;
+              const fc  = FLOOR_COLORS[zone.floor] || '#9CA3AF';
+              const dc  = deadlineColor(zone.deadline);
+              const rowBg = zone.floor==='R+3' ? 'rgba(33,82,200,.025)' :
+                            zone.floor==='R+2' ? 'rgba(13,148,136,.025)' : 'rgba(139,92,246,.025)';
+
+              return (
+                <tr key={zone.id} style={{
+                  borderTop:floorChange?`3px solid ${fc}`:'none',
+                  borderBottom:'1px solid var(--border)',
+                  background:rowBg}}>
+
+                  {/* Zone label */}
+                  <td style={{padding:isMulti?'2px 1px':'5px 3px',
+                    borderRight:'3px solid '+fc,
+                    verticalAlign:'middle',textAlign:'center',
+                    minHeight:isMulti?40:56,
+                    height:isMulti?'40px':'56px',
+                    background:`${fc}12`}}>
+                    <span style={{fontSize:isMulti?5.5:8,fontWeight:800,color:fc,lineHeight:1.2,
+                      fontFamily:"'DM Mono',monospace",letterSpacing:'.03em',
+                      textTransform:'uppercase',wordBreak:'break-all',display:'block'}}>
+                      {zone.short}
+                    </span>
+                  </td>
+
+                  {/* Day cells */}
+                  {days.map((day, di) => {
+                    const ds = dateStr(day);
+                    const holiday = isHoliday(day);
+                    const isFirstOfWeek = di % 5 === 0 && di > 0;
+                    const isDeadline = zone.deadline && ds === zone.deadline;
+                    const isPast = zone.deadline && ds > zone.deadline;
+                    const cellBg = holiday?'#D1D5DB': isPast&&!isDeadline?'rgba(220,38,38,.07)': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
+                    const cards = (()=>{
+                      if(holiday) return [];
+                      return filtered.filter(function(iv){
+                        if(iv.zone!==zone.id) return false;
+                        if(!inDay(iv,day)) return false;
+                        var offs=iv.off_days||[];
+                        if(offs.length){
+                          var dstr=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
+                          if(offs.includes(dstr)) return false;
+                        }
+                        return true;
+                      }).sort(function(a,b){return (a.priority||3)-(b.priority||3);});
+                    })();
+                    const shown = cards;
+
                     return (
-                      <label key={z.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',
-                        cursor:'pointer',borderBottom:'1px solid var(--border)',
-                        background:checked?'var(--primary-l)':'transparent',transition:'background .1s'}}>
-                        <input type="checkbox" checked={checked} onChange={()=>toggleZone(z.id)}
-                          style={{width:14,height:14,accentColor:'var(--primary)',cursor:'pointer',flexShrink:0}} />
-                        <span style={{width:8,height:8,borderRadius:'50%',background:fc,flexShrink:0}}></span>
-                        <div>
-                          <div style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
-                          <div style={{fontSize:10,fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{z.short}</div>
-                        </div>
-                      </label>
+                      <td key={di}
+                        onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
+                        style={{
+                          padding:isMulti?0:2,
+                          height:isMulti?'40px':'56px',
+                          verticalAlign:'top',
+                          borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
+                          background:cellBg,
+                          cursor:isAdmin&&!holiday?'pointer':'default',
+                          transition:'background .1s'}}
+                        onMouseEnter={function(e){if(isAdmin&&!holiday)e.currentTarget.style.background='var(--surface-2)';}}
+                        onMouseLeave={function(e){e.currentTarget.style.background=cellBg;}}>
+                        {shown.map(function(iv){
+                          if(isMulti){
+                            var _tr=trades.find(function(t){return t.id===iv.trade;});
+                            var _c=getTC(_tr?_tr.color:'blue');
+                            var _m=STATUS_META[iv.status]||STATUS_META.arealis;
+                            return (
+                              <div key={iv.id} onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}}
+                                style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
+                                  background:_c.bg,borderLeft:'2px solid '+_c.b,overflow:'hidden'}}>
+                                <div style={{display:'flex',alignItems:'center',gap:2}}>
+                                  <span style={{fontSize:weeks===2?7:6.5,fontWeight:700,color:_c.t,
+                                    overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
+                                    lineHeight:1.3,flex:1}}>{iv.company}</span>
+                                  <span style={{width:4,height:4,borderRadius:'50%',
+                                    background:_m.dot,flexShrink:0}}></span>
+                                </div>
+                                {weeks===2&&<div style={{fontSize:6.5,color:_c.t,opacity:.7,
+                                  lineHeight:1.2,overflow:'hidden',whiteSpace:'nowrap',
+                                  textOverflow:'ellipsis'}}>{iv.task}</div>}
+                              </div>
+                            );
+                          }
+                          return (
+                            <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
+                              onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}} />
+                          );
+                        })}
+                      </td>
                     );
                   })}
-                </div>
-              )}
-            </div>
 
-            {/* Day headers */}
-            {days.map((d,i) => {
-              const isFirstOfWeek = i % 5 === 0 && i > 0;
-              const holiday = isHoliday(d);
-              return (
-                <div key={i} style={{padding:isMulti?'3px 0':'6px 2px',textAlign:'center',overflow:'hidden',
-                  borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                  background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'transparent'}}>
-                  {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
-                    color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)'}}>
-                    {DAYS_FR[d.getDay()-1]}
-                  </div>}
-                  <div style={{fontSize:isMulti?8:10,fontWeight:isMulti?600:400,
-                    fontFamily:"'DM Mono',monospace",
-                    color:holiday?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)'}}>
-                    {isMulti ? d.getDate() : `${d.getDate()}/${d.getMonth()+1}`}
-                  </div>
-                  {holiday && <div style={{fontSize:7,fontWeight:700,color:'#4B5563',fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
-                  {weeks>1&&i%5===0&&!holiday&&<div style={{fontSize:8,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>
-                    S{Math.ceil(d.getDate()/7)}
-                  </div>}
-                </div>
+                  {/* FIN cell */}
+                  <td style={{borderLeft:'2px solid var(--border-s)',
+                    verticalAlign:'middle',textAlign:'center',
+                    height:isMulti?'40px':'56px',
+                    padding:isMulti?'2px 1px':'4px 3px',
+                    background:`${dc}12`}}>
+                    {(()=>{
+                      const wd=workingDaysUntil(zone.deadline);
+                      const lbl=wd<0?'▲':`J-${wd}`;
+                      const ds2=zone.deadline?zone.deadline.slice(5,10).replace('-','/') : '';
+                      const [editing,setEditing]=React.useState(false);
+                      return editing?(
+                        <div>
+                          <input type="date" defaultValue={zone.deadline||''} autoFocus
+                            onBlur={function(e){
+                              var val=e.target.value;
+                              if(val&&val!==zone.deadline){
+                                setZones(function(prev){return prev.map(function(z){return z.id===zone.id?Object.assign({},z,{deadline:val}):z;});});
+                                supaWrite('PATCH','zones',{deadline:val},'id=eq.'+zone.id);
+                              }
+                              setEditing(false);
+                            }}
+                            onKeyDown={function(e){if(e.key==='Escape')setEditing(false);}}
+                            style={{width:'100%',border:'none',background:'transparent',
+                              fontSize:7,fontFamily:"'DM Mono',monospace",
+                              color:dc,textAlign:'center',outline:'none'}} />
+                        </div>
+                      ):(
+                        <div onClick={isAdmin?function(){setEditing(true);}:undefined}
+                          style={{cursor:isAdmin?'pointer':'default'}}>
+                          <div style={{fontSize:isMulti?7:8.5,fontWeight:800,color:dc,
+                            fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.15,
+                            whiteSpace:'nowrap'}}>
+                            {zone.deadline?lbl:'—'}
+                          </div>
+                          <div style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",
+                            marginTop:2,textAlign:'center',lineHeight:1,whiteSpace:'nowrap'}}>
+                            {ds2||''}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </td>
+                </tr>
               );
             })}
-
-            {/* Deadline header */}
-            <div style={{padding:'4px 1px',textAlign:'center',borderLeft:'2px solid var(--border-s)',
-              background:'rgba(220,38,38,.07)',display:'flex',alignItems:'center',justifyContent:'center',minHeight:28}}>
-              <span style={{fontSize:7,fontWeight:800,color:'#DC2626',fontFamily:"'DM Mono',monospace",
-                writingMode:'vertical-rl',transform:'rotate(180deg)',lineHeight:1}}>FIN</span>
-            </div>
-          </div>
-
-          {/* Zone rows */}
-          {visibleZones.map((zone, zi) => {
-            const prevZone = visibleZones[zi - 1];
-            const floorChange = zi > 0 && prevZone?.floor !== zone.floor;
-            const fc  = FLOOR_COLORS[zone.floor] || '#9CA3AF';
-            const dc  = deadlineColor(zone.deadline);
-            const du  = daysUntil(zone.deadline);
-            // Alternating row tint per floor
-            const rowBg = zone.floor==='R+3' ? 'rgba(33,82,200,.025)' :
-                          zone.floor==='R+2' ? 'rgba(13,148,136,.025)' : 'rgba(139,92,246,.025)';
-
-            return (
-              <div key={zone.id} style={{display:'grid',gridTemplateColumns:gridCols,
-                borderTop:floorChange?`3px solid ${fc}`:'none',
-                borderBottom:'1px solid var(--border)',background:rowBg}}>
-
-                {/* Zone label */}
-                <div style={{padding:isMulti?'2px 1px':'5px 3px',borderRight:'3px solid '+fc,
-                  display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',
-                  minHeight:isMulti?40:56,background:`${fc}12`}}>
-                  <span style={{fontSize:isMulti?5.5:8,fontWeight:800,color:fc,lineHeight:1.2,
-                    fontFamily:"'DM Mono',monospace",letterSpacing:'.03em',textTransform:'uppercase',
-                    wordBreak:'break-all'}}>{zone.short}</span>
-                </div>
-
-                {/* Day cells */}
-                {days.map((day,di)=>{
-                  const ds = dateStr(day);
-                  const isFirstOfWeek = di%5===0 && di>0;
-                  const holiday = isHoliday(day);
-                  const isDeadline = ds === zone.deadline;
-                  const cards = (()=>{
-                    if(holiday) return [];
-                    return filtered.filter(function(iv){
-                      if(iv.zone!==zone.id) return false;
-                      if(!inDay(iv,day)) return false;
-                      var offs=iv.off_days||[];
-                      if(offs.length){
-                        var ds2=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
-                        if(offs.includes(ds2)) return false;
-                      }
-                      return true;
-                    }).sort(function(a,b){return (a.priority||3)-(b.priority||3);});
-                  })();
-                  const shown = cards;
-                  const cellBg = holiday?'#D1D5DB':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
-                  return (
-                    <div key={di} onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
-                      style={{padding:isMulti?0:2,minHeight:isMulti?40:56,
-                        borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                        background:cellBg,
-                        cursor:isAdmin&&!holiday?'pointer':'default',transition:'background .1s'}}
-                      onMouseEnter={e=>{if(isAdmin&&!holiday)e.currentTarget.style.background='var(--surface-2)';}}
-                      onMouseLeave={e=>{e.currentTarget.style.background=cellBg;}}>
-                      {isDeadline && (
-                        <div style={{fontSize:7,fontWeight:800,color:'#DC2626',
-                          fontFamily:"'DM Mono',monospace",padding:'1px 3px',
-                          background:'rgba(220,38,38,.15)',textAlign:'center',
-                          borderRadius:2,marginBottom:2,letterSpacing:'.04em'}}>
-                          ⚑ JALON
-                        </div>
-                      )}
-                      {shown.map(function(iv){
-                        if (isMulti) {
-                          var _tr=trades.find(function(t){return t.id===iv.trade;});
-                          var _c=getTC(_tr?_tr.color:'blue');
-                          var _m=STATUS_META[iv.status]||STATUS_META.arealis;
-                          return (
-                            <div key={iv.id} onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}}
-                              style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
-                                background:_c.bg,borderLeft:'2px solid '+_c.b,overflow:'hidden'}}>
-                              <div style={{display:'flex',alignItems:'center',gap:2}}>
-                                <span style={{fontSize:weeks===2?7:6.5,fontWeight:700,color:_c.t,
-                                  overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
-                                  lineHeight:1.3,flex:1}}>{iv.company}</span>
-                                <span style={{width:4,height:4,borderRadius:'50%',
-                                  background:_m.dot,flexShrink:0}}></span>
-                              </div>
-                              {weeks===2&&<div style={{fontSize:6.5,color:_c.t,opacity:.7,lineHeight:1.2,
-                                overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.task}</div>}
-                            </div>
-                          );
-                        }
-                        return (
-                          <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
-                            onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}} />
-                        );
-                      })}
-
-                    </div>
-                  );
-                })}
-
-                {/* Deadline cell — working days */}
-                <div style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
-                  alignItems:'center',justifyContent:'center',padding:isMulti?'2px 1px':'4px 3px',
-                  background:`${dc}12`,minHeight:isMulti?40:56}}>
-                  <span style={{fontSize:isMulti?7:9,fontWeight:800,color:dc,fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.2,whiteSpace:'nowrap'}}>
-                    {workingDaysUntil(zone.deadline)<0?'▲':`J-${workingDaysUntil(zone.deadline)}`}
-                  </span>
-                  <span style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1,textAlign:'center',whiteSpace:'nowrap'}}>
-                    {zone.deadline?zone.deadline.slice(5,10).replace('-','/'):''}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          </tbody>
+        </table>
       </div>
     </div>
   );
