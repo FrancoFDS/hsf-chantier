@@ -101,14 +101,17 @@ const TRADES = [
 ];
 
 const COMPANIES = [
-  {id:'std',        name:'STD',           contact:'Tibor Salak',        code:'1001', tradeId:'tr_1'},
-  {id:'elph_cvc',   name:'ELPHITEC',      contact:'Laurent Testa',      code:'2002', tradeId:'tr_3'},
-  {id:'elph_elec',  name:'ELPHITEC',      contact:'Thibault Brousseau', code:'3003', tradeId:'tr_3'},
-  {id:'amfrance',   name:'AM FRANCE',     contact:'Ahmed El Sabbagh',   code:'4004', tradeId:'tr_5'},
-  {id:'prost',      name:'PROST',         contact:'Bruno Machado',      code:'5005', tradeId:'tr_4'},
-  {id:'soaa',       name:'SOA-A',         contact:'Antoine Delalande',  code:'6006', tradeId:'tr_6'},
-  {id:'barreb',     name:'BARRE BOUILLET',contact:'Cyrille Mazaleyrat', code:'7007', tradeId:'tr_2'},
-  {id:'bene',       name:'BENE',          contact:'Francois Corbin',    code:'8008', tradeId:'tr_7'},
+  {id:'std',        name:'STD',            contact:'Tibor Salak',                         code:'1001', tradeId:'tr_1'},
+  {id:'barreb',     name:'BARRE BOUILLET', contact:'Cyrille Mazaleyrat',                  code:'7007', tradeId:'tr_2'},
+  {id:'elphitec',   name:'ELPHITEC',       contact:'Laurent Testa / Thibault Brousseau',  code:'2002', tradeId:'tr_3'},
+  {id:'prost',      name:'PROST',          contact:'Bruno Machado',                       code:'5005', tradeId:'tr_4'},
+  {id:'amfrance',   name:'AM FRANCE',      contact:'Ahmed El Sabbagh',                    code:'4004', tradeId:'tr_5'},
+  {id:'soaa',       name:'SOA-A',          contact:'Antoine Delalande',                   code:'6006', tradeId:'tr_6'},
+  {id:'bene',       name:'BENE',           contact:'Francois Corbin',                     code:'8008', tradeId:'tr_7'},
+  {id:'sens9',      name:'9ème sens',      contact:'Référent 9ème sens',                  code:'9009', tradeId:'tr_8'},
+  {id:'jeanne',     name:'Jeanne',         contact:'Référent Jeanne',                     code:'1010', tradeId:'tr_9'},
+  {id:'papier',     name:'Papier peint',   contact:'Référent Papier peint',               code:'1111', tradeId:'tr_10'},
+  {id:'move',       name:'Move Company',   contact:'Référent Move Company',               code:'1212', tradeId:'tr_11'},
 ];
 
 const STATUS_META = {
@@ -1036,7 +1039,7 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             </button>
           )}
           {session?.role==='admin' && !planningValidated && (
-            <button onClick={onValidatePlanning} title="Valider le planning"
+            <button onClick={onValidatePlanning} title="Valider le planning : choisit une date de validité, fige cette version et inscrit l’action dans l’historique."
               style={{...hdrBtnStyle,background:'rgba(22,163,74,.22)',
                 border:'1px solid rgba(74,222,128,.45)',borderRadius:6,minWidth:48,height:26,
                 fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Valider</button>
@@ -1350,14 +1353,14 @@ function multiWeekDays(offset = 0, weeks = 1) {
 /* ════════════════════════════════════════════════════════════
    LOGIN SCREEN
 ═══════════════════════════════════════════════════════════ */
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, companies }) {
   const [step, setStep] = useState('pick'); // pick | pin
   const [selected, setSelected] = useState(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
 
-  const adminEntry = {id:'__admin__', name:'Responsable de projet', contact:'Accès complet', code:'1234', isAdmin:true};
-  const allEntries = [adminEntry, ...COMPANIES];
+  const adminEntry = {id:'__admin__', name:'Responsable de projet', contact:'Franck Fernandes', code:'1234', isAdmin:true};
+  const allEntries = [adminEntry, ...(companies&&companies.length?companies:COMPANIES)];
 
   function pickCompany(co) { setSelected(co); setPin(''); setError(''); setStep('pin'); }
   function tapDigit(d) {
@@ -2438,14 +2441,34 @@ function ListScreen({ data, zones, trades, weekOffset, filter, onOpenDetail }) {
 /* ════════════════════════════════════════════════════════════
    SETTINGS SCREEN
 ═══════════════════════════════════════════════════════════ */
-function SettingsScreen({ zones, trades, setZones, setTrades }) {
+function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies }) {
   const [tab, setTab] = useState('zones');
   const [editingZone, setEditingZone] = useState(null);
   const [editingTrade, setEditingTrade] = useState(null);
+  const [editingCompany, setEditingCompany] = useState(null);
   const [newZone, setNewZone] = useState(null);
   const [newTrade, setNewTrade] = useState(null);
+  const [newCompany, setNewCompany] = useState(null);
   const PALETTE = Object.keys(TRADE_COLORS);
 
+  function slugCompanyId(name) {
+    return String(name||'entreprise')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().replace(/[^a-z0-9]+/g,'_')
+      .replace(/^_+|_+$/g,'') || ('co_'+Date.now().toString(36));
+  }
+  function normalizeCompany(c) {
+    return {
+      id:c.id || slugCompanyId(c.name),
+      name:(c.name||'').trim(),
+      contact:(c.contact||'').trim(),
+      code:String(c.code||'').trim(),
+      tradeId:c.tradeId || c.trade_id || ''
+    };
+  }
+  function companyRow(c) {
+    return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',trade_id:c.tradeId||null};
+  }
   function saveZone(z) {
     setZones(prev => prev.map(x => x.id===z.id ? z : x));
     setEditingZone(null);
@@ -2455,6 +2478,13 @@ function SettingsScreen({ zones, trades, setZones, setTrades }) {
     setTrades(prev => prev.map(x => x.id===t.id ? t : x));
     setEditingTrade(null);
     supaWrite('PATCH','trades',{name:t.name,short:t.short,color:t.color},'id=eq.'+t.id);
+  }
+  function saveCompany(c) {
+    var co = normalizeCompany(c);
+    if (!co.name || !co.code) { alert('Nom entreprise et code PIN sont requis.'); return; }
+    setCompanies(prev => prev.map(x => x.id===co.id ? co : x));
+    setEditingCompany(null);
+    supaWrite('PATCH','companies',companyRow(co),'id=eq.'+co.id);
   }
   function addZone() {
     if (!newZone?.name||!newZone?.short) return;
@@ -2466,18 +2496,27 @@ function SettingsScreen({ zones, trades, setZones, setTrades }) {
     setTrades(prev=>[...prev,{id:'tr_'+genId(),name:newTrade.name,short:newTrade.short,color:newTrade.color||'blue'}]);
     setNewTrade(null);
   }
+  function addCompany() {
+    var co = normalizeCompany(newCompany||{});
+    if (!co.name || !co.code) { alert('Nom entreprise et code PIN sont requis.'); return; }
+    var exists = companies.some(function(c){return c.id===co.id || c.name.toLowerCase()===co.name.toLowerCase();});
+    if (exists) { alert('Cette entreprise existe déjà. Modifiez-la dans la liste.'); return; }
+    setCompanies(prev=>[...prev, co]);
+    setNewCompany(null);
+    supaWrite('POST','companies',companyRow(co));
+  }
 
   return (
     <div style={{overflowY:'auto',height:'100%',padding:'16px 14px 100px'}}>
       <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:16}}>Configuration</div>
       {/* Tabs */}
       <div style={{display:'flex',borderBottom:'1px solid var(--border)',marginBottom:16}}>
-        {['zones','trades'].map(t=>(
+        {['zones','trades','companies'].map(t=>(
           <button key={t} onClick={()=>setTab(t)}
             style={{flex:1,padding:'9px',background:'transparent',border:'none',fontSize:13,fontWeight:600,
               cursor:'pointer',color:tab===t?'var(--primary)':'var(--muted)',fontFamily:"'DM Sans',sans-serif",
               borderBottom:tab===t?'2px solid var(--primary)':'2px solid transparent',marginBottom:-1}}>
-            {t==='zones'?'Zones':'Corps de métier'}
+            {t==='zones'?'Zones':t==='trades'?'Corps de métier':'Entreprises'}
           </button>
         ))}
       </div>
@@ -2601,9 +2640,92 @@ function SettingsScreen({ zones, trades, setZones, setTrades }) {
           )}
         </div>
       )}
+
+      {tab==='companies' && (
+        <div>
+          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.45,marginBottom:12,
+            background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:10}}>
+            Les entreprises créées ici apparaissent dans l’écran de connexion et dans la liste d’affectation des tâches.
+          </div>
+          {companies.map(co=>{
+            const tr=trades.find(t=>t.id===co.tradeId);
+            const c=getTC(tr?tr.color:'blue');
+            return (
+              <div key={co.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
+                borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
+                {editingCompany?.id===co.id ? (
+                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
+                      <input value={editingCompany.name||''} onChange={e=>setEditingCompany({...editingCompany,name:e.target.value})}
+                        style={inputSt} placeholder="Nom entreprise" />
+                      <input value={editingCompany.contact||''} onChange={e=>setEditingCompany({...editingCompany,contact:e.target.value})}
+                        style={inputSt} placeholder="Référent / contact" />
+                      <input value={editingCompany.code||''} onChange={e=>setEditingCompany({...editingCompany,code:e.target.value.replace(/\D/g,'').slice(0,4)})}
+                        style={inputSt} placeholder="Code PIN 4 chiffres" />
+                      <select value={editingCompany.tradeId||''} onChange={e=>setEditingCompany({...editingCompany,tradeId:e.target.value})}
+                        style={inputSt}>
+                        <option value="">Lot / corps de métier…</option>
+                        {trades.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{display:'flex',gap:6}}>
+                      <button onClick={()=>saveCompany(editingCompany)} style={{...miniBtn,flex:1}}>Enregistrer</button>
+                      <button onClick={()=>setEditingCompany(null)} style={miniBtn}>Annuler</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <span style={{width:12,height:12,borderRadius:'50%',background:c.b,flexShrink:0,
+                      border:`2px solid ${c.b}40`}}></span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{co.name}</div>
+                      <div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>{co.contact||'Contact non renseigné'}</div>
+                      <div style={{display:'flex',gap:6,marginTop:4,flexWrap:'wrap'}}>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:4,padding:'1px 5px'}}>PIN {co.code}</span>
+                        {tr&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:c.t,background:c.bg,border:`1px solid ${c.b}40`,borderRadius:4,padding:'1px 5px'}}>{tr.short}</span>}
+                      </div>
+                    </div>
+                    <button onClick={()=>setEditingCompany(co)} style={miniBtn}>✎</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {newCompany ? (
+            <div style={{background:'var(--surface)',border:'1px solid var(--primary)',borderRadius:'var(--r-sm)',
+              padding:'12px 13px',marginBottom:7}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:8}}>
+                <input value={newCompany.name||''} onChange={e=>setNewCompany({...newCompany,name:e.target.value})}
+                  style={inputSt} placeholder="Nom entreprise *" autoFocus />
+                <input value={newCompany.contact||''} onChange={e=>setNewCompany({...newCompany,contact:e.target.value})}
+                  style={inputSt} placeholder="Référent / contact" />
+                <input value={newCompany.code||''} onChange={e=>setNewCompany({...newCompany,code:e.target.value.replace(/\D/g,'').slice(0,4)})}
+                  style={inputSt} placeholder="Code PIN 4 chiffres *" />
+                <select value={newCompany.tradeId||''} onChange={e=>setNewCompany({...newCompany,tradeId:e.target.value})}
+                  style={inputSt}>
+                  <option value="">Lot / corps de métier…</option>
+                  {trades.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div style={{display:'flex',gap:6}}>
+                <button onClick={addCompany} style={{...miniBtn,background:'var(--primary)',color:'#fff',border:'none',flex:1}}>Ajouter entreprise</button>
+                <button onClick={()=>setNewCompany(null)} style={miniBtn}>Annuler</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={()=>setNewCompany({code:'',tradeId:''})}
+              style={{display:'flex',alignItems:'center',gap:6,color:'var(--primary)',fontSize:13,
+                fontWeight:600,background:'transparent',border:'none',cursor:'pointer',padding:'8px 0',
+                fontFamily:"'DM Sans',sans-serif"}}>
+              <span style={{fontSize:18,lineHeight:1}}>+</span> Ajouter une entreprise
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
 const inputSt = {padding:'7px 9px',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',
   fontSize:12,fontFamily:"'DM Sans',sans-serif",color:'var(--text)',background:'var(--surface)',outline:'none'};
 const miniBtn = {padding:'5px 10px',borderRadius:'var(--r-xs)',border:'1px solid var(--border)',
@@ -2893,12 +3015,12 @@ function FrozenDaysField({ form, set }) {
 /* ════════════════════════════════════════════════════════════
    ADD / EDIT MODAL
 ═══════════════════════════════════════════════════════════ */
-function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, onClose, onSave, onDelete }) {
+function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, companies, onClose, onSave, onDelete }) {
   const existing = editId ? data.find(i=>i.id===editId) : null;
   const [form, setForm] = useState({});
   const [attachments, setAttachments] = useState([]);
   const [confirmDel, setConfirmDel] = useState(false);
-  const companyNames = [...new Set(COMPANIES.map(c=>c.name))].sort();
+  const companyNames = [...new Set((companies&&companies.length?companies:COMPANIES).map(c=>c.name))].sort();
 
   useEffect(()=>{
     if (open) {
@@ -3218,13 +3340,17 @@ function HistoryModal({ open, history, onClose, onRefresh }) {
 function ValidatePlanningModal({ open, onClose, onConfirm }) {
   var today = dateStr(new Date());
   var [validUntil, setValidUntil] = React.useState(today);
+  var [confirmStep, setConfirmStep] = React.useState(false);
 
   React.useEffect(function(){
-    if (open) setValidUntil(today);
+    if (open) {
+      setValidUntil(today);
+      setConfirmStep(false);
+    }
   }, [open]);
 
   return (
-    <SheetModal open={open} onClose={onClose} maxH="72vh">
+    <SheetModal open={open} onClose={onClose} maxH="76vh">
       <div style={{fontSize:18,fontWeight:800,color:'var(--text)',marginBottom:8}}>
         Valider le planning
       </div>
@@ -3234,15 +3360,45 @@ function ValidatePlanningModal({ open, onClose, onConfirm }) {
         La seule action disponible sera la réindexation vers une nouvelle version.
       </div>
       <Field label="Planning validé jusqu’au">
-        <Input type="date" value={validUntil} onChange={function(e){setValidUntil(e.target.value);}} />
+        <Input type="date" value={validUntil} onChange={function(e){setValidUntil(e.target.value);setConfirmStep(false);}} />
       </Field>
-      <button onClick={function(){onConfirm(validUntil);}} style={btnPrimaryStyle}>
-        Valider le planning
-      </button>
+
+      {!confirmStep ? (
+        <button
+          onClick={function(){setConfirmStep(true);}}
+          title="Cliquez pour afficher la confirmation définitive. La validation figera cette version du planning jusqu’à la date choisie."
+          style={btnPrimaryStyle}>
+          Valider le planning
+        </button>
+      ) : (
+        <div style={{background:'var(--danger-l)',border:'1px solid rgba(220,38,38,.35)',
+          borderRadius:'var(--r-sm)',padding:12,marginTop:8,marginBottom:8}}>
+          <div style={{fontSize:15,fontWeight:800,color:'var(--danger)',marginBottom:5}}>
+            Êtes-vous sûr ?
+          </div>
+          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.45,marginBottom:10}}>
+            Cette action validera le planning jusqu’au <b>{fmtDate(validUntil)}</b>,
+            figera cette version et créera une entrée dans l’historique.
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={function(){onConfirm(validUntil);}}
+              title="Confirmer définitivement la validation du planning."
+              style={{...btnPrimaryStyle,background:'var(--danger)',flex:1}}>
+              Oui, valider définitivement
+            </button>
+            <button onClick={function(){setConfirmStep(false);}}
+              style={{...btnSecStyle,flex:'0 0 auto'}}>
+              Retour
+            </button>
+          </div>
+        </div>
+      )}
+
       <button onClick={onClose} style={{...btnSecStyle,width:'100%',marginTop:8}}>Annuler</button>
     </SheetModal>
   );
 }
+
 
 
 /* ════════════════════════════════════════════════════════════
@@ -3261,6 +3417,7 @@ function PlanifyApp() {
   const [data,       setData]       = useState([...INTERVENTIONS]);
   const [zones,      setZones]      = useState([...ZONES]);
   const [trades,     setTrades]     = useState([...TRADES]);
+  const [companies,  setCompanies]  = useState([...COMPANIES]);
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
@@ -3309,6 +3466,7 @@ function PlanifyApp() {
       created_at:new Date().toISOString(),
       zones:zones,
       trades:trades,
+      companies:companies,
       interventions:data
     }, extra || {});
   }
@@ -3370,14 +3528,18 @@ function PlanifyApp() {
     Promise.all([
       fetch(SUPA_URL+'/rest/v1/zones?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/trades?order=display_order',{headers:hdrs}),
+      fetch(SUPA_URL+'/rest/v1/companies?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/interventions?order=start_date',{headers:hdrs}),
     ]).then(function(rs){ return Promise.all(rs.map(function(r){return r.ok?r.json():[];})); })
     .then(function(results){
-      var zData=results[0], tData=results[1], iData=results[2];
+      var zData=results[0], tData=results[1], cData=results[2], iData=results[3];
       if(zData&&zData.length) setZones(zData);
       if(tData&&tData.length) setTrades(tData.map(function(t){
         var loc=TRADES.find(function(lt){return lt.id===t.id;});
         return loc?Object.assign({},t,{color:loc.color}):t;
+      }));
+      if(cData&&cData.length) setCompanies(cData.map(function(c){
+        return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',tradeId:c.trade_id||c.tradeId||''};
       }));
       if(iData&&iData.length) setData(iData.map(function(r){
         return Object.assign({},r,{
@@ -3630,7 +3792,7 @@ function PlanifyApp() {
 
   if (!session) return (
     <>
-      <LoginScreen onLogin={handleLogin} />
+      <LoginScreen onLogin={handleLogin} companies={companies} />
       <TweaksPanel>
         <TweakSection label="Apparence" />
         <TweakRadio label="Thème" value={tweaks.theme}
@@ -3650,8 +3812,8 @@ function PlanifyApp() {
         onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades}
         weekOffset={weekOffset} filter={filter} onOpenDetail={openDetail} />;
-      case 'settings':  return <SettingsScreen  zones={zones} trades={trades}
-        setZones={setZones} setTrades={setTrades} />;
+      case 'settings':  return <SettingsScreen  zones={zones} trades={trades} companies={companies}
+        setZones={setZones} setTrades={setTrades} setCompanies={setCompanies} />;
       default:          return null;
     }
   };
@@ -3799,15 +3961,14 @@ function PlanifyApp() {
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
       var margin = 14;
-      var headerH = 42;
-      var top = 58;
-      var bottom = 12;
+      var headerH = 34;
+      var top = 48;
+      var bottom = 8;
       var tableW = pageW - margin * 2;
-      var zoneW = 58;
-      var finW = 38;
+      var zoneW = 50;
+      var finW = 34;
       var dayW = (tableW - zoneW - finW) / 5;
-      var th = 22;
-      var rowH = Math.max(50, Math.floor((pageH - top - bottom - th) / Math.max(1, zones.length)));
+      var th = 18;
       var dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
       var exported = 0;
 
@@ -3818,21 +3979,44 @@ function PlanifyApp() {
         var tasksForWeek = weekTasks(days);
         exported += tasksForWeek.length;
         var periodLabel = fmtDate(dateStr(days[0])) + ' au ' + fmtDate(dateStr(days[days.length - 1]));
+        var sourceForWeek = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+        var maxTableH = pageH - top - bottom;
+        var availableRowsH = maxTableH - th;
+        var minCardH = 10.5;
+        var minRowH = 28;
+        var needs = zones.map(function(zone){
+          var maxCards = 0;
+          days.forEach(function(day){
+            if (isHoliday(day)) return;
+            var count = sourceForWeek.filter(function(iv){ return iv.zone === zone.id && visibleInDay(iv, day); }).length;
+            if (count > maxCards) maxCards = count;
+          });
+          return Math.max(minRowH, maxCards ? (maxCards * minCardH + Math.max(0, maxCards - 1) * 1 + 8) : minRowH);
+        });
+        var needSum = needs.reduce(function(a,b){ return a + b; }, 0) || 1;
+        var scale = needSum > availableRowsH ? availableRowsH / needSum : 1;
+        var rowHeights = needs.map(function(n){ return Math.max(22, Math.floor(n * scale)); });
+        var usedRowsH = rowHeights.reduce(function(a,b){ return a + b; }, 0);
+        if (usedRowsH < availableRowsH) {
+          var bonus = Math.floor((availableRowsH - usedRowsH) / Math.max(1, zones.length));
+          rowHeights = rowHeights.map(function(h){ return h + bonus; });
+        }
+        var tableH = th + rowHeights.reduce(function(a,b){ return a + b; }, 0);
 
         // Fond + header sombre type application
         doc.setFillColor(244,242,238);
         doc.rect(0, 0, pageW, pageH, 'F');
         doc.setFillColor(26,26,26);
-        doc.roundedRect(margin, 10, tableW, headerH, 7, 7, 'F');
+        doc.roundedRect(margin, 8, tableW, headerH, 7, 7, 'F');
         doc.setTextColor(255,255,255);
         doc.setFont('helvetica','bold');
-        doc.setFontSize(13);
-        doc.text('Planify — HSF 66 Av. Marceau', margin + 12, 27);
+        doc.setFontSize(11.5);
+        doc.text('Planify — HSF 66 Av. Marceau', margin + 10, 23);
         doc.setFont('helvetica','normal');
-        doc.setFontSize(7.5);
+        doc.setFontSize(6.7);
         doc.setTextColor(215,215,215);
-        doc.text('Planning ' + label + ' · Semaine ' + (wi + 1) + '/' + totalWeeks + ' · ' + periodLabel, margin + 12, 43);
-        doc.text(tasksForWeek.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR'), pageW - margin - 140, 43);
+        doc.text('Planning ' + label + ' · Semaine ' + (wi + 1) + '/' + totalWeeks + ' · ' + periodLabel, margin + 10, 37);
+        doc.text(tasksForWeek.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR'), pageW - margin - 125, 37);
 
         var x0 = margin;
         var y0 = top;
@@ -3840,7 +4024,7 @@ function PlanifyApp() {
         // Cadre global
         doc.setFillColor(255,255,255);
         doc.setDrawColor(200,196,188);
-        doc.roundedRect(x0, y0, tableW, th + rowH * zones.length, 6, 6, 'FD');
+        doc.roundedRect(x0, y0, tableW, tableH, 6, 6, 'FD');
 
         // En-tête tableau
         doc.setFillColor(249,248,245);
@@ -3875,8 +4059,11 @@ function PlanifyApp() {
         });
 
         // Lignes zones + cellules
+        var currentY = y0 + th;
         zones.forEach(function(zone, zi) {
-          var y = y0 + th + zi * rowH;
+          var rowH = rowHeights[zi];
+          var y = currentY;
+          currentY += rowH;
           var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
           var fcRgb = hexToRgb(fc);
           var rowBg = mixWhite(fcRgb, 0.95);
@@ -3930,15 +4117,15 @@ function PlanifyApp() {
             var cardX = x + 2;
             var cardY = y + 3;
             var cardW = dayW - 4;
-            var gap = cards.length > 4 ? 0.8 : 1.4;
-            var availableH = Math.max(10, rowH - 6);
-            var cardH = cards.length ? Math.min(18, (availableH - Math.max(0, cards.length - 1) * gap) / cards.length) : 0;
-            cardH = Math.max(7.5, cardH);
-            var compact = cardH < 12;
-            var ultraCompact = cardH < 9.5;
-            var titleFs = ultraCompact ? 3.8 : compact ? 4.5 : 5.4;
-            var taskFs = ultraCompact ? 3.4 : compact ? 4.0 : 4.9;
-            var lh = ultraCompact ? 3.8 : compact ? 4.6 : 5.6;
+            var gap = cards.length > 5 ? 0.6 : 1.1;
+            var availableH = Math.max(10, rowH - 5);
+            var cardH = cards.length ? Math.min(22, (availableH - Math.max(0, cards.length - 1) * gap) / cards.length) : 0;
+            cardH = Math.max(8.8, cardH);
+            var compact = cardH < 13;
+            var ultraCompact = cardH < 10.5;
+            var titleFs = ultraCompact ? 4.2 : compact ? 4.8 : 5.6;
+            var taskFs = ultraCompact ? 3.8 : compact ? 4.3 : 5.0;
+            var lh = ultraCompact ? 4.2 : compact ? 4.8 : 5.8;
 
             cards.forEach(function(iv) {
               var tr = trades.find(function(t){ return t.id === iv.trade; });
@@ -4001,16 +4188,16 @@ function PlanifyApp() {
         // Bordures principales et footer
         doc.setDrawColor(200,196,188);
         doc.setLineWidth(0.7);
-        doc.line(x0 + zoneW, y0, x0 + zoneW, y0 + th + rowH * zones.length);
+        doc.line(x0 + zoneW, y0, x0 + zoneW, y0 + tableH);
         for (var gi = 1; gi <= 5; gi++) {
           var gx = x0 + zoneW + gi * dayW;
-          doc.line(gx, y0, gx, y0 + th + rowH * zones.length);
+          doc.line(gx, y0, gx, y0 + tableH);
         }
 
         doc.setTextColor(90,90,90);
         doc.setFont('helvetica','normal');
         doc.setFontSize(6.5);
-        doc.text('1 page = 1 semaine · cartes colorées = entreprises/lots · point couleur = statut · JF = jour férié · rouge clair = dépassement du jalon.', margin, pageH - 12);
+        doc.text('1 page = 1 semaine · hauteur des zones adaptée au nombre de tâches · point couleur = statut · JF = jour férié.', margin, pageH - 12);
         doc.text('Page ' + (wi + 1) + '/' + totalWeeks, pageW - margin - 48, pageH - 12);
       }
 
@@ -4061,7 +4248,7 @@ function PlanifyApp() {
       <AddEditModal open={modal?.type==='add'||modal?.type==='edit'}
         editId={modal?.type==='edit'?modal?.id:null}
         preZone={modal?.zone} preDate={modal?.date}
-        data={data} zones={zones} trades={trades}
+        data={data} zones={zones} trades={trades} companies={companies}
         onClose={closeModal} onSave={handleSave} onDelete={handleDelete} />
       <UserMenuModal open={userMenu} session={session}
         onClose={()=>setUserMenu(false)} onLogout={handleLogout} />
