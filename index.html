@@ -1475,7 +1475,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
                   <div style={{height:'100%',width:`${p}%`,borderRadius:3,transition:'width .4s',
                     background:p===100?'#16A34A':bloc>0?'#DC2626':'#2563EB'}}></div>
                 </div>
-              </React.Fragment>
+              </div>
             );
           })}
         </SectionCard>
@@ -1660,24 +1660,24 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
   const floorOf = id => zones.find(z=>z.id===id)?.floor||'';
 
   return (
-    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
+    <div style={{overflowY:'scroll',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
       <div style={{background:'var(--surface)',
         border:isMulti?'none':'1px solid var(--border)',
         margin:isMulti?0:'0 8px',
         borderRadius:isMulti?0:'var(--r)',
         boxShadow:isMulti?'none':'var(--shadow)',
-        overflowX:'hidden',width:'100%',boxSizing:'border-box'}}>
+        overflowX:'hidden',width:'100%',boxSizing:'border-box',
+        scrollbarGutter:'stable'}}>
 
-        {/* SINGLE GRID — header + all zone rows share one grid for perfect column alignment */}
-        <div style={{display:'grid',gridTemplateColumns:gridCols,width:'100%'}}>
+        <div style={{width:'100%'}}>
 
-          {/* ── HEADER CELLS (sticky) ── */}
-          {/* These cells have position:sticky so the row stays fixed */}
+          {/* Header row */}
+          <div style={{display:'grid',gridTemplateColumns:gridCols,background:'var(--surface-2)',
+            borderBottom:'2px solid var(--border)',position:'sticky',top:0,zIndex:10}}>
 
-            {/* Zone filter cell - sticky header */}
+            {/* Zone filter cell */}
             <div ref={dropRef} style={{padding:'5px 3px',borderRight:'3px solid var(--border-s)',
-              display:'flex',alignItems:'center',justifyContent:'center',position:'sticky',top:0,
-              zIndex:12,background:'var(--surface-2)',borderBottom:'2px solid var(--border)'}}>
+              display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
               <button onClick={() => setDropOpen(o => !o)}
                 style={{width:'100%',padding:'4px 2px',borderRadius:'var(--r-xs)',
                   border:`1px solid ${dropOpen||activeCount?'var(--primary)':'var(--border)'}`,
@@ -1723,10 +1723,8 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
               const holiday = isHoliday(d);
               return (
                 <div key={i} style={{padding:isMulti?'3px 0':'6px 2px',textAlign:'center',overflow:'hidden',
-                  position:'sticky',top:0,zIndex:11,
                   borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                  borderBottom:'2px solid var(--border)',
-                  background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'var(--surface-2)'}}>
+                  background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'transparent'}}>
                   {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
                     color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)'}}>
                     {DAYS_FR[d.getDay()-1]}
@@ -1744,14 +1742,15 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
               );
             })}
 
-            {/* Deadline header - sticky */}
+            {/* Deadline header */}
             <div style={{padding:'4px 1px',textAlign:'center',borderLeft:'2px solid var(--border-s)',
-              position:'sticky',top:0,zIndex:12,borderBottom:'2px solid var(--border)',
               background:'rgba(220,38,38,.07)',display:'flex',alignItems:'center',justifyContent:'center',minHeight:28}}>
               <span style={{fontSize:7,fontWeight:800,color:'#DC2626',fontFamily:"'DM Mono',monospace",
                 writingMode:'vertical-rl',transform:'rotate(180deg)',lineHeight:1}}>FIN</span>
             </div>
-          {/* ── ZONE ROW CELLS (each zone is cols in the same grid) ── */}
+          </div>
+
+          {/* Zone rows */}
           {visibleZones.map((zone, zi) => {
             const prevZone = visibleZones[zi - 1];
             const floorChange = zi > 0 && prevZone?.floor !== zone.floor;
@@ -1763,14 +1762,14 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                           zone.floor==='R+2' ? 'rgba(13,148,136,.025)' : 'rgba(139,92,246,.025)';
 
             return (
-              <React.Fragment key={zone.id}>
+              <div key={zone.id} style={{display:'grid',gridTemplateColumns:gridCols,
+                borderTop:floorChange?`3px solid ${fc}`:'none',
+                borderBottom:'1px solid var(--border)',background:rowBg}}>
 
                 {/* Zone label */}
-                <div style={{padding:isMulti?'2px 1px':'5px 3px',
-                  borderRight:'3px solid '+fc,
-                  borderTop:floorChange?`3px solid ${fc}`:'1px solid var(--border)',
+                <div style={{padding:isMulti?'2px 1px':'5px 3px',borderRight:'3px solid '+fc,
                   display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',
-                  minHeight:isMulti?40:56,background:rowBg||`${fc}08`}}>
+                  minHeight:isMulti?40:56,background:`${fc}12`}}>
                   <span style={{fontSize:isMulti?5.5:8,fontWeight:800,color:fc,lineHeight:1.2,
                     fontFamily:"'DM Mono',monospace",letterSpacing:'.03em',textTransform:'uppercase',
                     wordBreak:'break-all'}}>{zone.short}</span>
@@ -1801,7 +1800,6 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                     <div key={di} onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
                       style={{padding:isMulti?0:2,minHeight:isMulti?40:56,
                         borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                        borderTop:floorChange?`3px solid ${fc}`:'1px solid var(--border)',
                         background:cellBg,
                         cursor:isAdmin&&!holiday?'pointer':'default',transition:'background .1s'}}
                       onMouseEnter={e=>{if(isAdmin&&!holiday)e.currentTarget.style.background='var(--surface-2)';}}
@@ -1856,7 +1854,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                     {zone.deadline?zone.deadline.slice(5,10).replace('-','/'):''}
                   </span>
                 </div>
-              </React.Fragment>
+              </div>
             );
           })}
         </div>
@@ -1925,7 +1923,7 @@ function ListScreen({ data, zones, trades, weekOffset, filter, onOpenDetail }) {
                 </div>
                 {iv.prereq&&<div style={{marginTop:6,fontSize:11,color:'#DC2626',background:'rgba(220,38,38,.08)',
                   borderLeft:'2px solid #DC2626',padding:'4px 7px',borderRadius:'0 4px 4px 0'}}>⚠ {iv.prereq}</div>}
-              </React.Fragment>
+              </div>
             );
           })}
         </div>
@@ -2066,7 +2064,7 @@ function SettingsScreen({ zones, trades, setZones, setTrades }) {
                     <button onClick={()=>setEditingTrade(tr)} style={miniBtn}>✎</button>
                   </div>
                 )}
-              </React.Fragment>
+              </div>
             );
           })}
           {newTrade ? (
