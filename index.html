@@ -9,24 +9,18 @@
 <link rel="manifest" href="/hsf-chantier/manifest.json">
 <meta name="theme-color" content="#1A1A1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<script>if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(()=>{});});}</script>
-<style>
-:root,[data-theme="terrain"]{--bg:#F4F2EE;--surface:#FFFFFF;--surface-2:#F9F8F5;--hdr:#1A1A1A;--hdr-text:#FFFFFF;--primary:#2152C8;--primary-l:#EEF2FC;--text:#1A1A1A;--muted:#6B6860;--xmuted:#ABA8A0;--border:#E8E4DC;--border-s:#C8C4BB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#16A34A;--success-l:#F0FDF4;--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.10);--shadow-lg:0 8px 32px rgba(0,0,0,.16)}
-[data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px}
+<script>if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(function(){});});}</script>
+<style>:root,[data-theme="terrain"]{--bg:#F4F2EE;--surface:#FFFFFF;--surface-2:#F9F8F5;--hdr:#1A1A1A;--hdr-text:#FFFFFF;--primary:#2152C8;--primary-l:#EEF2FC;--text:#1A1A1A;--muted:#6B6860;--xmuted:#ABA8A0;--border:#E8E4DC;--border-s:#C8C4BB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#16A34A;--success-l:#F0FDF4;--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.10);--shadow-lg:0 8px 32px rgba(0,0,0,.16)}
 [data-theme="nuit"]{--bg:#0D0D10;--surface:#18181C;--surface-2:#1F1F26;--hdr:#0D0D10;--hdr-text:#F1F1F5;--primary:#60A5FA;--primary-l:rgba(96,165,250,.14);--text:#F1F1F5;--muted:#8A8A9A;--xmuted:#55555F;--border:#28282F;--border-s:#38383F;--danger:#F87171;--danger-l:rgba(248,113,113,.12);--success:#34D399;--success-l:rgba(52,211,153,.12);--r:12px;--r-sm:8px;--r-xs:5px}
+[data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;transition:background .3s,color .3s}
 #root{height:100%;display:flex;flex-direction:column}
-@keyframes fadeIn{from{opacity:0}}
-@keyframes slideUp{from{transform:translateY(100%)}}
-@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0}}@keyframes slideUp{from{transform:translateY(100%)}}@keyframes spin{to{transform:rotate(360deg)}}
 *{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-button,select,input,textarea{font-family:'DM Sans',sans-serif}
-</style>
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
@@ -35,25 +29,346 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}
 <body>
 <div id="root"></div>
 
-<!-- Data layer -->
 <script>
+// planify-data.js — Data layer, constants & utilities
 
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(()=>{});
-    });
+const TRADE_COLORS = {
+  crimson: {b:'#B91C1C',bg:'#FEF2F2',bgD:'rgba(185,28,28,.18)',t:'#7F1D1D'},
+  orange:  {b:'#F97316',bg:'#FFF7ED',bgD:'rgba(249,115,22,.18)',t:'#7C2D12'},
+  amber:   {b:'#D97706',bg:'#FFFBEB',bgD:'rgba(217,119,6,.18)',t:'#78350F'},
+  brown:   {b:'#92400E',bg:'#FEF3C7',bgD:'rgba(146,64,14,.18)',t:'#451A03'},
+  forest:  {b:'#166534',bg:'#F0FDF4',bgD:'rgba(22,101,52,.18)',t:'#14532D'},
+  lime:    {b:'#4ADE80',bg:'#F0FDF4',bgD:'rgba(74,222,128,.18)',t:'#166534'},
+  navy:    {b:'#1E3A8A',bg:'#EFF6FF',bgD:'rgba(30,58,138,.18)',t:'#172554'},
+  sky:     {b:'#38BDF8',bg:'#F0F9FF',bgD:'rgba(56,189,248,.18)',t:'#0C4A6E'},
+  violet:  {b:'#7C3AED',bg:'#F5F3FF',bgD:'rgba(124,58,237,.18)',t:'#4C1D95'},
+  pink:    {b:'#EC4899',bg:'#FDF2F8',bgD:'rgba(236,72,153,.18)',t:'#831843'},
+  slate:   {b:'#475569',bg:'#F8FAFC',bgD:'rgba(71,85,105,.18)',t:'#1E293B'},
+  blue:    {b:'#3B82F6',bg:'#EFF6FF',bgD:'rgba(59,130,246,.18)',t:'#1E3A5F'},
+  green:   {b:'#16A34A',bg:'#F0FDF4',bgD:'rgba(22,163,74,.18)',t:'#14532D'},
+  gold:    {b:'#CA8A04',bg:'#FEFCE8',bgD:'rgba(202,138,4,.18)',t:'#713F12'},
+  teal:    {b:'#0D9488',bg:'#F0FDFA',bgD:'rgba(13,148,136,.18)',t:'#134E4A'},
+};
+
+function getTC(colorId) { return TRADE_COLORS[colorId] || TRADE_COLORS.blue; }
+
+const ZONES = [
+  {id:'z_1',name:'R+3 — Sanitaire H/F',    short:'R3-SANI',deadline:'2026-06-04',floor:'R+3'},
+  {id:'z_2',name:'R+3 — Bureaux + circ.', short:'R3-BUR', deadline:'2026-06-04',floor:'R+3'},
+  {id:'z_3',name:'R+3 — Tisanerie',        short:'R3-TIS', deadline:'2026-06-04',floor:'R+3'},
+  {id:'z_4',name:'R+3 — LT VDI',           short:'R3-VDI', deadline:'2026-06-04',floor:'R+3'},
+  {id:'z_5',name:'R+2 — Tisanerie',        short:'R2-TIS', deadline:'2026-05-29',floor:'R+2'},
+  {id:'z_6',name:'R+1 — Tisanerie',        short:'R1-TIS', deadline:'2026-05-29',floor:'R+1'},
+  {id:'z_7',name:'R+1 — Cafétéria',        short:'R1-CAF', deadline:'2026-05-29',floor:'R+1'},
+  {id:'z_8',name:'R+1 — Lounge',           short:'R1-LGE', deadline:'2026-05-29',floor:'R+1'},
+];
+
+// Floor accent colors
+const FLOOR_COLORS = {'R+3':'#2152C8','R+2':'#0D9488','R+1':'#8B5CF6'};
+
+function daysUntil(dateStr) {
+  const d = new Date(dateStr+'T00:00:00'), now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.round((d - now) / (1000*60*60*24));
+}
+function deadlineColor(dateStr) {
+  const d = daysUntil(dateStr);
+  if (d < 0)  return '#DC2626';   // past
+  if (d < 14) return '#DC2626';   // danger
+  if (d < 21) return '#EA580C';   // warning
+  return '#16A34A';               // ok
+}
+
+const TRADES = [
+  {id:'tr_1',name:'STD',short:'STD',color:'crimson'},
+  {id:'tr_2',name:'BARRE BOUILLET',short:'BB',color:'brown'},
+  {id:'tr_3',name:'ELPHITEC',short:'ELPH',color:'navy'},
+  {id:'tr_4',name:'PROST',short:'PROST',color:'forest'},
+  {id:'tr_5',name:'AM FRANCE',short:'AMF',color:'amber'},
+  {id:'tr_6',name:'SOA-A',short:'SOAA',color:'violet'},
+  {id:'tr_7',name:'BENE',short:'BENE',color:'slate'},
+  {id:'tr_8',name:'9ème sens',short:'9ÈM',color:'orange'},
+  {id:'tr_9',name:'Jeanne',short:'JEAN',color:'sky'},
+  {id:'tr_10',name:'Papier peint',short:'PAP',color:'pink'},
+  {id:'tr_11',name:'Move Company',short:'MOVE',color:'lime'},
+];
+
+const COMPANIES = [
+  {id:'std',        name:'STD',           contact:'Tibor Salak',        code:'1001', tradeId:'tr_1'},
+  {id:'elph_cvc',   name:'ELPHITEC',      contact:'Laurent Testa',      code:'2002', tradeId:'tr_3'},
+  {id:'elph_elec',  name:'ELPHITEC',      contact:'Thibault Brousseau', code:'3003', tradeId:'tr_3'},
+  {id:'amfrance',   name:'AM FRANCE',     contact:'Ahmed El Sabbagh',   code:'4004', tradeId:'tr_5'},
+  {id:'prost',      name:'PROST',         contact:'Bruno Machado',      code:'5005', tradeId:'tr_4'},
+  {id:'soaa',       name:'SOA-A',         contact:'Antoine Delalande',  code:'6006', tradeId:'tr_6'},
+  {id:'barreb',     name:'BARRE BOUILLET',contact:'Cyrille Mazaleyrat', code:'7007', tradeId:'tr_2'},
+  {id:'bene',       name:'BENE',          contact:'Francois Corbin',    code:'8008', tradeId:'tr_7'},
+];
+
+const STATUS_META = {
+  arealis:{label:'À réaliser',dot:'#9CA3AF',text:'#4B5563',bg:'rgba(156,163,175,.13)',pill:'#6B7280'},
+  encours:{label:'En cours',  dot:'#2563EB',text:'#1D4ED8',bg:'rgba(37,99,235,.12)', pill:'#2563EB'},
+  termine:{label:'Terminé',   dot:'#16A34A',text:'#065F46',bg:'rgba(22,163,74,.12)', pill:'#16A34A'},
+  bloque: {label:'Bloqué',    dot:'#DC2626',text:'#991B1B',bg:'rgba(220,38,38,.12)', pill:'#DC2626'},
+};
+
+const INTERVENTIONS = [
+  {id:'imp_1', trade:'tr_1',company:'STD',         task:'Déposer placage imposte porte + doublage GEBERIT',     zone:'z_1',start:'2026-04-15',end:'2026-04-15',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-001',predecessor_id:null,attachments:[]},
+  {id:'imp_2', trade:'tr_1',company:'STD',         task:'Dépose équipement toilette (WC + vasque + miroir)',     zone:'z_1',start:'2026-04-15',end:'2026-04-15',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-002',predecessor_id:null,attachments:[]},
+  {id:'imp_3', trade:'tr_2',company:'BARRE BOUILLET',task:'Dépose porte + amener en atelier',                   zone:'z_1',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-001',predecessor_id:null,attachments:[]},
+  {id:'imp_4', trade:'tr_3',company:'ELPHITEC',    task:'Dépose + mise en réserve radiateur + condamner EF/EC', zone:'z_1',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-001',predecessor_id:null,attachments:[]},
+  {id:'imp_5', trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_1',start:'2026-04-20',end:'2026-04-20',status:'encours',priority:2,prereq:'Support Geberit posé',notes:'Étage: R+3',task_number:'ELP-002',predecessor_id:'imp_7',attachments:[]},
+  {id:'imp_6', trade:'tr_3',company:'ELPHITEC',    task:'Installation corps encastrement mitigeur',             zone:'z_1',start:'2026-04-21',end:'2026-04-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-003',predecessor_id:null,attachments:[]},
+  {id:'imp_7', trade:'tr_3',company:'ELPHITEC',    task:'Installation Support Geberit',                         zone:'z_1',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-004',predecessor_id:null,attachments:[]},
+  {id:'imp_8', trade:'tr_1',company:'STD',         task:'Doublage / rebouchage pour corps du mitigeur',         zone:'z_1',start:'2026-04-17',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-003',predecessor_id:null,attachments:[]},
+  {id:'imp_9', trade:'tr_1',company:'STD',         task:'Doublage support GEBERIT',                             zone:'z_1',start:'2026-04-17',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-004',predecessor_id:null,attachments:[]},
+  {id:'imp_10',trade:'tr_3',company:'ELPHITEC',    task:'Repositionner alim éclairage suivant plan implantation',zone:'z_1',start:'2026-04-17',end:'2026-04-17',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-005',predecessor_id:null,attachments:[]},
+  {id:'imp_11',trade:'tr_2',company:'BARRE BOUILLET',task:'Pose vasque',                                        zone:'z_1',start:'2026-05-06',end:'2026-05-06',status:'arealis',priority:3,prereq:'Enduits secs',notes:'Étage: R+3',task_number:'BAR-002',predecessor_id:null,attachments:[]},
+  {id:'imp_12',trade:'tr_4',company:'PROST',       task:'Pose faience coin vasque',                             zone:'z_1',start:'2026-05-11',end:'2026-05-12',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-001',predecessor_id:null,attachments:[]},
+  {id:'imp_13',trade:'tr_2',company:'BARRE BOUILLET',task:'Pose porte + habillage encadrement',                 zone:'z_1',start:'2026-05-06',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-003',predecessor_id:null,attachments:[]},
+  {id:'imp_14',trade:'tr_2',company:'BARRE BOUILLET',task:'Tablette fond de cabine',                            zone:'z_1',start:'2026-05-06',end:'2026-05-06',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-004',predecessor_id:null,attachments:[]},
+  {id:'imp_15',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit + ponçage — Plafond & Mur', zone:'z_1',start:'2026-04-22',end:'2026-04-24',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-001',predecessor_id:null,attachments:[]},
+  {id:'imp_16',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_1',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-002',predecessor_id:null,attachments:[]},
+  {id:'imp_17',trade:'tr_3',company:'ELPHITEC',    task:'Pose cuvette + plaque déclenchement + barre relevage', zone:'z_1',start:'2026-05-26',end:'2026-05-26',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-006',predecessor_id:null,attachments:[]},
+  {id:'imp_18',trade:'tr_3',company:'ELPHITEC',    task:'Pose terminaux faux-plafond (elec. + cvc)',            zone:'z_1',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-007',predecessor_id:null,attachments:[]},
+  {id:'imp_19',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_1',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-003',predecessor_id:null,attachments:[]},
+  {id:'imp_20',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_1',start:'2026-05-04',end:'2026-05-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-008',predecessor_id:null,attachments:[]},
+  {id:'imp_21',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre + pose butée de sol',            zone:'z_1',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-002',predecessor_id:null,attachments:[]},
+  {id:'imp_22',trade:'tr_4',company:'PROST',       task:'Dépose moquette',                                      zone:'z_2',start:'2026-04-10',end:'2026-04-24',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-003',predecessor_id:null,attachments:[]},
+  {id:'imp_23',trade:'tr_6',company:'SOA-A',       task:'Dépose cloison',                                       zone:'z_2',start:'2026-04-10',end:'2026-04-10',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-001',predecessor_id:null,attachments:[]},
+  {id:'imp_24',trade:'tr_3',company:'ELPHITEC',    task:'Curage câble CFO/CFA sol R+1 — raccordement',          zone:'z_2',start:'2026-04-13',end:'2026-04-17',status:'encours',priority:2,prereq:'Accès plateau libre',notes:'Étage: R+3',task_number:'ELP-009',predecessor_id:null,attachments:[]},
+  {id:'imp_25',trade:'tr_3',company:'ELPHITEC',    task:'Tirage des RJ au sol',                                 zone:'z_2',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-010',predecessor_id:null,attachments:[]},
+  {id:'imp_26',trade:'tr_3',company:'ELPHITEC',    task:'Distribution wifi',                                    zone:'z_2',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-011',predecessor_id:null,attachments:[]},
+  {id:'imp_27',trade:'tr_3',company:'ELPHITEC',    task:'Reprise des réseaux CVC',                              zone:'z_2',start:'2026-04-22',end:'2026-05-07',status:'bloque',priority:1,prereq:'Zone libérée par les menuisiers',notes:'Étage: R+3',task_number:'ELP-012',predecessor_id:null,attachments:[]},
+  {id:'imp_28',trade:'tr_3',company:'ELPHITEC',    task:'Transfert d\'air — distribution',                     zone:'z_2',start:'2026-04-22',end:'2026-05-04',status:'encours',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-013',predecessor_id:null,attachments:[]},
+  {id:'imp_29',trade:'tr_3',company:'ELPHITEC',    task:'Remplacer MR soufflage bureaux + extraction circulation',zone:'z_2',start:'2026-04-23',end:'2026-04-30',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-014',predecessor_id:null,attachments:[]},
+  {id:'imp_30',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture plafond & mur',     zone:'z_2',start:'2026-04-15',end:'2026-05-13',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-004',predecessor_id:null,attachments:[]},
+  {id:'imp_31',trade:'tr_4',company:'PROST',       task:'Pose moquette TTZ + barre de seuil + local VDI',       zone:'z_2',start:'2026-05-06',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-004',predecessor_id:null,attachments:[]},
+  {id:'imp_32',trade:'tr_3',company:'ELPHITEC',    task:'Refixer boitier de sol / Recettage',                   zone:'z_2',start:'2026-05-13',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-015',predecessor_id:null,attachments:[]},
+  {id:'imp_33',trade:'tr_2',company:'BARRE BOUILLET',task:'Traitement acoustique + support cloisons SOAA',      zone:'z_2',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-005',predecessor_id:null,attachments:[]},
+  {id:'imp_34',trade:'tr_5',company:'AM FRANCE',   task:'Enduit cloisons SOA-A',                                zone:'z_2',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-005',predecessor_id:null,attachments:[]},
+  {id:'imp_35',trade:'tr_6',company:'SOA-A',       task:'Tracer cloison + passage de porte / retracer terrain', zone:'z_2',start:'2026-04-16',end:'2026-04-28',status:'encours',priority:2,prereq:'',notes:'Étage: R+3',task_number:'SOA-002',predecessor_id:null,attachments:[]},
+  {id:'imp_36',trade:'tr_6',company:'SOA-A',       task:'Pose ossature + placo + bande',                        zone:'z_2',start:'2026-05-12',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-003',predecessor_id:null,attachments:[]},
+  {id:'imp_37',trade:'tr_6',company:'SOA-A',       task:'Pose vitrage (+6j après pose ossature)',               zone:'z_2',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-004',predecessor_id:null,attachments:[]},
+  {id:'imp_38',trade:'tr_6',company:'SOA-A',       task:'Pose porte',                                           zone:'z_2',start:'2026-05-20',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-005',predecessor_id:null,attachments:[]},
+  {id:'imp_39',trade:'tr_5',company:'AM FRANCE',   task:'2ème couche de peinture',                              zone:'z_2',start:'2026-05-11',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-006',predecessor_id:null,attachments:[]},
+  {id:'imp_40',trade:'tr_3',company:'ELPHITEC',    task:'Pose grille transfert d\'air',                         zone:'z_2',start:'2026-05-25',end:'2026-05-27',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-016',predecessor_id:null,attachments:[]},
+  {id:'imp_41',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin de chantier',                            zone:'z_2',start:'2026-05-28',end:'2026-05-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'JEA-001',predecessor_id:null,attachments:[]},
+  {id:'imp_42',trade:'tr_3',company:'ELPHITEC',    task:'Raccordement bureaux',                                 zone:'z_2',start:'2026-06-01',end:'2026-06-03',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-017',predecessor_id:null,attachments:[]},
+  {id:'imp_43',trade:'tr_7',company:'BENE',        task:'Installation du mobilier',                             zone:'z_2',start:'2026-06-01',end:'2026-06-03',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BEN-001',predecessor_id:null,attachments:[]},
+  {id:'imp_44',trade:'tr_3',company:'ELPHITEC',    task:'Dépose radiateur',                                     zone:'z_3',start:'2026-04-21',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-018',predecessor_id:null,attachments:[]},
+  {id:'imp_45',trade:'tr_1',company:'STD',         task:'Dépose meuble évier + faience + BECS',                 zone:'z_3',start:'2026-04-15',end:'2026-04-20',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-005',predecessor_id:null,attachments:[]},
+  {id:'imp_46',trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_3',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-019',predecessor_id:null,attachments:[]},
+  {id:'imp_47',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit — Plafond & Mur',           zone:'z_3',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-007',predecessor_id:null,attachments:[]},
+  {id:'imp_48',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_3',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-008',predecessor_id:null,attachments:[]},
+  {id:'imp_49',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation meuble cuisine',                        zone:'z_3',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-006',predecessor_id:null,attachments:[]},
+  {id:'imp_50',trade:'tr_3',company:'ELPHITEC',    task:'Installation BECS',                                    zone:'z_3',start:'2026-05-04',end:'2026-05-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-020',predecessor_id:null,attachments:[]},
+  {id:'imp_51',trade:'tr_3',company:'ELPHITEC',    task:'Installation robinetterie',                            zone:'z_3',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-021',predecessor_id:null,attachments:[]},
+  {id:'imp_52',trade:'tr_4',company:'PROST',       task:'Pose faience',                                         zone:'z_3',start:'2026-05-20',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-005',predecessor_id:null,attachments:[]},
+  {id:'imp_53',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_3',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-009',predecessor_id:null,attachments:[]},
+  {id:'imp_54',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_3',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-022',predecessor_id:null,attachments:[]},
+  {id:'imp_55',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre',                                zone:'z_3',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-006',predecessor_id:null,attachments:[]},
+  {id:'imp_56',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin de chantier',                            zone:'z_3',start:'2026-05-27',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'JEA-002',predecessor_id:null,attachments:[]},
+  {id:'imp_57',trade:'tr_3',company:'ELPHITEC',    task:'Dépose et évacuation de la baie existante',            zone:'z_4',start:'2026-04-15',end:'2026-04-15',status:'termine',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-023',predecessor_id:null,attachments:[]},
+  {id:'imp_58',trade:'tr_4',company:'PROST',       task:'Curage du sol',                                        zone:'z_4',start:'2026-04-17',end:'2026-04-17',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-007',predecessor_id:null,attachments:[]},
+  {id:'imp_59',trade:'tr_1',company:'STD',         task:'Curage faux-plafond',                                  zone:'z_4',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-006',predecessor_id:null,attachments:[]},
+  {id:'imp_60',trade:'tr_3',company:'ELPHITEC',    task:'Remplacement ventilo',                                 zone:'z_4',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-024',predecessor_id:null,attachments:[]},
+  {id:'imp_61',trade:'tr_3',company:'ELPHITEC',    task:'Installation de la clim',                              zone:'z_4',start:'2026-04-29',end:'2026-04-29',status:'bloque',priority:1,prereq:'Livraison unité extérieure confirmée',notes:'Étage: R+3',task_number:'ELP-025',predecessor_id:null,attachments:[]},
+  {id:'imp_62',trade:'tr_1',company:'STD',         task:'Pose du nouveau plafond',                              zone:'z_4',start:'2026-05-04',end:'2026-05-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-007',predecessor_id:null,attachments:[]},
+  {id:'imp_63',trade:'tr_4',company:'PROST',       task:'Pose du nouveau sol souple + barre de seuil',         zone:'z_4',start:'2026-06-01',end:'2026-06-02',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-008',predecessor_id:null,attachments:[]},
+  {id:'imp_64',trade:'tr_3',company:'ELPHITEC',    task:'Installation baie + câblage baie info',                zone:'z_4',start:'2026-05-19',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-026',predecessor_id:null,attachments:[]},
+  {id:'imp_65',trade:'tr_3',company:'ELPHITEC',    task:'Recettage + raccordement fibre',                       zone:'z_4',start:'2026-05-25',end:'2026-05-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-027',predecessor_id:null,attachments:[]},
+  {id:'imp_66',trade:'tr_3',company:'ELPHITEC',    task:'Dépose radiateur',                                     zone:'z_5',start:'2026-04-21',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-028',predecessor_id:null,attachments:[]},
+  {id:'imp_67',trade:'tr_1',company:'STD',         task:'Dépose meuble évier + faience + BECS',                 zone:'z_5',start:'2026-04-15',end:'2026-04-20',status:'termine',priority:3,prereq:'',notes:'Étage: R+2',task_number:'STD-008',predecessor_id:null,attachments:[]},
+  {id:'imp_68',trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_5',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-029',predecessor_id:null,attachments:[]},
+  {id:'imp_69',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit — Plafond & Mur',           zone:'z_5',start:'2026-04-23',end:'2026-04-24',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'AMF-010',predecessor_id:null,attachments:[]},
+  {id:'imp_70',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_5',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'AMF-011',predecessor_id:null,attachments:[]},
+  {id:'imp_71',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation meuble cuisine',                        zone:'z_5',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'BAR-007',predecessor_id:null,attachments:[]},
+  {id:'imp_72',trade:'tr_3',company:'ELPHITEC',    task:'Installation BECS',                                    zone:'z_5',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-030',predecessor_id:null,attachments:[]},
+  {id:'imp_73',trade:'tr_3',company:'ELPHITEC',    task:'Installation robinetterie',                            zone:'z_5',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-031',predecessor_id:null,attachments:[]},
+  {id:'imp_74',trade:'tr_4',company:'PROST',       task:'Pose faience',                                         zone:'z_5',start:'2026-05-20',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'PRO-009',predecessor_id:null,attachments:[]},
+  {id:'imp_75',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_5',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'AMF-012',predecessor_id:null,attachments:[]},
+  {id:'imp_76',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_5',start:'2026-05-13',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-032',predecessor_id:null,attachments:[]},
+  {id:'imp_77',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre',                                zone:'z_5',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'PRO-010',predecessor_id:null,attachments:[]},
+  {id:'imp_78',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin',                                        zone:'z_5',start:'2026-05-26',end:'2026-05-26',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'JEA-003',predecessor_id:null,attachments:[]},
+  {id:'imp_79',trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_6',start:'2026-05-04',end:'2026-05-05',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-033',predecessor_id:null,attachments:[]},
+  {id:'imp_80',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit — Plafond & Mur',           zone:'z_6',start:'2026-04-23',end:'2026-04-24',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-013',predecessor_id:null,attachments:[]},
+  {id:'imp_81',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_6',start:'2026-05-06',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-014',predecessor_id:null,attachments:[]},
+  {id:'imp_82',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation meuble cuisine',                        zone:'z_6',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-008',predecessor_id:null,attachments:[]},
+  {id:'imp_83',trade:'tr_3',company:'ELPHITEC',    task:'Installation BECS',                                    zone:'z_6',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-034',predecessor_id:null,attachments:[]},
+  {id:'imp_84',trade:'tr_3',company:'ELPHITEC',    task:'Installation robinetterie',                            zone:'z_6',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-035',predecessor_id:null,attachments:[]},
+  {id:'imp_85',trade:'tr_4',company:'PROST',       task:'Pose faience',                                         zone:'z_6',start:'2026-05-20',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-011',predecessor_id:null,attachments:[]},
+  {id:'imp_86',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_6',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-015',predecessor_id:null,attachments:[]},
+  {id:'imp_87',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_6',start:'2026-05-13',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-036',predecessor_id:null,attachments:[]},
+  {id:'imp_88',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre',                                zone:'z_6',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-012',predecessor_id:null,attachments:[]},
+  {id:'imp_89',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin',                                        zone:'z_6',start:'2026-05-26',end:'2026-05-26',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'JEA-004',predecessor_id:null,attachments:[]},
+  {id:'imp_90',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture — plafond & mur',  zone:'z_7',start:'2026-04-27',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-016',predecessor_id:null,attachments:[]},
+  {id:'imp_91',trade:'tr_3',company:'ELPHITEC',    task:'Création des attentes plomberie',                      zone:'z_7',start:'2026-04-27',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-037',predecessor_id:null,attachments:[]},
+  {id:'imp_92',trade:'tr_4',company:'PROST',       task:'Pose revêtement de sol',                               zone:'z_7',start:'2026-05-04',end:'2026-05-07',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-013',predecessor_id:null,attachments:[]},
+  {id:'imp_93',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation cuisine + pose crédence',               zone:'z_7',start:'2026-05-08',end:'2026-05-08',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-009',predecessor_id:null,attachments:[]},
+  {id:'imp_94',trade:'tr_5',company:'AM FRANCE',   task:'2ème couche de peinture',                              zone:'z_7',start:'2026-05-18',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-017',predecessor_id:null,attachments:[]},
+  {id:'imp_95',trade:'tr_3',company:'ELPHITEC',    task:'Pose appareillage',                                    zone:'z_7',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-038',predecessor_id:null,attachments:[]},
+  {id:'imp_96',trade:'tr_8',company:'9ème sens',   task:'Vitrophanie',                                          zone:'z_7',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'9EM-001',predecessor_id:null,attachments:[]},
+  {id:'imp_97',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture — plafond & mur',  zone:'z_8',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-018',predecessor_id:null,attachments:[]},
+  {id:'imp_98',trade:'tr_4',company:'PROST',       task:'Remanier position boitier de sol',                     zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-014',predecessor_id:null,attachments:[]},
+  {id:'imp_99',trade:'tr_3',company:'ELPHITEC',    task:'Distribution au sol + repositionner boitier',          zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-039',predecessor_id:null,attachments:[]},
+  {id:'imp_100',trade:'tr_4',company:'PROST',      task:'Pose moquette + PVC TTZ + barre de seuil',             zone:'z_8',start:'2026-05-04',end:'2026-05-07',status:'arealis',priority:3,prereq:'Euler vers Marceau',notes:'Étage: R+1',task_number:'PRO-015',predecessor_id:null,attachments:[]},
+  {id:'imp_101',trade:'tr_5',company:'AM FRANCE',  task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-019',predecessor_id:null,attachments:[]},
+  {id:'imp_102',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation et pose des aménagements',             zone:'z_8',start:'2026-05-11',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-010',predecessor_id:null,attachments:[]},
+  {id:'imp_103',trade:'tr_1',company:'STD',        task:'Installation des panneaux acoustiques',                zone:'z_8',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'STD-009',predecessor_id:null,attachments:[]},
+  {id:'imp_104',trade:'tr_10',company:'Papier peint',task:'Préparation des supports + pose papier peint',       zone:'z_8',start:'2026-05-18',end:'2026-05-18',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PAP-001',predecessor_id:null,attachments:[]},
+  {id:'imp_105',trade:'tr_5',company:'AM FRANCE',  task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_8',start:'2026-05-26',end:'2026-05-27',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-020',predecessor_id:null,attachments:[]},
+  {id:'imp_107',trade:'tr_11',company:'Move Company',task:'Installation bras ecran',zone:'z_2',start:'2026-06-01',end:'2026-06-04',status:'arealis',priority:3,prereq:'',notes:'Etage: R+3',task_number:'MOV-001',predecessor_id:null,attachments:[]},
+  {id:'imp_106',trade:'tr_3',company:'ELPHITEC',   task:'Installation des appliques + éclairage',               zone:'z_8',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-040',predecessor_id:null,attachments:[]},
+];
+
+// ─── UTILITIES ──────────────────────────────────────────────────
+function getMonday(offset = 0) {
+  const t = new Date(); const d = t.getDay();
+  const diff = d === 0 ? -6 : 1 - d;
+  const m = new Date(t); m.setDate(t.getDate() + diff + offset * 7); m.setHours(0,0,0,0);
+  return m;
+}
+function weekDays(offset = 0) {
+  const m = getMonday(offset);
+  return Array.from({length:5}, (_,i) => { const d = new Date(m); d.setDate(m.getDate()+i); return d; });
+}
+function multiWeekDays(offset = 0, weeks = 1) {
+  return Array.from({length: weeks}, (_, w) => weekDays(offset + w)).flat();
+}
+function dateStr(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dateFR(d)    { return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
+function fmtDate(s)   { if(!s) return ''; const p=s.split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s; }
+function isToday(d)   { return d.toDateString() === new Date().toDateString(); }
+function inDay(iv,day){ const s=new Date(iv.start+'T00:00:00'),e=new Date((iv.end||iv.start)+'T00:00:00'),dd=new Date(day); dd.setHours(0,0,0,0); return dd>=s&&dd<=e; }
+function genId()      { return 'u_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6); }
+function genTaskNum(interventions, company) {
+  const prefix = (company||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
+  const existing = interventions.filter(i=>i.company===company&&i.task_number);
+  const nums = existing.map(i=>parseInt((i.task_number||'').replace(/[^0-9]/g,''))||0);
+  return `${prefix}-${String((nums.length?Math.max(...nums):0)+1).padStart(3,'0')}`;
+}
+const DAYS_FR = ['Lun','Mar','Mer','Jeu','Ven'];
+
+// French public holidays 2026
+const HOLIDAYS_2026 = new Set([
+  '2026-01-01','2026-04-06','2026-05-01','2026-05-08',
+  '2026-05-14','2026-05-25','2026-07-14','2026-08-15',
+  '2026-11-01','2026-11-11','2026-12-25'
+]);
+function isHoliday(d) { return HOLIDAYS_2026.has(dateStr(d)); }
+
+// Working-days countdown (excluding weekends + holidays)
+function workingDaysUntil(ds) {
+  if (!ds) return 9999;
+  const target = new Date(ds+'T00:00:00');
+  const now = new Date(); now.setHours(0,0,0,0);
+  let count = 0;
+  const dir = target >= now ? 1 : -1;
+  let cur = new Date(now);
+  while (cur.toDateString() !== target.toDateString()) {
+    cur.setDate(cur.getDate() + dir);
+    const dow = cur.getDay();
+    if (dow !== 0 && dow !== 6 && !HOLIDAYS_2026.has(dateStr(cur))) count += dir;
   }
+  return count;
+}
+
+// Expose all globals so Babel-compiled scripts can access them
+Object.assign(window, {
+  ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, FLOOR_COLORS, DAYS_FR,
+  HOLIDAYS_2026, isHoliday, workingDaysUntil,
+  getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay,
+  genId, genTaskNum, daysUntil, deadlineColor,
+});
 
 </script>
 
-<!-- All React code in ONE babel script to avoid scope conflicts -->
-<script type="text/babel">
-var useState=React.useState, useEffect=React.useEffect, useRef=React.useRef,
-    useCallback=React.useCallback, useMemo=React.useMemo;
+<script>
 
-// ═══════════════════════════════════════════════════════════
-// TWEAKS PANEL
-// ═══════════════════════════════════════════════════════════
+/* ── SUPABASE INTEGRATION ADDON ─────────────────────────── */
+(function() {
+  var SUPA_URL = 'https://xrfqlbhaxhraneflrfez.supabase.co';
+  var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
+
+  function supaFetch(method, table, body, query) {
+    var url = SUPA_URL + '/rest/v1/' + table + (query ? '?' + query : '');
+    var headers = {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal'
+    };
+    return fetch(url, {
+      method: method,
+      headers: headers,
+      body: body ? JSON.stringify(body) : undefined
+    });
+  }
+
+  // Expose globally for React components to use
+  window.PLANIFY_SUPA = {
+    load: async function(company) {
+      try {
+        var hdrs = {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
+        var results = await Promise.all([
+          fetch(SUPA_URL+'/rest/v1/zones?order=display_order', {headers:hdrs}),
+          fetch(SUPA_URL+'/rest/v1/trades?order=display_order', {headers:hdrs}),
+          fetch(SUPA_URL+'/rest/v1/interventions?order=start_date', {headers:hdrs}),
+          fetch(SUPA_URL+'/rest/v1/task_logs?order=created_at.desc&limit=500', {headers:hdrs}),
+          company ? fetch(SUPA_URL+'/rest/v1/notifications?company=eq.'+encodeURIComponent(company)+'&order=created_at.desc&limit=50', {headers:hdrs}) : Promise.resolve(null),
+        ]);
+        var data = await Promise.all(results.map(function(r) { return r && r.ok ? r.json() : Promise.resolve([]); }));
+        return {zones:data[0], trades:data[1], interventions:data[2], logs:data[3], notifs:data[4]||[]};
+      } catch(e) { console.error('[Supa] load error:', e); return null; }
+    },
+    saveLog: async function(logRow) {
+      try {
+        var r = await supaFetch('POST', 'task_logs', logRow);
+        if (!r.ok) { console.error('[Supa] saveLog error:', r.status); return null; }
+        var body = await r.json();
+        return Array.isArray(body) ? body[0] : body;
+      } catch(e) { console.error('[Supa] saveLog:', e); return null; }
+    },
+    saveNotifs: async function(rows) {
+      try {
+        await supaFetch('POST', 'notifications', rows);
+      } catch(e) { console.error('[Supa] saveNotifs:', e); }
+    },
+    markRead: async function(company) {
+      try {
+        await supaFetch('PATCH', 'notifications', {read:true}, 'company=eq.'+encodeURIComponent(company)+'&read=eq.false');
+      } catch(e) {}
+    },
+    patch: async function(table, body, query) {
+      try { await supaFetch('PATCH', table, body, query); } catch(e) {}
+    },
+    post: async function(table, body) {
+      try { await supaFetch('POST', table, body); } catch(e) {}
+    },
+    del: async function(table, query) {
+      try { await supaFetch('DELETE', table, null, query); } catch(e) {}
+    },
+    pollNotifs: async function(company, cb) {
+      try {
+        var r = await fetch(SUPA_URL+'/rest/v1/notifications?company=eq.'+encodeURIComponent(company)+'&order=created_at.desc&limit=50', {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
+        if (r.ok) { var data = await r.json(); cb(data); }
+      } catch(e) {}
+    }
+  };
+
+  window.PLANIFY_NOTIF = function(msg, taskId) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      var n = new Notification('Planify', {body: msg, tag: taskId});
+      n.onclick = function() { window.focus(); n.close(); };
+    }
+  };
+
+  console.log('[Planify] Supabase addon loaded');
+})();
+
+</script>
+
+<script type="text/babel">
 
 // tweaks-panel.jsx
 // Reusable Tweaks shell + form-control helpers.
@@ -480,14 +795,13 @@ Object.assign(window, {
   TweakText, TweakNumber, TweakColor, TweakButton,
 });
 
+</script>
 
-// ═══════════════════════════════════════════════════════════
-// SHARED COMPONENTS
-// ═══════════════════════════════════════════════════════════
+<script type="text/babel">
 // planify-components.jsx — Shared UI components
 // Exports all to window.*
 
-/* using var declarations above */
+// hooks via screens script
 
 
 /* ── STATUS BADGE ─────────────────────────────────────────── */
@@ -893,14 +1207,13 @@ Object.assign(window, {
   hdrBtnStyle, btnPrimaryStyle, btnSecStyle, btnDangerStyle,
 });
 
+</script>
 
-// ═══════════════════════════════════════════════════════════
-// SCREENS + APP
-// ═══════════════════════════════════════════════════════════
+<script type="text/babel">
 // planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
 
-/* using var declarations above */
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 // ── Self-contained helpers (Babel scope) ──────────────────────
 const _HOLIDAYS = new Set(['2026-01-01','2026-04-06','2026-05-01','2026-05-08',
@@ -1023,334 +1336,83 @@ function LoginScreen({ onLogin }) {
    DASHBOARD SCREEN
 ═══════════════════════════════════════════════════════════ */
 function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetail }) {
-  const isAdmin = session?.role === 'admin';
-  const company = session?.company;
+  const days = weekDays(weekOffset);
+  const weekIvs = data.filter(i => days.some(d => inDay(i, d)));
+  const stats = {
+    total:   weekIvs.length,
+    encours: weekIvs.filter(i=>i.status==='encours').length,
+    bloque:  weekIvs.filter(i=>i.status==='bloque').length,
+    termine: weekIvs.filter(i=>i.status==='termine').length,
+  };
+  const blocked = data.filter(i=>i.status==='bloque');
+  const upcoming = data.filter(i=>{
+    const s=new Date(i.start+'T00:00:00'),now=new Date();
+    const diff=(s-now)/(1000*60*60*24);
+    return diff>0&&diff<=7&&i.status!=='termine';
+  }).sort((a,b)=>a.start.localeCompare(b.start)).slice(0,5);
 
-  // Filter data per role
-  const myData = isAdmin ? data : data.filter(i => i.company === company?.name);
-
-  // Stats (global for admin, filtered for company)
-  const total    = myData.length;
-  const blocked  = myData.filter(i => i.status === 'bloque');
-  const encours  = myData.filter(i => i.status === 'encours');
-  const prereqs  = myData.filter(i => i.prereq && i.prereq.trim() !== '' && i.status !== 'termine');
-  const termine  = myData.filter(i => i.status === 'termine');
-  const pctDone  = total ? Math.round(termine.length / total * 100) : 0;
-
-  // Drawer state: which stat is expanded
-  const [drawer, setDrawer] = React.useState(null); // 'bloque'|'encours'|'prereq'|'avance'
-
-  function toggleDrawer(key) { setDrawer(d => d === key ? null : key); }
-
-  // Task row helper
-  function TaskRow({ iv }) {
-    const z  = zones.find(x => x.id === iv.zone);
-    const tr = trades.find(x => x.id === iv.trade);
-    const c  = getTC(tr?.color || 'navy');
-    return (
-      <div onClick={() => onOpenDetail(iv.id)}
-        style={{display:'flex',gap:10,padding:'10px 0',borderBottom:'1px solid var(--border)',
-          cursor:'pointer',alignItems:'flex-start',transition:'opacity .12s'}}
-        onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
-        onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-        <div style={{width:3,alignSelf:'stretch',borderRadius:2,background:c.b,flexShrink:0}}></div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
-            <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{iv.company}</span>
-            {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,
-              color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 4px',
-              borderRadius:3,border:'1px solid var(--border)'}}>{iv.task_number}</span>}
-            <StatusBadge status={iv.status} size="sm" style={{marginLeft:'auto'}} />
-          </div>
-          <div style={{fontSize:12,color:'var(--muted)',marginBottom:iv.prereq?3:0,
-            overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>
-            {iv.task}
-          </div>
-          {iv.prereq && iv.prereq.trim() && (
-            <div style={{fontSize:10,color:'#DC2626',background:'#FEF2F2',
-              padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:3}}>
-              ⚠ {iv.prereq}
-            </div>
-          )}
-          <div style={{display:'flex',gap:8,marginTop:4,alignItems:'center'}}>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
-              {fmtDate(iv.start)}{iv.end && iv.end !== iv.start ? ' → '+fmtDate(iv.end) : ''}
-            </span>
-            {z && <span style={{fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',
-              padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>{z.short}</span>}
-          </div>
-        </div>
+  return (
+    <div style={{padding:'16px 14px 100px',overflowY:'auto',height:'100%'}}>
+      {/* Stats row */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:16}}>
+        <StatChip value={stats.total}   label="Semaine"  color="var(--text)"    />
+        <StatChip value={stats.encours} label="En cours" color="#2563EB"        />
+        <StatChip value={stats.bloque}  label="Bloquées" color="#DC2626"        />
+        <StatChip value={stats.termine} label="Terminées" color="#16A34A"       />
       </div>
-    );
-  }
 
-  // Collapsible drawer
-  function StatDrawer({ items, color, label }) {
-    if (!items.length) return <div style={{padding:'12px 0',fontSize:12,color:'var(--muted)',textAlign:'center'}}>
-      Aucune tâche
-    </div>;
-    return (
-      <div style={{marginTop:4}}>
-        {items.map(iv => <TaskRow key={iv.id} iv={iv} />)}
-      </div>
-    );
-  }
+      {/* Zone progress */}
+      <SectionCard title="Avancement par zone">
+        {zones.map(z => <ZoneProgressBar key={z.id} zone={z} interventions={data} />)}
+      </SectionCard>
 
-  // ── ADMIN VIEW ─────────────────────────────────────────────────────────
-  if (isAdmin) {
-    // Per-company stats
-    const companies = [...new Set(data.map(i => i.company))].sort();
-    const companyStats = companies.map(co => ({
-      name: co,
-      total:   data.filter(i => i.company === co).length,
-      encours: data.filter(i => i.company === co && i.status === 'encours').length,
-      bloque:  data.filter(i => i.company === co && i.status === 'bloque').length,
-      termine: data.filter(i => i.company === co && i.status === 'termine').length,
-    }));
-
-    // Next 5 working days tasks
-    const soon = data.filter(i => {
-      const s = new Date(i.start+'T00:00:00'), now = new Date();
-      const diff = (s - now) / (1000*60*60*24);
-      return diff >= 0 && diff <= 7 && i.status === 'arealis';
-    }).sort((a,b) => a.start.localeCompare(b.start)).slice(0, 8);
-
-    return (
-      <div style={{padding:'14px 12px 100px',overflowY:'auto',height:'100%'}}>
-
-        {/* ── 4 stat chips ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:14}}>
-          <StatChip value={blocked.length}  label="Bloquées"  color="#DC2626"
-            onClick={() => toggleDrawer('bloque')} />
-          <StatChip value={encours.length}  label="En cours"  color="#2563EB"
-            onClick={() => toggleDrawer('encours')} />
-          <StatChip value={prereqs.length}  label="Prérequis" color="#D97706"
-            onClick={() => toggleDrawer('prereq')} />
-          <StatChip value={`${pctDone}%`}   label="Avancement" color="#16A34A"
-            onClick={() => toggleDrawer('avance')} />
-        </div>
-
-        {/* ── Stat drawer ── */}
-        {drawer && (
-          <SectionCard
-            title={drawer==='bloque'?`Bloquées (${blocked.length})`:
-                   drawer==='encours'?`En cours (${encours.length})`:
-                   drawer==='prereq'?`Avec prérequis (${prereqs.length})`:
-                   `Terminées (${termine.length})`}
-            accent={drawer==='bloque'?'#DC2626':drawer==='encours'?'#2563EB':
-                    drawer==='prereq'?'#D97706':'#16A34A'}>
-            <StatDrawer
-              items={drawer==='bloque'?blocked:drawer==='encours'?encours:
-                     drawer==='prereq'?prereqs:termine}
-              color={drawer==='bloque'?'#DC2626':drawer==='encours'?'#2563EB':
-                     drawer==='prereq'?'#D97706':'#16A34A'} />
-          </SectionCard>
-        )}
-
-        {/* ── Avancement par zone ── */}
-        <SectionCard title="Avancement par zone">
-          {zones.map(z => {
-            const zivs = data.filter(i => i.zone === z.id);
-            const done = zivs.filter(i => i.status === 'termine').length;
-            const bloc = zivs.filter(i => i.status === 'bloque').length;
-            const pct  = zivs.length ? Math.round(done / zivs.length * 100) : 0;
-            const wd   = workingDaysUntil(z.deadline);
-            const dc   = deadlineColor(z.deadline);
+      {/* Blocages */}
+      {blocked.length > 0 && (
+        <SectionCard title={`Points bloquants (${blocked.length})`} accent="#DC2626">
+          {blocked.map(iv => {
+            const z = zones.find(x=>x.id===iv.zone);
             return (
-              <div key={z.id} style={{marginBottom:12}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
-                  <div style={{display:'flex',alignItems:'center',gap:7}}>
-                    <span style={{width:8,height:8,borderRadius:'50%',background:FLOOR_COLORS[z.floor]||'#9CA3AF',flexShrink:0,display:'inline-block'}}></span>
-                    <span style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</span>
-                    {bloc > 0 && <span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>⚠ {bloc} bloquée{bloc>1?'s':''}</span>}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{done}/{zivs.length}</span>
-                    {z.deadline && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:dc}}>
-                      J-{wd < 0 ? '▲' : wd}
-                    </span>}
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,
-                      color:pct===100?'#16A34A':bloc>0?'#DC2626':'var(--muted)'}}>{pct}%</span>
-                  </div>
+              <div key={iv.id} onClick={()=>onOpenDetail(iv.id)}
+                style={{display:'flex',gap:10,padding:'9px 0',borderBottom:'1px solid var(--border)',
+                  cursor:'pointer',alignItems:'flex-start'}}
+                onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
+                onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                <span style={{flexShrink:0,color:'#DC2626',fontSize:12,marginTop:1}}>⚠</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:1}}>{iv.company}</div>
+                  <div style={{fontSize:11,color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
+                  {iv.prereq && <div style={{fontSize:10,color:'#DC2626',marginTop:2}}>{iv.prereq}</div>}
                 </div>
-                <div style={{height:6,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
-                  <div style={{height:'100%',width:`${pct}%`,
-                    background:pct===100?'#16A34A':bloc>0?'#DC2626':'#2563EB',
-                    borderRadius:3,transition:'width .4s ease'}}></div>
-                </div>
+                <TradeBadge tradeId={iv.trade} trades={trades} />
               </div>
             );
           })}
         </SectionCard>
-
-        {/* ── Avancement par entreprise ── */}
-        <SectionCard title="Avancement par entreprise">
-          <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-              <thead>
-                <tr style={{borderBottom:'2px solid var(--border)'}}>
-                  {['Entreprise','Total','✓ Term.','▶ En cours','⚠ Bloqué','○ À réal.','%'].map(h => (
-                    <th key={h} style={{padding:'4px 6px',textAlign:h==='Entreprise'?'left':'center',
-                      fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--muted)',
-                      letterSpacing:'.04em',fontWeight:700,whiteSpace:'nowrap'}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {companyStats.map((co,i) => {
-                  const arealis = co.total - co.encours - co.bloque - co.termine;
-                  const pct = co.total ? Math.round(co.termine / co.total * 100) : 0;
-                  const tr = trades.find(t => data.find(d => d.company===co.name && d.trade===t.id));
-                  const c = getTC(tr?.color || 'navy');
-                  return (
-                    <tr key={co.name} style={{borderBottom:'1px solid var(--border)',
-                      background:i%2===0?'transparent':'var(--surface-2)'}}>
-                      <td style={{padding:'7px 6px'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:6}}>
-                          <span style={{width:8,height:8,borderRadius:'50%',background:c.b,flexShrink:0,display:'inline-block'}}></span>
-                          <span style={{fontWeight:600,color:'var(--text)',fontSize:12}}>{co.name}</span>
-                        </div>
-                      </td>
-                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{co.total}</td>
-                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#16A34A',fontWeight:co.termine?700:400}}>{co.termine||'—'}</td>
-                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#2563EB',fontWeight:co.encours?700:400}}>{co.encours||'—'}</td>
-                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#DC2626',fontWeight:co.bloque?700:400}}>{co.bloque||'—'}</td>
-                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{arealis||'—'}</td>
-                      <td style={{textAlign:'center',padding:'7px 6px'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:4}}>
-                          <div style={{flex:1,height:4,background:'var(--border)',borderRadius:2,overflow:'hidden'}}>
-                            <div style={{height:'100%',width:`${pct}%`,background:pct===100?'#16A34A':'#2563EB',borderRadius:2}}></div>
-                          </div>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',minWidth:28,textAlign:'right'}}>{pct}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
-
-        {/* ── Prochaines tâches à démarrer ── */}
-        {soon.length > 0 && (
-          <SectionCard title="Prochaines échéances (à réaliser)">
-            {soon.map(iv => <TaskRow key={iv.id} iv={iv} />)}
-          </SectionCard>
-        )}
-      </div>
-    );
-  }
-
-  // ── COMPANY VIEW ───────────────────────────────────────────────────────
-  const days = weekDays(weekOffset);
-  const weekIvs = myData.filter(i => days.some(d => inDay(i, d)));
-  const byStatus = {
-    bloque:  myData.filter(i => i.status === 'bloque'),
-    encours: myData.filter(i => i.status === 'encours'),
-    arealis: myData.filter(i => i.status === 'arealis'),
-    termine: myData.filter(i => i.status === 'termine'),
-  };
-
-  // 3-week timeline for this company
-  const timelineDays = multiWeekDays(weekOffset, 3);
-  const timelineIvs  = myData.filter(i =>
-    timelineDays.some(d => inDay(i, d)) && i.status !== 'termine'
-  );
-
-  return (
-    <div style={{padding:'14px 12px 100px',overflowY:'auto',height:'100%'}}>
-
-      {/* ── 4 stat chips ── */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:14}}>
-        <StatChip value={byStatus.bloque.length}  label="Bloquées"  color="#DC2626"
-          onClick={() => toggleDrawer('bloque')} />
-        <StatChip value={byStatus.encours.length} label="En cours"  color="#2563EB"
-          onClick={() => toggleDrawer('encours')} />
-        <StatChip value={prereqs.length}          label="Prérequis" color="#D97706"
-          onClick={() => toggleDrawer('prereq')} />
-        <StatChip value={`${pctDone}%`}           label="Avancement" color="#16A34A"
-          onClick={() => toggleDrawer('avance')} />
-      </div>
-
-      {/* ── Stat drawer ── */}
-      {drawer && (
-        <SectionCard
-          title={drawer==='bloque'?`Mes tâches bloquées (${byStatus.bloque.length})`:
-                 drawer==='encours'?`En cours (${byStatus.encours.length})`:
-                 drawer==='prereq'?`Prérequis actifs (${prereqs.length})`:
-                 `Terminées (${byStatus.termine.length})`}
-          accent={drawer==='bloque'?'#DC2626':drawer==='encours'?'#2563EB':
-                  drawer==='prereq'?'#D97706':'#16A34A'}>
-          <StatDrawer items={drawer==='bloque'?byStatus.bloque:drawer==='encours'?byStatus.encours:
-                             drawer==='prereq'?prereqs:byStatus.termine} />
-        </SectionCard>
       )}
 
-      {/* ── Tâches cette semaine ── */}
-      {weekIvs.length > 0 && (
-        <SectionCard title={`Cette semaine — ${weekIvs.length} tâche${weekIvs.length>1?'s':''}`}>
-          {weekIvs.sort((a,b) => a.start.localeCompare(b.start))
-                  .map(iv => <TaskRow key={iv.id} iv={iv} />)}
-        </SectionCard>
-      )}
-      {weekIvs.length === 0 && (
-        <SectionCard title="Cette semaine">
-          <div style={{padding:'16px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>
-            Aucune tâche planifiée cette semaine
-          </div>
-        </SectionCard>
-      )}
-
-      {/* ── Planning 3 semaines ── */}
-      {timelineIvs.length > 0 && (
-        <SectionCard title="Planning — 3 prochaines semaines">
-          {timelineIvs
-            .sort((a,b) => a.start.localeCompare(b.start))
-            .map(iv => {
-              const z = zones.find(x => x.id === iv.zone);
-              const tr = trades.find(x => x.id === iv.trade);
-              const c = getTC(tr?.color || 'navy');
-              return (
-                <div key={iv.id} onClick={() => onOpenDetail(iv.id)}
-                  style={{display:'flex',gap:10,padding:'9px 0',
-                    borderBottom:'1px solid var(--border)',cursor:'pointer'}}
-                  onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
-                  onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                  <div style={{flexShrink:0,textAlign:'center',minWidth:36}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:c.b}}>
-                      {fmtDate(iv.start).slice(0,5)}
-                    </div>
-                    {iv.end && iv.end !== iv.start && <div style={{fontFamily:"'DM Mono',monospace",
-                      fontSize:9,color:'var(--xmuted)'}}>→ {fmtDate(iv.end).slice(0,5)}</div>}
-                  </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:1,
-                      overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>
-                      {iv.task}
-                    </div>
-                    {z && <span style={{fontSize:10,color:'var(--xmuted)'}}>{z.name}</span>}
-                  </div>
-                  <StatusBadge status={iv.status} size="sm" />
+      {/* Upcoming */}
+      {upcoming.length > 0 && (
+        <SectionCard title="À venir cette semaine">
+          {upcoming.map(iv => {
+            const z = zones.find(x=>x.id===iv.zone);
+            return (
+              <div key={iv.id} onClick={()=>onOpenDetail(iv.id)}
+                style={{display:'flex',gap:10,padding:'9px 0',borderBottom:'1px solid var(--border)',
+                  cursor:'pointer',alignItems:'flex-start'}}
+                onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
+                onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                <div style={{flexShrink:0,fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',
+                  marginTop:2,minWidth:32}}>{fmtDate(iv.start).slice(0,5)}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:1}}>{iv.company}</div>
+                  <div style={{fontSize:11,color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
                 </div>
-              );
-            })}
+                <StatusBadge status={iv.status} size="sm" />
+              </div>
+            );
+          })}
         </SectionCard>
       )}
-
-      {/* ── Toutes mes tâches par statut ── */}
-      {['bloque','encours','arealis','termine'].map(st => {
-        const items = byStatus[st];
-        if (!items.length) return null;
-        const labels = {bloque:'Bloquées',encours:'En cours',arealis:'À réaliser',termine:'Terminées'};
-        const colors = {bloque:'#DC2626',encours:'#2563EB',arealis:'var(--muted)',termine:'#16A34A'};
-        return (
-          <SectionCard key={st} title={`${labels[st]} (${items.length})`} accent={colors[st]}>
-            {items.sort((a,b) => a.start.localeCompare(b.start))
-                  .map(iv => <TaskRow key={iv.id} iv={iv} />)}
-          </SectionCard>
-        );
-      })}
     </div>
   );
 }
@@ -1369,9 +1431,8 @@ function SectionCard({ title, children, accent }) {
 /* ════════════════════════════════════════════════════════════
    PLANNING SCREEN (weekly grid)
 ═══════════════════════════════════════════════════════════ */
-function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, setZones, taskLogs }) {
+function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode }) {
   const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
-  const isMulti = weeks > 1;
   const days = multiWeekDays(weekOffset, weeks);
   const isDark = document.documentElement.getAttribute('data-theme') === 'nuit';
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
@@ -1407,11 +1468,11 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
   const floorOf = id => zones.find(z=>z.id===id)?.floor||'';
 
   return (
-    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
-      <div style={{background:'var(--surface)',border:isMulti?'none':'1px solid var(--border)',
-        margin:isMulti?0:'0 8px',borderRadius:isMulti?0:'var(--r)',
-        boxShadow:isMulti?'none':'var(--shadow)',overflowX:'hidden'}}>
-        <div style={{width:'100%'}}>
+    <div style={{overflowY:'auto',height:'100%',padding:'10px 0 100px'}}>
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',
+        margin:'0 8px',borderRadius:'var(--r)',boxShadow:'var(--shadow)',
+        overflowX: weeks>1?'auto':'hidden'}}>
+        <div style={{minWidth: weeks>1 ? `${58 + days.length*52 + 44}px` : 'auto'}}>
 
           {/* Header row */}
           <div style={{display:'grid',gridTemplateColumns:gridCols,background:'var(--surface-2)',
@@ -1466,7 +1527,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
               return (
                 <div key={i} style={{padding:'6px 2px',textAlign:'center',
                   borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                  background:holiday?'#C8CBD2':isToday(d)?'var(--primary-l)':'transparent'}}>
+                  background:holiday?'rgba(156,163,175,.18)':isToday(d)?'var(--primary-l)':'transparent'}}>
                   <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
                     color:holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)'}}>
                     {DAYS_FR[d.getDay()-1]}
@@ -1520,9 +1581,10 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const isFirstOfWeek = di%5===0 && di>0;
                   const holiday = isHoliday(day);
                   const isDeadline = ds === zone.deadline;
-                  const cards = holiday ? [] : filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
+                  const cards = filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
                     .sort((a,b)=>(a.priority||3)-(b.priority||3));
-                  const shown = cards;
+                  const shown = cards.slice(0,2);
+                  const extra = cards.length - shown.length;
                   const cellBg = holiday?'rgba(156,163,175,.1)':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                   return (
                     <div key={di} onClick={()=>isAdmin&&!holiday&&onOpenAdd(zone.id,ds)}
@@ -1544,7 +1606,9 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                         <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
                           onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}} />
                       ))}
-
+                      {extra>0&&<div style={{fontSize:8,color:'var(--muted)',padding:'1px 2px',
+                        fontFamily:"'DM Mono',monospace",cursor:'pointer'}}
+                        onClick={e=>{e.stopPropagation();onOpenDetail(cards[2].id);}}>+{extra}</div>}
                     </div>
                   );
                 })}
@@ -1906,401 +1970,9 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
       </div>
 
       {session?.role==='admin'&&(
-        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l’intervention</button>
+        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier intervention</button>
       )}
       <button onClick={onClose} style={btnSecStyle}>Fermer</button>
-    </SheetModal>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   ADD / EDIT MODAL
-═══════════════════════════════════════════════════════════ */
-function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, taskLogs, onSubmitLog }) {
-  const iv = data.find(x=>x.id===ivId);
-  const [tab, setTab] = React.useState('detail');
-  // Logs: use passed taskLogs (Supabase) + local pending
-  const [localLogs, setLocalLogs] = React.useState({});
-  const [logType, setLogType] = React.useState('note');
-  const [logMsg, setLogMsg]   = React.useState('');
-  const [logPhoto, setLogPhoto] = React.useState(null); // base64
-  const [mentions, setMentions] = React.useState(['Admin']);
-  const [photoExpanded, setPhotoExpanded] = React.useState(null);
-  const fileRef = React.useRef();
-  const cameraRef = React.useRef();
-
-  React.useEffect(() => { setTab('detail'); setLogMsg(''); setLogPhoto(null); }, [ivId]);
-
-  if (!iv) return null;
-  const z   = zones.find(x=>x.id===iv.zone);
-  const tr  = trades.find(t=>t.id===iv.trade);
-  const c   = getTC(tr?.color||'blue');
-  const pred = iv.predecessor_id ? data.find(x=>x.id===iv.predecessor_id) : null;
-
-  const isAdmin   = session?.role === 'admin';
-  const myCompany = session?.company?.name || '';
-  const isOwner   = isAdmin || iv.company === myCompany;
-
-  // All unique company names for mention picker
-  const allCompanies = ['Admin', ...new Set(COMPANIES.map(c=>c.name))].filter(Boolean);
-
-  // Log types config
-  const LOG_TYPES = {
-    note:        { icon:'📝', label:'Note',        color:'#6B7280', bg:'var(--surface-2)',     hasMention:true },
-    encours:     { icon:'🔵', label:'En cours',   color:'#2563EB', bg:'rgba(37,99,235,.08)',  hasMention:true },
-    signalement: { icon:'⚠️', label:'Signalement', color:'#D97706', bg:'rgba(217,119,6,.08)',  hasMention:true },
-    bloque:      { icon:'🔴', label:'Blocage',     color:'#DC2626', bg:'rgba(220,38,38,.08)',  hasMention:true },
-    termine:     { icon:'✅', label:'Terminé',     color:'#16A34A', bg:'rgba(22,163,74,.08)',  hasMention:true },
-  };
-
-  const serverLogs = (taskLogs||{})[iv?.id] || [];
-  const pendingLogs = (localLogs||{})[iv?.id] || [];
-  const ivLogs = [...pendingLogs.filter(l=>!serverLogs.find(s=>s.id===l.id)), ...serverLogs];
-
-  function handlePhoto(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setLogPhoto(ev.target.result);
-    reader.readAsDataURL(file);
-  }
-
-  function submitLog() {
-    if (!logMsg.trim() && !logPhoto) return;
-    const now = new Date();
-    const author = isAdmin ? 'Admin' : myCompany;
-    const entry = {
-      id: 'pending_' + Date.now(),
-      task_id: iv.id,
-      type: logType,
-      message: logMsg.trim(),
-      photo_url: logPhoto,
-      photo: logPhoto, // compat
-      mentioned: LOG_TYPES[logType].hasMention ? mentions : [],
-      mentions: LOG_TYPES[logType].hasMention ? mentions : [],
-      author,
-      created_at: now.toISOString(),
-      dateLabel: now.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'}),
-      timeLabel: now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}),
-    };
-    // Add to local pending immediately for instant UI feedback
-    setLocalLogs(prev => ({ ...prev, [iv.id]: [entry, ...(prev[iv.id]||[])] }));
-    // Auto-change status
-    if (logType === 'bloque')  onStatusChange(iv.id, 'bloque');
-    if (logType === 'termine') onStatusChange(iv.id, 'termine');
-    if (logType === 'encours') onStatusChange(iv.id, 'encours');
-    // Persist to Supabase
-    if (onSubmitLog) onSubmitLog(iv.id, entry);
-    setLogMsg(''); setLogPhoto(null); setMentions(['Admin']);
-  }
-
-  function toggleMention(name) {
-    if (name === 'Admin') return; // always keep admin
-    setMentions(m => m.includes(name) ? m.filter(x=>x!==name) : [...m, name]);
-  }
-
-  const cfg = LOG_TYPES[logType];
-
-  return (
-    <SheetModal open={open} onClose={onClose}>
-      {/* Color accent strip */}
-      <div style={{height:4,background:c.b,margin:'-18px -18px 18px',borderRadius:'4px 4px 0 0'}}></div>
-
-      {/* Header */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
-        <div>
-          <div style={{fontSize:19,fontWeight:700,color:'var(--text)',marginBottom:3}}>{iv.company}</div>
-          {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{iv.task_number}</span>}
-        </div>
-        <StatusBadge status={iv.status} />
-      </div>
-      <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
-
-      {/* Tabs */}
-      <div style={{display:'flex',borderBottom:'2px solid var(--border)',margin:'14px 0 16px',gap:2}}>
-        {[{k:'detail',l:'Détail'},{k:'suivi',l:`Suivi${ivLogs.length?` (${ivLogs.length})`:''}`}].map(t=>(
-          <button key={t.k} onClick={()=>setTab(t.k)}
-            style={{flex:1,padding:'9px 4px',background:'transparent',border:'none',cursor:'pointer',
-              fontSize:13,fontWeight:600,
-              color:tab===t.k?'var(--primary)':' var(--muted)',
-              borderBottom:`2px solid ${tab===t.k?'var(--primary)':`transparent`}`,
-              marginBottom:-2,fontFamily:"'DM Sans',sans-serif",transition:'color .15s'}}>
-            {t.l}
-          </button>
-        ))}
-      </div>
-
-      {/* ── TAB: DETAIL ─────────────────────────────────────── */}
-      {tab==='detail' && <>
-        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-          padding:'11px 13px',marginBottom:12,fontSize:14,color:'var(--text)',lineHeight:1.5}}>{iv.task}</div>
-
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
-          {[
-            {l:'Zone',  v:z?.name||iv.zone},
-            {l:'Dates', v:fmtDate(iv.start)+(iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''),mono:true},
-          ].map(kv=>(
-            <div key={kv.l} style={{background:'var(--surface-2)',borderRadius:'var(--r-sm)',
-              padding:'9px 11px',border:'1px solid var(--border)'}}>
-              <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,fontFamily:"'DM Mono',monospace"}}>{kv.l}</div>
-              <div style={{fontSize:12,fontWeight:600,color:'var(--text)',
-                fontFamily:kv.mono?"'DM Mono',monospace":undefined}}>{kv.v}</div>
-            </div>
-          ))}
-        </div>
-
-        {pred && <div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',
-          borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12}}>
-          <b>Prédécesseur : {pred.task_number}</b><br/>
-          <span style={{color:'var(--muted)'}}>{pred.company} — {pred.task}</span>
-        </div>}
-        {iv.prereq && <div style={{background:'rgba(220,38,38,.1)',borderLeft:'3px solid #DC2626',
-          borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#991B1B'}}>
-          <b>⚠ Prérequis</b><br/>{iv.prereq}
-        </div>}
-        {iv.notes && <div style={{background:'rgba(22,163,74,.08)',borderLeft:'3px solid #16A34A',
-          borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12}}>
-          <b>Notes</b><br/>{iv.notes}
-        </div>}
-
-        {/* Attachments */}
-        {iv.attachments&&iv.attachments.length>0&&(
-          <div style={{marginBottom:12}}>
-            <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
-              textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>Pièces jointes</div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-              {iv.attachments.map(f=>(
-                <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
-                  style={{display:'flex',alignItems:'center',gap:5,padding:'5px 9px',
-                    background:'var(--surface-2)',border:'1px solid var(--border)',
-                    borderRadius:'var(--r-xs)',fontSize:12,color:'var(--text)',textDecoration:'none'}}>
-                  <span>{f.type==='application/pdf'?'📄':'🖼'}</span>
-                  <span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Status update */}
-        <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
-          textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
-          Mettre à jour le statut
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
-          {Object.entries(STATUS_META).map(([k,m])=>(
-            <button key={k} onClick={()=>onStatusChange(iv.id,k)}
-              style={{padding:'9px 6px',borderRadius:'var(--r-sm)',
-                border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
-                background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',
-                fontSize:12,fontWeight:500,color:iv.status===k?m.text:'var(--text)',
-                display:'flex',alignItems:'center',justifyContent:'center',
-                gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
-              <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        {isAdmin && <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l’intervention</button>}
-        <button onClick={onClose} style={btnSecStyle}>Fermer</button>
-      </>}
-
-      {/* ── TAB: SUIVI ──────────────────────────────────────── */}
-      {tab==='suivi' && <>
-
-        {/* Log type selector — only if owner or admin */}
-        {isOwner && (
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
-              textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
-              Type d’entrée
-            </div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
-              {Object.entries(LOG_TYPES).map(([k,t])=>(
-                <button key={k} onClick={()=>setLogType(k)}
-                  style={{padding:'7px 11px',borderRadius:20,border:`1.5px solid ${logType===k?t.color:'var(--border)'}`,
-                    background:logType===k?t.bg:'var(--surface)',cursor:'pointer',
-                    fontSize:12,fontWeight:600,color:logType===k?t.color:'var(--muted)',
-                    display:'flex',alignItems:'center',gap:5,transition:'all .15s',
-                    fontFamily:"'DM Sans',sans-serif"}}>
-                  <span>{t.icon}</span>{t.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Message */}
-            <textarea
-              value={logMsg}
-              onChange={e=>setLogMsg(e.target.value)}
-              placeholder={`${cfg.icon} ${cfg.label} — votre message...`}
-              style={{width:'100%',padding:'11px 12px',border:'1.5px solid var(--border)',
-                borderRadius:'var(--r-sm)',fontSize:14,fontFamily:"'DM Sans',sans-serif",
-                color:'var(--text)',background:'var(--surface)',resize:'vertical',
-                minHeight:80,marginBottom:10,transition:'border-color .15s'}}
-              onFocus={e=>e.target.style.borderColor=cfg.color}
-              onBlur={e=>e.target.style.borderColor='var(--border)'}
-            />
-
-            {/* Photo preview */}
-            {logPhoto && (
-              <div style={{marginBottom:10,position:'relative',display:'inline-block'}}>
-                <img src={logPhoto} alt="photo" onClick={()=>setPhotoExpanded(logPhoto)}
-                  style={{height:80,borderRadius:'var(--r-sm)',border:'1px solid var(--border)',
-                    cursor:'zoom-in',objectFit:'cover'}} />
-                <button onClick={()=>setLogPhoto(null)}
-                  style={{position:'absolute',top:-6,right:-6,width:20,height:20,borderRadius:'50%',
-                    background:'#DC2626',color:'#fff',border:'none',cursor:'pointer',
-                    fontSize:11,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
-              </div>
-            )}
-
-            {/* Photo / Camera buttons */}
-            <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
-              <input ref={fileRef} type="file" accept="image/*"
-                style={{display:'none'}} onChange={handlePhoto} />
-              <input ref={cameraRef} type="file" accept="image/*" capture="environment"
-                style={{display:'none'}} onChange={handlePhoto} />
-              <button onClick={()=>cameraRef.current?.click()}
-                style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',
-                  border:'1.5px solid var(--border)',borderRadius:'var(--r-sm)',
-                  background:'var(--surface)',cursor:'pointer',fontSize:12,
-                  fontWeight:500,color:'var(--text)',fontFamily:"'DM Sans',sans-serif"}}>
-                📷 Appareil photo
-              </button>
-              <button onClick={()=>fileRef.current?.click()}
-                style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',
-                  border:'1.5px solid var(--border)',borderRadius:'var(--r-sm)',
-                  background:'var(--surface)',cursor:'pointer',fontSize:12,
-                  fontWeight:500,color:'var(--text)',fontFamily:"'DM Sans',sans-serif"}}>
-                🖼 Choisir image
-              </button>
-            </div>
-
-            {/* Mention picker */}
-            {cfg.hasMention && (
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
-                  textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:7}}>
-                  Notifier
-                </div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                  {allCompanies.map(name => {
-                    const selected = mentions.includes(name);
-                    const isFixed  = name === 'Admin';
-                    return (
-                      <button key={name} onClick={()=>toggleMention(name)}
-                        style={{padding:'5px 10px',borderRadius:20,fontSize:11,fontWeight:600,
-                          border:`1.5px solid ${selected?'var(--primary)':' var(--border)'}`,
-                          background:selected?'var(--primary-l)':' var(--surface)',
-                          color:selected?'var(--primary)':' var(--muted)',
-                          cursor:isFixed?'default':'pointer',
-                          opacity:isFixed?1:1,fontFamily:"'DM Sans',sans-serif"}}>
-                        {isFixed ? '🔒 Admin' : name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Submit */}
-            <button onClick={submitLog}
-              disabled={!logMsg.trim() && !logPhoto}
-              style={{width:'100%',padding:'12px',borderRadius:'var(--r-sm)',border:'none',
-                background:(!logMsg.trim()&&!logPhoto)?'var(--border)':cfg.color,
-                color:'#fff',fontSize:14,fontWeight:700,cursor:(!logMsg.trim()&&!logPhoto)?'not-allowed':'pointer',
-                fontFamily:"'DM Sans',sans-serif",display:'flex',alignItems:'center',
-                justifyContent:'center',gap:8,transition:'background .15s'}}>
-              {cfg.icon} Enregistrer
-            </button>
-            <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',marginTop:5,
-              fontFamily:"'DM Mono',monospace"}}>
-              {ivLogs.filter(l=>!l._saveOk&&l._saveOk!==undefined).length > 0
-                ? "⚠ Certaines notes n'ont pas pu être sauvegardées — vérifiez la connexion"
-                : ivLogs.length > 0 && ivLogs[0]._saveOk
-                ? "✓ Dernière note sauvegardée"
-                : ''}
-            </div>
-          </div>
-        )}
-
-        {/* ── Historique ── */}
-        <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
-          textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:10}}>
-          Historique {ivLogs.length > 0 ? `(${ivLogs.length})` : ''}
-        </div>
-
-        {ivLogs.length === 0 && (
-          <div style={{textAlign:'center',padding:'28px 0',color:'var(--xmuted)',fontSize:12}}>
-            Aucune entrée pour l’instant
-          </div>
-        )}
-
-        {ivLogs.map(log => {
-          const lt = LOG_TYPES[log.type] || LOG_TYPES.note;
-          return (
-            <div key={log.id}
-              style={{borderLeft:`3px solid ${lt.color}`,paddingLeft:12,
-                marginBottom:14,paddingBottom:10,borderBottom:'1px solid var(--border)'}}>
-              {/* Log header */}
-              {(()=>{
-                const d = log.created_at ? new Date(log.created_at) : null;
-                const dl = d ? d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) : (log.dateLabel||'');
-                const tl = d ? d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : (log.timeLabel||'');
-                return (
-                  <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:5}}>
-                    <span style={{fontSize:14}}>{lt.icon}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:lt.color}}>{lt.label}</span>
-                    <span style={{fontSize:11,fontWeight:600,color:'var(--text)'}}>{log.author}</span>
-                    <span style={{marginLeft:'auto',fontFamily:"'DM Mono',monospace",fontSize:10,
-                      color:'var(--xmuted)',whiteSpace:'nowrap'}}>
-                      {dl} {tl}
-                    </span>
-                  </div>
-                );
-              })()}
-              {/* Message */}
-              {log.message && <div style={{fontSize:13,color:'var(--text)',lineHeight:1.5,marginBottom:log.photo?6:0}}>
-                {log.message}
-              </div>}
-              {/* Photo */}
-              {(log.photo||log.photo_url) && (
-                <img src={log.photo||log.photo_url} alt="photo" onClick={()=>setPhotoExpanded(log.photo||log.photo_url)}
-                  style={{marginTop:6,maxHeight:140,maxWidth:'100%',borderRadius:'var(--r-sm)',
-                    border:'1px solid var(--border)',cursor:'zoom-in',objectFit:'cover',display:'block'}} />
-              )}
-              {/* Mentions */}
-              {((log.mentions||log.mentioned)||[]).length > 0 && (
-                <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
-                  {((log.mentions||log.mentioned)||[]).map(m=>(
-                    <span key={m} style={{fontSize:10,padding:'2px 7px',borderRadius:20,
-                      background:'var(--primary-l)',color:'var(--primary)',fontWeight:600}}>
-                      @{m}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        <button onClick={onClose} style={{...btnSecStyle,marginTop:4}}>Fermer</button>
-      </>}
-
-      {/* ── Photo fullscreen viewer ── */}
-      {photoExpanded && (
-        <div onClick={()=>setPhotoExpanded(null)}
-          style={{position:'fixed',inset:0,background:'rgba(0,0,0,.9)',zIndex:999,
-            display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-          <img src={photoExpanded} alt="fullscreen"
-            style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',borderRadius:8}} />
-          <button onClick={()=>setPhotoExpanded(null)}
-            style={{position:'absolute',top:20,right:20,width:36,height:36,borderRadius:'50%',
-              background:'rgba(255,255,255,.2)',border:'none',color:'#fff',fontSize:18,
-              cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
-        </div>
-      )}
     </SheetModal>
   );
 }
@@ -2552,901 +2224,12 @@ function PlanifyApp() {
     </>
   );
 }
-function SettingsScreen({ zones, trades, setZones, setTrades }) {
-  const [tab, setTab] = useState('zones');
-  const [editingZone, setEditingZone] = useState(null);
-  const [editingTrade, setEditingTrade] = useState(null);
-  const [newZone, setNewZone] = useState(null);
-  const [newTrade, setNewTrade] = useState(null);
-  const PALETTE = Object.keys(TRADE_COLORS);
 
-  function saveZone(z) {
-    setZones(prev => prev.map(x => x.id===z.id ? z : x));
-    setEditingZone(null);
-  }
-  function saveTrade(t) {
-    setTrades(prev => prev.map(x => x.id===t.id ? t : x));
-    setEditingTrade(null);
-  }
-  function addZone() {
-    if (!newZone?.name||!newZone?.short) return;
-    setZones(prev=>[...prev,{id:'z_'+genId(),name:newZone.name,short:newZone.short}]);
-    setNewZone(null);
-  }
-  function addTrade() {
-    if (!newTrade?.name||!newTrade?.short) return;
-    setTrades(prev=>[...prev,{id:'tr_'+genId(),name:newTrade.name,short:newTrade.short,color:newTrade.color||'blue'}]);
-    setNewTrade(null);
-  }
+</script>
 
-  return (
-    <div style={{overflowY:'auto',height:'100%',padding:'16px 14px 100px'}}>
-      <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:16}}>Configuration</div>
-      {/* Tabs */}
-      <div style={{display:'flex',borderBottom:'1px solid var(--border)',marginBottom:16}}>
-        {['zones','trades'].map(t=>(
-          <button key={t} onClick={()=>setTab(t)}
-            style={{flex:1,padding:'9px',background:'transparent',border:'none',fontSize:13,fontWeight:600,
-              cursor:'pointer',color:tab===t?'var(--primary)':'var(--muted)',fontFamily:"'DM Sans',sans-serif",
-              borderBottom:tab===t?'2px solid var(--primary)':'2px solid transparent',marginBottom:-1}}>
-            {t==='zones'?'Zones':'Corps de métier'}
-          </button>
-        ))}
-      </div>
-
-      {tab==='zones' && (
-        <div>
-          {zones.map((z,i)=>(
-            <div key={z.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
-              borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
-              {editingZone?.id===z.id ? (
-                <div style={{display:'flex',flexWrap:'wrap',gap:7,alignItems:'center'}}>
-                  <input value={editingZone.name} onChange={e=>setEditingZone({...editingZone,name:e.target.value})}
-                    style={{flex:1,minWidth:120,...inputSt}} placeholder="Nom complet" />
-                  <input value={editingZone.short} onChange={e=>setEditingZone({...editingZone,short:e.target.value})}
-                    style={{width:80,...inputSt}} placeholder="Court" />
-                  <button onClick={()=>saveZone(editingZone)} style={miniBtn}>✓</button>
-                  <button onClick={()=>setEditingZone(null)} style={miniBtn}>✕</button>
-                </div>
-              ) : (
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>{z.short}</div>
-                  </div>
-                  <button onClick={()=>setEditingZone(z)} style={miniBtn}>✎</button>
-                </div>
-              )}
-            </div>
-          ))}
-          {newZone ? (
-            <div style={{background:'var(--surface)',border:'1px solid var(--primary)',borderRadius:'var(--r-sm)',
-              padding:'11px 13px',marginBottom:7,display:'flex',flexWrap:'wrap',gap:7,alignItems:'center'}}>
-              <input value={newZone.name||''} onChange={e=>setNewZone({...newZone,name:e.target.value})}
-                style={{flex:1,minWidth:120,...inputSt}} placeholder="Nom complet" autoFocus />
-              <input value={newZone.short||''} onChange={e=>setNewZone({...newZone,short:e.target.value})}
-                style={{width:80,...inputSt}} placeholder="Court (ex: R3-TIS)" />
-              <button onClick={addZone} style={{...miniBtn,background:'var(--primary)',color:'#fff',border:'none'}}>Ajouter</button>
-              <button onClick={()=>setNewZone(null)} style={miniBtn}>✕</button>
-            </div>
-          ) : (
-            <button onClick={()=>setNewZone({})}
-              style={{display:'flex',alignItems:'center',gap:6,color:'var(--primary)',fontSize:13,
-                fontWeight:600,background:'transparent',border:'none',cursor:'pointer',padding:'8px 0',
-                fontFamily:"'DM Sans',sans-serif"}}>
-              <span style={{fontSize:18,lineHeight:1}}>+</span> Ajouter une zone
-            </button>
-          )}
-        </div>
-      )}
-
-      {tab==='trades' && (
-        <div>
-          {trades.map(tr=>{
-            const c=getTC(tr.color);
-            return (
-              <div key={tr.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
-                borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
-                {editingTrade?.id===tr.id ? (
-                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                    <div style={{display:'flex',gap:7}}>
-                      <input value={editingTrade.name} onChange={e=>setEditingTrade({...editingTrade,name:e.target.value})}
-                        style={{flex:1,...inputSt}} placeholder="Nom" />
-                      <input value={editingTrade.short} onChange={e=>setEditingTrade({...editingTrade,short:e.target.value})}
-                        style={{width:70,...inputSt}} placeholder="Court" />
-                    </div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                      {PALETTE.map(cl=>{const cc=getTC(cl);return(
-                        <div key={cl} onClick={()=>setEditingTrade({...editingTrade,color:cl})}
-                          style={{width:22,height:22,borderRadius:'50%',background:cc.b,cursor:'pointer',
-                            border:editingTrade.color===cl?'3px solid var(--text)':'2px solid transparent',
-                            transition:'transform .1s',transform:editingTrade.color===cl?'scale(1.2)':'scale(1)'}}></div>
-                      );})}
-                    </div>
-                    <div style={{display:'flex',gap:6}}>
-                      <button onClick={()=>saveTrade(editingTrade)} style={{...miniBtn,flex:1}}>Enregistrer</button>
-                      <button onClick={()=>setEditingTrade(null)} style={miniBtn}>Annuler</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{display:'flex',alignItems:'center',gap:10}}>
-                    <span style={{width:12,height:12,borderRadius:'50%',background:c.b,flexShrink:0,
-                      border:`2px solid ${c.b}40`}}></span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{tr.name}</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:1}}>{tr.short}</div>
-                    </div>
-                    <button onClick={()=>setEditingTrade(tr)} style={miniBtn}>✎</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {newTrade ? (
-            <div style={{background:'var(--surface)',border:'1px solid var(--primary)',borderRadius:'var(--r-sm)',
-              padding:'12px 13px',marginBottom:7}}>
-              <div style={{display:'flex',gap:7,marginBottom:8}}>
-                <input value={newTrade.name||''} onChange={e=>setNewTrade({...newTrade,name:e.target.value})}
-                  style={{flex:1,...inputSt}} placeholder="Nom du lot" autoFocus />
-                <input value={newTrade.short||''} onChange={e=>setNewTrade({...newTrade,short:e.target.value})}
-                  style={{width:70,...inputSt}} placeholder="Court" />
-              </div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
-                {PALETTE.map(cl=>{const cc=getTC(cl);return(
-                  <div key={cl} onClick={()=>setNewTrade({...newTrade,color:cl})}
-                    style={{width:22,height:22,borderRadius:'50%',background:cc.b,cursor:'pointer',
-                      border:(newTrade.color||'blue')===cl?'3px solid var(--text)':'2px solid transparent'}}></div>
-                );})}
-              </div>
-              <div style={{display:'flex',gap:6}}>
-                <button onClick={addTrade} style={{...miniBtn,background:'var(--primary)',color:'#fff',border:'none',flex:1}}>Ajouter</button>
-                <button onClick={()=>setNewTrade(null)} style={miniBtn}>Annuler</button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={()=>setNewTrade({color:'blue'})}
-              style={{display:'flex',alignItems:'center',gap:6,color:'var(--primary)',fontSize:13,
-                fontWeight:600,background:'transparent',border:'none',cursor:'pointer',padding:'8px 0',
-                fontFamily:"'DM Sans',sans-serif"}}>
-              <span style={{fontSize:18,lineHeight:1}}>+</span> Ajouter un corps de métier
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-const inputSt = {padding:'7px 9px',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',
-  fontSize:12,fontFamily:"'DM Sans',sans-serif",color:'var(--text)',background:'var(--surface)',outline:'none'};
-const miniBtn = {padding:'5px 10px',borderRadius:'var(--r-xs)',border:'1px solid var(--border)',
-  background:'var(--surface-2)',color:'var(--text)',fontSize:12,cursor:'pointer',fontFamily:"'DM Sans',sans-serif"};
-
-/* ════════════════════════════════════════════════════════════
-   DETAIL MODAL
-═══════════════════════════════════════════════════════════ */
-function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit }) {
-  const iv = data.find(x=>x.id===ivId);
-  if (!iv) return null;
-  const z  = zones.find(x=>x.id===iv.zone);
-  const tr = trades.find(t=>t.id===iv.trade);
-  const c  = getTC(tr?.color||'blue');
-  const pred = iv.predecessor_id ? data.find(x=>x.id===iv.predecessor_id) : null;
-
-  return (
-    <SheetModal open={open} onClose={onClose}>
-      {/* Trade color accent strip */}
-      <div style={{height:4,background:c.b,margin:'-18px -18px 18px',borderRadius:'4px 4px 0 0'}}></div>
-
-      {/* Header */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
-        <div>
-          <div style={{fontSize:19,fontWeight:700,color:'var(--text)',marginBottom:3}}>{iv.company}</div>
-          {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{iv.task_number}</span>}
-        </div>
-        <StatusBadge status={iv.status} />
-      </div>
-      <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
-
-      {/* Task */}
-      <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-        padding:'11px 13px',margin:'12px 0',fontSize:14,color:'var(--text)',lineHeight:1.5}}>{iv.task}</div>
-
-      {/* KV grid */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
-        {[
-          {l:'Zone',  v: z?.name||iv.zone},
-          {l:'Dates', v: fmtDate(iv.start)+(iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''), mono:true},
-        ].map(kv=>(
-          <div key={kv.l} style={{background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:'9px 11px',
-            border:'1px solid var(--border)'}}>
-            <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,fontFamily:"'DM Mono',monospace"}}>{kv.l}</div>
-            <div style={{fontSize:12,fontWeight:600,color:'var(--text)',
-              fontFamily:kv.mono?"'DM Mono',monospace":undefined}}>{kv.v}</div>
-          </div>
-        ))}
-      </div>
-
-      {pred&&<div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',borderRadius:'0 6px 6px 0',
-        padding:'8px 12px',marginBottom:10,fontSize:12}}>
-        <b>Prédécesseur : {pred.task_number}</b><br/>
-        <span style={{color:'var(--muted)'}}>{pred.company} — {pred.task}</span>
-      </div>}
-
-      {iv.prereq&&<div style={{background:'rgba(220,38,38,.1)',borderLeft:'3px solid #DC2626',
-        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#991B1B'}}>
-        <b>⚠ Prérequis</b><br/>{iv.prereq}
-      </div>}
-      {iv.notes&&<div style={{background:'rgba(22,163,74,.08)',borderLeft:'3px solid #16A34A',
-        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'var(--text)'}}>
-        <b>Notes</b><br/>{iv.notes}
-      </div>}
-
-      {/* Attachments */}
-      {iv.attachments&&iv.attachments.length>0&&(
-        <div style={{marginBottom:12}}>
-          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
-            fontFamily:"'DM Mono',monospace",marginBottom:8}}>Pièces jointes</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-            {iv.attachments.map(f=>(
-              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
-                style={{display:'flex',alignItems:'center',gap:5,padding:'5px 9px',
-                  background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',
-                  fontSize:12,color:'var(--text)',textDecoration:'none'}}>
-                <span>{f.type==='application/pdf'?'📄':'🖼'}</span>
-                <span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Status update */}
-      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
-        fontFamily:"'DM Mono',monospace",marginBottom:8}}>Mettre à jour le statut</div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
-        {Object.entries(STATUS_META).map(([k,m])=>(
-          <button key={k} onClick={()=>onStatusChange(iv.id,k)}
-            style={{padding:'9px 6px',borderRadius:'var(--r-sm)',border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
-              background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',fontSize:12,fontWeight:500,
-              color:iv.status===k?m.text:'var(--text)',display:'flex',alignItems:'center',justifyContent:'center',
-              gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
-            <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
-            {m.label}
-          </button>
-        ))}
-      </div>
-
-      {session?.role==='admin'&&(
-        <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier l’intervention</button>
-      )}
-      <button onClick={onClose} style={btnSecStyle}>Fermer</button>
-    </SheetModal>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   ADD / EDIT MODAL
-═══════════════════════════════════════════════════════════ */
-function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, onClose, onSave, onDelete }) {
-  const existing = editId ? data.find(i=>i.id===editId) : null;
-  const [form, setForm] = useState({});
-  const [attachments, setAttachments] = useState([]);
-  const [confirmDel, setConfirmDel] = useState(false);
-  const companyNames = [...new Set(COMPANIES.map(c=>c.name))].sort();
-
-  useEffect(()=>{
-    if (open) {
-      setForm(existing ? {
-        zone: existing.zone||'', start: existing.start||'', end: existing.end||'',
-        trade: existing.trade||'', company: existing.company||'', task: existing.task||'',
-        priority: existing.priority||3, prereq: existing.prereq||'', notes: existing.notes||'',
-        predecessor_id: existing.predecessor_id||'', status: existing.status||'arealis',
-      } : {
-        zone: preZone||'', start: preDate||dateStr(new Date()),
-        end: preDate||dateStr(new Date()), trade:'', company:'', task:'',
-        priority:3, prereq:'', notes:'', predecessor_id:'', status:'arealis',
-      });
-      setAttachments(existing?.attachments||[]);
-    }
-  }, [open, editId, preZone, preDate]);
-
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
-  const PRIOS = [{v:1,l:'Urgente',c:'#DC2626'},{v:2,l:'Haute',c:'#EA580C'},{v:3,l:'Normale',c:'#CA8A04'},{v:4,l:'Basse',c:'#6B7280'},{v:5,l:'À conf.',c:'#9CA3AF'}];
-
-  function handleSave() {
-    if (!form.trade||!form.company||!form.task) { alert('Corps de métier, entreprise et description sont requis.'); return; }
-    const tn = existing?.task_number || genTaskNum(data, form.company);
-    onSave({
-      id: editId||genId(), ...form,
-      priority: form.priority||3, staff:1, progress:0, delay:0,
-      task_number:tn, attachments,
-    });
-  }
-
-  const predecessorList = data.filter(i=>i.id!==editId&&i.task_number)
-    .sort((a,b)=>(a.task_number||'').localeCompare(b.task_number||''));
-
-  return (
-    <>
-      <SheetModal open={open} onClose={onClose} maxH="95vh">
-        <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:18}}>
-          {editId?'Modifier l\'intervention':'Nouvelle intervention'}
-        </div>
-        <Field label="Zone *">
-          <Select value={form.zone||''} onChange={e=>set('zone',e.target.value)}>
-            <option value="">Sélectionner une zone…</option>
-            {zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}
-          </Select>
-        </Field>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:13}}>
-          <Field label="Date début *"><Input type="date" value={form.start||''} onChange={e=>set('start',e.target.value)} /></Field>
-          <Field label="Date fin"><Input type="date" value={form.end||''} onChange={e=>set('end',e.target.value)} /></Field>
-        </div>
-        <Field label="Corps de métier *">
-          <Select value={form.trade||''} onChange={e=>set('trade',e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {trades.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-          </Select>
-        </Field>
-        <Field label="Entreprise *">
-          <Select value={form.company||''} onChange={e=>set('company',e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {companyNames.map(n=><option key={n} value={n}>{n}</option>)}
-          </Select>
-        </Field>
-        <Field label="Description *">
-          <Input value={form.task||''} onChange={e=>set('task',e.target.value)} placeholder="ex : Pose cloisons R+3 plateau Est" />
-        </Field>
-
-        <Field label="Prédécesseur" hint="(optionnel)">
-          <Select value={form.predecessor_id||''} onChange={e=>set('predecessor_id',e.target.value)}>
-            <option value="">Aucun</option>
-            {predecessorList.map(i=>{
-              const z=zones.find(x=>x.id===i.zone);
-              return <option key={i.id} value={i.id}>{i.task_number} — {i.company} — {i.task.slice(0,30)}{z?` (${z.short})`:''}</option>;
-            })}
-          </Select>
-        </Field>
-        <Field label="Prérequis / Point bloquant">
-          <Textarea value={form.prereq||''} onChange={e=>set('prereq',e.target.value)}
-            placeholder="ex : Zone libérée avant intervention…" rows={2} />
-        </Field>
-        <Field label="Notes / Consignes">
-          <Textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)}
-            placeholder="Informations complémentaires…" rows={2} />
-        </Field>
-        <Field label="Pièces jointes" hint="PDF ou image">
-          <AttachmentZone files={attachments} setFiles={setAttachments} />
-        </Field>
-
-        <button onClick={handleSave} style={btnPrimaryStyle}>Enregistrer</button>
-        {editId&&<button onClick={()=>setConfirmDel(true)}
-          style={{...btnSecStyle,width:'100%',marginTop:8,color:'var(--danger)',borderColor:'var(--danger)'}}>
-          Supprimer cette intervention
-        </button>}
-        <button onClick={onClose} style={{...btnSecStyle,width:'100%',marginTop:8}}>Annuler</button>
-      </SheetModal>
-      <ConfirmDialog open={confirmDel} message="Supprimer définitivement cette intervention ?"
-        onConfirm={()=>{setConfirmDel(false);onDelete(editId);}}
-        onCancel={()=>setConfirmDel(false)} />
-    </>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   USER MENU MODAL
-═══════════════════════════════════════════════════════════ */
-function UserMenuModal({ open, session, onClose, onLogout }) {
-  return (
-    <SheetModal open={open} onClose={onClose}>
-      <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:14}}>Mon compte</div>
-      <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-        padding:14,marginBottom:16}}>
-        <div style={{fontSize:14,fontWeight:700,color:'var(--text)',marginBottom:3}}>{session?.name}</div>
-        <div style={{fontSize:12,color:'var(--muted)'}}>{session?.role==='admin'?'Administrateur':session?.company?.name}</div>
-      </div>
-      <button onClick={onLogout}
-        style={{...btnSecStyle,width:'100%',color:'var(--danger)',borderColor:'var(--danger)',marginBottom:8}}>
-        Se déconnecter
-      </button>
-      <button onClick={onClose} style={{...btnSecStyle,width:'100%'}}>Fermer</button>
-    </SheetModal>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   ROOT APP
-═══════════════════════════════════════════════════════════ */
-function NotificationsPanel({ notifs, onClose, taskLogs, data, onOpenDetail }) {
-  const LOG_ICONS = {note:'📝',encours:'🔵',signalement:'⚠️',bloque:'🔴',termine:'✅',undefined:'🔔'};
-  function fmtDt(s) {
-    if (!s) return '';
-    const d = new Date(s);
-    return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) + ' ' +
-           d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  }
-  return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:300,
-      display:'flex',alignItems:'flex-end',animation:'fadeIn .15s'}}
-      onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()}
-        style={{background:'var(--surface)',borderRadius:'20px 20px 0 0',width:'100%',
-          maxHeight:'75vh',overflowY:'auto',padding:'0 16px 40px',
-          animation:'slideUp .22s cubic-bezier(.32,.72,0,1)'}}>
-        <div style={{width:40,height:4,background:'var(--border)',borderRadius:2,margin:'12px auto 16px'}}></div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-          <span style={{fontSize:18,fontWeight:700,color:'var(--text)'}}>Notifications</span>
-          {notifs.filter(n=>!n.read).length > 0 &&
-            <span style={{fontSize:11,color:'var(--muted)'}}>{notifs.filter(n=>!n.read).length} non lues</span>}
-        </div>
-        {notifs.length === 0 && (
-          <div style={{textAlign:'center',padding:'32px 0',color:'var(--xmuted)',fontSize:13}}>
-            Aucune notification
-          </div>
-        )}
-        {notifs.map(n => {
-          const iv = data?.find(i => i.id === n.task_id);
-          return (
-            <div key={n.id}
-              onClick={()=>{ onClose(); if(iv) setTimeout(()=>onOpenDetail(n.task_id),120); }}
-              style={{display:'flex',gap:12,padding:'11px 0',borderBottom:'1px solid var(--border)',
-                cursor:'pointer',
-                opacity:n.read?0.6:1,transition:'opacity .15s'}}
-              onMouseEnter={e=>{if(iv)e.currentTarget.style.opacity='.7';}}
-              onMouseLeave={e=>{e.currentTarget.style.opacity=n.read?'0.6':'1';}}>
-              <div style={{width:36,height:36,borderRadius:'50%',flexShrink:0,
-                background:n.read?'var(--surface-2)':
-                  n.type==='bloque'?'rgba(220,38,38,.12)':
-                  n.type==='signalement'?'rgba(217,119,6,.12)':
-                  n.type==='termine'?'rgba(22,163,74,.12)':'var(--primary-l)',
-                display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>
-                {LOG_ICONS[n.type] || '🔔'}
-              </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:n.read?400:600,color:'var(--text)',
-                  marginBottom:2,lineHeight:1.4}}>{n.message}</div>
-                <div style={{fontSize:11,marginBottom:2}}>
-                  {iv ? (
-                    <span style={{color:'var(--primary)',fontWeight:600}}>
-                      {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",marginRight:5}}>{iv.task_number}</span>}
-                      {iv.task?.slice(0,45)}{iv.task?.length>45?'…':''}
-                    </span>
-                  ) : (
-                    <span style={{color:'var(--xmuted)',fontSize:10}}>Appuyer pour voir la tâche</span>
-                  )}
-                </div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
-                  {fmtDt(n.created_at)}
-                  {!n.read && <span style={{marginLeft:8,color:'var(--primary)',fontWeight:700}}>● nouveau</span>}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-
-function PlanifyApp() {
-  const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
-    "theme": "terrain",
-    "density": "normal"
-  }/*EDITMODE-END*/);
-
-  const [session,    setSession]    = useState(null);
-  const [screen,     setScreen]     = useState('planning');
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [filter,     setFilter]     = useState('all');
-  const [data,       setData]       = useState([...INTERVENTIONS]);
-  const [zones,      setZones]      = useState([...ZONES]);
-  const [trades,     setTrades]     = useState([...TRADES]);
-  const [loading,    setLoading]    = useState(true);
-  const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
-  const [userMenu,   setUserMenu]   = useState(false);
-  const [viewMode,   setViewMode]   = useState('1s');
-  const [notifs,     setNotifs]     = useState([]);
-  const [notifPanel, setNotifPanel] = useState(false);
-  const [taskLogs,   setTaskLogs]   = useState({});
-  const unreadCount = notifs.filter(n=>!n.read).length;
-
-  // Apply theme
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', tweaks.theme);
-  }, [tweaks.theme]);
-
-  const SUPA_URL = 'https://xrfqlbhaxhraneflrfez.supabase.co';
-  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
-
-  async function loadFromSupabase(sessionArg) {
-    setLoading(true);
-    const sess = sessionArg || session;
-    const company = sess?.role === 'admin' ? 'Admin' : (sess?.company?.name || '');
-    try {
-      const headers = {
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY,
-        'Content-Type': 'application/json',
-      };
-      const base = SUPA_URL + '/rest/v1';
-      const [zRes, tRes, iRes, logsRes, notifsRes] = await Promise.all([
-        fetch(base + '/zones?order=display_order', {headers}),
-        fetch(base + '/trades?order=display_order', {headers}),
-        fetch(base + '/interventions?order=start_date', {headers}),
-        fetch(base + '/task_logs?order=created_at.desc&limit=500', {headers}),
-        company ? fetch(base + '/notifications?company=eq.' + encodeURIComponent(company) + '&order=created_at.desc&limit=50', {headers}) : Promise.resolve({ok:true, json:()=>Promise.resolve([])}),
-      ]);
-      const [zData, tData, iData, logsData, notifsData] = await Promise.all([
-        zRes.json(), tRes.json(), iRes.json(),
-        logsRes.ok ? logsRes.json() : Promise.resolve([]),
-        notifsRes.ok ? notifsRes.json() : Promise.resolve([]),
-      ]);
-      if (zData.length) setZones(zData);
-      if (tData.length) setTrades(tData.map(t => {
-        const local = TRADES.find(lt => lt.id === t.id);
-        return local ? {...t, color: local.color} : t;
-      }));
-      if (iData.length) setData(iData.map(r => ({
-        ...r, start: r.start_date, end: r.end_date,
-        predecessor_id: r.predecessor_id || null,
-        attachments: [],
-      })));
-      // Group logs by task_id — always update state even if empty
-      const grouped = {};
-      (Array.isArray(logsData) ? logsData : []).forEach(log => {
-        if (!grouped[log.task_id]) grouped[log.task_id] = [];
-        grouped[log.task_id].push(log);
-      });
-      setTaskLogs(grouped);
-      if (Array.isArray(notifsData)) setNotifs(notifsData);
-    } catch(e) {
-      console.warn('[Planify] Supabase load failed, using local data:', e);
-    }
-    setLoading(false);
-  }
-
-  // Expose supa globally so child components (SettingsScreen) can use it
-  window._supaWrite = async (method, table, body, match) => supa(method, table, body, match);
-
-  async function supa(method, table, body, match) {
-    const headers = {
-      'apikey': SUPA_KEY,
-      'Authorization': 'Bearer ' + SUPA_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal',
-    };
-    let url = SUPA_URL + '/rest/v1/' + table;
-    if (match) url += '?' + match;
-    try {
-      await fetch(url, {method, headers, body: body ? JSON.stringify(body) : undefined});
-    } catch(e) { console.warn('[Planify] Supabase write failed:', e); }
-  }
-
-  function handleLogin(s) {
-    setSession(s);
-    loadFromSupabase(s);
-    // Request browser notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-    // Subscribe to realtime notifications
-    subscribeNotifications(s);
-  }
-  function handleLogout()  { setSession(null); setUserMenu(false); }
-
-  function openDetail(id)          { setModal({type:'detail', id}); }
-  function openAdd(zone='',date='') { setModal({type:'add', zone, date}); }
-  function openEdit(id)            { setModal({type:'edit', id}); }
-  function closeModal()            { setModal(null); }
-
-  function handleStatusChange(id, status) {
-    setData(prev => prev.map(i => i.id===id ? {...i, status} : i));
-    supa('PATCH', 'interventions', {status, updated_at: new Date().toISOString()}, 'id=eq.' + id);
-  }
-  // ── Realtime notification subscription ──────────────────────────────
-  function subscribeNotifications(sess) {
-    const s = sess || session;
-    if (!s) return;
-    const company = s.role === 'admin' ? 'Admin' : (s.company?.name || '');
-    if (!company) return;
-    // Clear previous poll
-    if (window._planifyNotifPoll) clearInterval(window._planifyNotifPoll);
-
-    // Supabase Realtime
-    try {
-      const { createClient } = window.supabase;
-      if (createClient) {
-        const sbRT = createClient(SUPA_URL, SUPA_KEY);
-        sbRT.channel('notifs-' + company)
-          .on('postgres_changes', {
-            event: 'INSERT', schema: 'public', table: 'notifications',
-            filter: `company=eq.${company}`
-          }, payload => {
-            const n = payload.new;
-            setNotifs(prev => prev.find(x => x.id === n.id) ? prev : [n, ...prev]);
-            triggerBrowserNotif(n.message, n.task_id);
-          })
-          .subscribe();
-      }
-    } catch(e) { console.warn('[Planify] Realtime error:', e); }
-
-    // Reliable poll every 15s
-    window._planifyNotifPoll = setInterval(() => pollNotifs(company), 15000);
-
-    // Poll when user returns to tab (catches notifs received while away)
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') pollNotifs(company);
-    };
-    document.removeEventListener('visibilitychange', window._planifyVisHandler);
-    window._planifyVisHandler = onVisible;
-    document.addEventListener('visibilitychange', onVisible);
-  }
-
-  async function pollNotifs(company) {
-    try {
-      const hdrs = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY };
-      const res = await fetch(
-        SUPA_URL + '/rest/v1/notifications?company=eq.' + encodeURIComponent(company) +
-        '&order=created_at.desc&limit=50', { headers: hdrs });
-      const fresh = await res.json();
-      if (Array.isArray(fresh)) setNotifs(fresh);
-    } catch(e) {}
-  }
-
-  function triggerBrowserNotif(msg, taskId) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const n = new Notification('Planify — HSF Marceau', {
-        body: msg,
-        icon: 'https://francofds.github.io/hsf-chantier/icon-192.png',
-        tag: taskId,
-        requireInteraction: false,
-      });
-      // Click on browser notif → focus app + open task
-      n.onclick = () => {
-        window.focus();
-        if (taskId) openDetail(taskId);
-        n.close();
-      };
-    }
-  }
-
-  
-  async function handleSubmitLog(ivId, logEntry) {
-    const iv     = data.find(i => i.id === ivId);
-    const author = logEntry.author;
-    const hdrs   = {
-      'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
-      'Content-Type': 'application/json', 'Prefer': 'return=representation',
-    };
-
-    // 1. Save log to Supabase
-    const logRow = {
-      task_id: ivId, company: author, author,
-      type: logEntry.type,
-      message: logEntry.message || '',
-      photo_url: logEntry.photo || null,
-      mentioned: logEntry.mentions || [],
-    };
-    let savedLogId = null;
-    let saveOk = false;
-    try {
-      const res = await fetch(SUPA_URL + '/rest/v1/task_logs', {
-        method: 'POST', headers: hdrs, body: JSON.stringify(logRow),
-      });
-      if (res.ok) {
-        const body = await res.json();
-        savedLogId = Array.isArray(body) ? body[0]?.id : body?.id;
-        saveOk = true;
-      } else {
-        const err = await res.text();
-        console.error('[Planify] Log save HTTP error:', res.status, err);
-        // Show user-visible error if table missing
-        if (res.status === 404 || res.status === 400) {
-          alert("Erreur sauvegarde : table task_logs manquante. Executez task_logs_setup.sql dans Supabase.");
-        }
-      }
-    } catch(e) { console.error('[Planify] Log save network error:', e); }
-
-    // Update local state immediately (optimistic)
-    const localLog = {
-      ...logEntry, id: savedLogId || logEntry.id,
-      created_at: new Date().toISOString(),
-      _saveOk: saveOk,
-    };
-    setTaskLogs(prev => ({ ...prev, [ivId]: [localLog, ...(prev[ivId] || [])] }));
-
-    if (!saveOk) return; // Don't create notifs if log wasn't saved
-
-    // 2. Build notification rows — always include Admin
-    const LOG_LABELS = { note:'Note', encours:'En cours', signalement:'Signalement', bloque:'Blocage', termine:'Terminé' };
-    const taskRef  = iv?.task_number || (iv?.task?.slice(0, 35) + '…') || ivId;
-    const notifMsg = `${author} · ${LOG_LABELS[logEntry.type] || logEntry.type} · ${taskRef}`;
-    // Always notify Admin + all mentioned, except the author themselves
-    const rawRecipients = [...new Set([...(logEntry.mentions || []), 'Admin'])].filter(Boolean);
-    const recipients = rawRecipients; // include even author so they get confirmation
-    const now2 = new Date().toISOString();
-    const notifRows = recipients.map(co => ({
-      company: co, task_id: ivId, log_id: savedLogId,
-      type: logEntry.type, message: notifMsg, read: false, created_at: now2,
-    }));
-
-    // 3. Insert notifications
-    try {
-      const nRes = await fetch(SUPA_URL + '/rest/v1/notifications', {
-        method: 'POST',
-        headers: { ...hdrs, Prefer: 'return=minimal' },
-        body: JSON.stringify(notifRows),
-      });
-      if (!nRes.ok) {
-        const nErr = await nRes.text();
-        console.error('[Planify] Notif insert error:', nRes.status, nErr);
-      }
-    } catch(e) { console.error('[Planify] Notif network error:', e); }
-
-    // 4. Immediately poll notifs for current user + trigger browser notif
-    const myCompany = session?.role === 'admin' ? 'Admin' : (session?.company?.name || '');
-    if (myCompany) {
-      await pollNotifs(myCompany);
-      // Browser notif for self only if mentioned (excluding author's own submission)
-      if (author !== myCompany && recipients.includes(myCompany)) {
-        triggerBrowserNotif(notifMsg, ivId);
-      }
-    }
-  }
-
-  
-  async function markNotifsRead() {
-    const company = session?.role === 'admin' ? 'Admin' : (session?.company?.name || '');
-    if (!company) return;
-    setNotifs(prev => prev.map(n => ({...n, read: true})));
-    try {
-      await fetch(SUPA_URL + '/rest/v1/notifications?company=eq.' + encodeURIComponent(company) + '&read=eq.false', {
-        method: 'PATCH',
-        headers: {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'},
-        body: JSON.stringify({read: true}),
-      });
-    } catch(e) {}
-  }
-
-  function handleSave(iv) {
-    setData(prev => {
-      const idx = prev.findIndex(i=>i.id===iv.id);
-      if (idx>=0) { const n=[...prev]; n[idx]=iv; return n; }
-      return [...prev, iv];
-    });
-    closeModal();
-    // Persist to Supabase
-    const row = {
-      id: iv.id, trade: iv.trade, company: iv.company, task: iv.task,
-      zone: iv.zone, start_date: iv.start, end_date: iv.end || iv.start,
-      status: iv.status || 'arealis', priority: iv.priority || 3,
-      prereq: iv.prereq || '', notes: iv.notes || '',
-      task_number: iv.task_number || null,
-      predecessor_id: iv.predecessor_id || null,
-      updated_at: new Date().toISOString(),
-    };
-    const existing = data.find(i => i.id === iv.id);
-    if (existing) {
-      supa('PATCH', 'interventions', row, 'id=eq.' + iv.id);
-    } else {
-      supa('POST', 'interventions', row);
-    }
-  }
-  function handleDelete(id) {
-    setData(prev => prev.filter(i=>i.id!==id));
-    closeModal();
-    supa('DELETE', 'interventions', null, 'id=eq.' + id);
-  }
-
-  const isAdmin = session?.role === 'admin';
-
-  if (loading && session) return (
-    <div style={{height:'100vh',display:'flex',flexDirection:'column',alignItems:'center',
-      justifyContent:'center',gap:16,background:'var(--bg)'}}>
-      <div style={{width:36,height:36,border:'3px solid var(--border)',
-        borderTopColor:'var(--primary)',borderRadius:'50%',
-        animation:'spin 0.8s linear infinite'}}></div>
-      <div style={{fontSize:13,color:'var(--muted)',fontFamily:"'DM Mono',monospace"}}>
-        Chargement depuis Supabase…
-      </div>
-    </div>
-  );
-
-  if (!session) return (
-    <>
-      <LoginScreen onLogin={handleLogin} />
-      <TweaksPanel>
-        <TweakSection label="Apparence" />
-        <TweakRadio label="Thème" value={tweaks.theme}
-          options={['terrain','studio','nuit']}
-          onChange={v => setTweak('theme', v)} />
-      </TweaksPanel>
-    </>
-  );
-
-  const mainContent = () => {
-    switch (screen) {
-      case 'dashboard': return <DashboardScreen data={data} zones={zones} trades={trades}
-        weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
-      case 'planning':  return <PlanningScreen  data={data} zones={zones} trades={trades}
-        weekOffset={weekOffset} filter={filter} session={session}
-        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode}
-        setZones={setZones} taskLogs={taskLogs} />;
-      case 'list':      return <ListScreen      data={data} zones={zones} trades={trades}
-        weekOffset={weekOffset} filter={filter} onOpenDetail={openDetail} />;
-      case 'settings':  return <SettingsScreen  zones={zones} trades={trades}
-        setZones={setZones} setTrades={setTrades} />;
-      default:          return null;
-    }
-  };
-
-  return (
-    <>
-      <div style={{display:'flex',flexDirection:'column',height:'100vh',overflow:'hidden'}}>
-        <AppHeader session={session} weekOffset={weekOffset}
-          onWeekChange={d=>setWeekOffset(o=>o+d)}
-          onSettings={()=>setScreen('settings')}
-          onUserMenu={()=>setUserMenu(true)}
-          filter={filter} trades={trades} onFilter={setFilter}
-          zones={zones} data={data}
-          viewMode={viewMode} onViewMode={setViewMode}
-          unreadCount={unreadCount}
-          onBell={()=>{ setNotifPanel(p=>!p); if(!notifPanel) markNotifsRead(); }}
-          onToday={()=>setWeekOffset(0)}
-          onRefresh={()=>loadFromSupabase(session)} />
-        <div style={{flex:1,overflow:'hidden',position:'relative'}}>
-          {mainContent()}
-        </div>
-        <BottomNav screen={screen} onNav={setScreen}
-          onAdd={()=>openAdd()} isAdmin={isAdmin} />
-      </div>
-
-      {/* Modals */}
-      <DetailModal open={modal?.type==='detail'} ivId={modal?.id}
-        data={data} zones={zones} trades={trades} session={session}
-        onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit}
-        taskLogs={taskLogs} onSubmitLog={handleSubmitLog} />
-      {notifPanel && (
-        <NotificationsPanel notifs={notifs} data={data}
-          taskLogs={taskLogs}
-          onClose={()=>setNotifPanel(false)}
-          onOpenDetail={id=>{ setNotifPanel(false); openDetail(id); }} />
-      )}
-      <AddEditModal open={modal?.type==='add'||modal?.type==='edit'}
-        editId={modal?.type==='edit'?modal?.id:null}
-        preZone={modal?.zone} preDate={modal?.date}
-        data={data} zones={zones} trades={trades}
-        onClose={closeModal} onSave={handleSave} onDelete={handleDelete} />
-      <UserMenuModal open={userMenu} session={session}
-        onClose={()=>setUserMenu(false)} onLogout={handleLogout} />
-
-      <TweaksPanel>
-        <TweakSection label="Apparence" />
-        <TweakRadio label="Thème" value={tweaks.theme}
-          options={['terrain','studio','nuit']}
-          onChange={v => setTweak('theme', v)} />
-      </TweaksPanel>
-    </>
-  );
-}
-
-
-
-
-
-// ── MOUNT ───────────────────────────────────
-
+<script type="text/babel">
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(<PlanifyApp />);
-
-
-
-// ═══════════════════════════════════════════════════════════
-// MOUNT
-// ═══════════════════════════════════════════════════════════
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(PlanifyApp));
 </script>
 </body>
 </html>
