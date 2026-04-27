@@ -27,7 +27,7 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div style="padding:40px;text-align:center;font-family:sans-serif;color:#666;">Chargement...</div></div>
 <script>
 // planify-data.js — Data layer, constants & utilities
 
@@ -3204,8 +3204,13 @@ function PlanifyApp() {
 
 </script>
 <script type="text/babel">
-  const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(<PlanifyApp />);
+  try {
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<PlanifyApp />);
+  } catch(e) {
+    document.getElementById('root').innerHTML = '<div style="padding:20px;font-family:monospace;color:red;font-size:12px;white-space:pre-wrap;">ERROR: ' + e.message + '\n\n' + e.stack + '</div>';
+    console.error('Planify mount error:', e);
+  }
 </script>
 </body>
 </html>
