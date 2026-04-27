@@ -361,6 +361,9 @@ Object.assign(window, {
     }
   };
 
+  // Hook for status change with optional note
+  window.PLANIFY_ON_STATUS_NOTE = null; // set by React app
+
   console.log('[Planify] Supabase addon loaded');
 })();
 
@@ -1596,9 +1599,10 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
   const isDark = document.documentElement.getAttribute('data-theme') === 'nuit';
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
   const isAdmin = session?.role === 'admin';
-  const zoneColW = '58px';
-  const deadlineColW = '52px';
-  const dayColW = weeks === 1 ? '1fr' : weeks === 2 ? '60px' : '52px';
+  const isMulti = weeks > 1;
+  const zoneColW = isMulti ? '40px' : '58px';
+  const deadlineColW = isMulti ? '30px' : '50px';
+  const dayColW = '1fr';
   const gridCols = `${zoneColW} repeat(${days.length}, ${dayColW}) ${deadlineColW}`;
 
   const [zoneFilter, setZoneFilter] = useState([]);
@@ -1627,11 +1631,14 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
   const floorOf = id => zones.find(z=>z.id===id)?.floor||'';
 
   return (
-    <div style={{overflowY:'auto',height:'100%',padding:'10px 0 100px'}}>
-      <div style={{background:'var(--surface)',border:'1px solid var(--border)',
-        margin:'0 8px',borderRadius:'var(--r)',boxShadow:'var(--shadow)',
-        overflowX: weeks>1?'auto':'hidden'}}>
-        <div style={{minWidth: weeks>1 ? `${58 + days.length*52 + 44}px` : 'auto'}}>
+    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
+      <div style={{background:'var(--surface)',
+        border:isMulti?'none':'1px solid var(--border)',
+        margin:isMulti?0:'0 8px',
+        borderRadius:isMulti?0:'var(--r)',
+        boxShadow:isMulti?'none':'var(--shadow)',
+        overflowX:'hidden'}}>
+        <div style={{width:'100%'}}>
 
           {/* Header row */}
           <div style={{display:'grid',gridTemplateColumns:gridCols,background:'var(--surface-2)',
@@ -1703,9 +1710,10 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
             })}
 
             {/* Deadline header */}
-            <div style={{padding:'6px 2px',textAlign:'center',borderLeft:'2px solid var(--border-s)',
-              background:'rgba(220,38,38,.07)'}}>
-              <div style={{fontSize:8,fontWeight:700,color:'#DC2626',fontFamily:"'DM Mono',monospace",letterSpacing:'.03em'}}>FIN</div>
+            <div style={{padding:'4px 1px',textAlign:'center',borderLeft:'2px solid var(--border-s)',
+              background:'rgba(220,38,38,.07)',display:'flex',alignItems:'center',justifyContent:'center',minHeight:28}}>
+              <span style={{fontSize:7,fontWeight:800,color:'#DC2626',fontFamily:"'DM Mono',monospace",
+                writingMode:'vertical-rl',transform:'rotate(180deg)',lineHeight:1}}>FIN</span>
             </div>
           </div>
 
@@ -1726,11 +1734,11 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                 borderBottom:'1px solid var(--border)',background:rowBg}}>
 
                 {/* Zone label */}
-                <div style={{padding:'5px 3px',borderRight:'3px solid '+fc,
+                <div style={{padding:isMulti?'2px 1px':'5px 3px',borderRight:'3px solid '+fc,
                   display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',
-                  minHeight:64,background:`${fc}12`}}>
-                  <span style={{fontSize:8,fontWeight:800,color:fc,lineHeight:1.3,
-                    fontFamily:"'DM Mono',monospace",letterSpacing:'.04em',textTransform:'uppercase',
+                  minHeight:isMulti?40:56,background:`${fc}12`}}>
+                  <span style={{fontSize:isMulti?5.5:8,fontWeight:800,color:fc,lineHeight:1.2,
+                    fontFamily:"'DM Mono',monospace",letterSpacing:'.03em',textTransform:'uppercase',
                     wordBreak:'break-all'}}>{zone.short}</span>
                 </div>
 
@@ -1742,12 +1750,11 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const isDeadline = ds === zone.deadline;
                   const cards = filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
                     .sort((a,b)=>(a.priority||3)-(b.priority||3));
-                  const shown = cards.slice(0,2);
-                  const extra = cards.length - shown.length;
+                  const shown = cards;
                   const cellBg = holiday?'rgba(156,163,175,.1)':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                   return (
-                    <div key={di} onClick={()=>isAdmin&&!holiday&&onOpenAdd(zone.id,ds)}
-                      style={{padding:2,minHeight:64,
+                    <div key={di} onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
+                      style={{padding:isMulti?1:2,minHeight:isMulti?40:56,
                         borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                         background:cellBg,
                         cursor:isAdmin&&!holiday?'pointer':'default',transition:'background .1s'}}
@@ -1761,26 +1768,46 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                           ⚑ JALON
                         </div>
                       )}
-                      {shown.map(iv=>(
-                        <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
-                          onClick={e=>{e.stopPropagation();onOpenDetail(iv.id);}} />
-                      ))}
-                      {extra>0&&<div style={{fontSize:8,color:'var(--muted)',padding:'1px 2px',
-                        fontFamily:"'DM Mono',monospace",cursor:'pointer'}}
-                        onClick={e=>{e.stopPropagation();onOpenDetail(cards[2].id);}}>+{extra}</div>}
+                      {shown.map(function(iv){
+                        if (isMulti) {
+                          var _tr=trades.find(function(t){return t.id===iv.trade;});
+                          var _c=getTC(_tr?_tr.color:'blue');
+                          var _m=STATUS_META[iv.status]||STATUS_META.arealis;
+                          return (
+                            <div key={iv.id} onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}}
+                              style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
+                                background:_c.bg,borderLeft:'2px solid '+_c.b,overflow:'hidden'}}>
+                              <div style={{display:'flex',alignItems:'center',gap:2}}>
+                                <span style={{fontSize:weeks===2?7:6.5,fontWeight:700,color:_c.t,
+                                  overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
+                                  lineHeight:1.3,flex:1}}>{iv.company}</span>
+                                <span style={{width:4,height:4,borderRadius:'50%',
+                                  background:_m.dot,flexShrink:0}}></span>
+                              </div>
+                              {weeks===2&&<div style={{fontSize:6.5,color:_c.t,opacity:.7,lineHeight:1.2,
+                                overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.task}</div>}
+                            </div>
+                          );
+                        }
+                        return (
+                          <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
+                            onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}} />
+                        );
+                      })}
+
                     </div>
                   );
                 })}
 
                 {/* Deadline cell — working days */}
                 <div style={{borderLeft:'2px solid var(--border-s)',display:'flex',flexDirection:'column',
-                  alignItems:'center',justifyContent:'center',padding:'4px 3px',
-                  background:`${dc}12`,minHeight:64}}>
-                  <span style={{fontSize:9,fontWeight:800,color:dc,fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.3}}>
+                  alignItems:'center',justifyContent:'center',padding:isMulti?'2px 1px':'4px 3px',
+                  background:`${dc}12`,minHeight:isMulti?40:56}}>
+                  <span style={{fontSize:isMulti?7:9,fontWeight:800,color:dc,fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.2,whiteSpace:'nowrap'}}>
                     {workingDaysUntil(zone.deadline)<0?'▲':`J-${workingDaysUntil(zone.deadline)}`}
                   </span>
-                  <span style={{fontSize:7,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2,textAlign:'center'}}>
-                    {fmtDate(zone.deadline).slice(0,5)}
+                  <span style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1,textAlign:'center',whiteSpace:'nowrap'}}>
+                    {zone.deadline?zone.deadline.slice(5,10).replace('-','/'):''}
                   </span>
                 </div>
               </div>
@@ -2036,6 +2063,86 @@ const miniBtn = {padding:'5px 10px',borderRadius:'var(--r-xs)',border:'1px solid
 /* ════════════════════════════════════════════════════════════
    DETAIL MODAL
 ═══════════════════════════════════════════════════════════ */
+function StatusWithNote({ iv, session, onStatusChange }) {
+  var [pendingStatus, setPendingStatus] = React.useState(null);
+  var [noteText, setNoteText] = React.useState('');
+  var [saved, setSaved] = React.useState(false);
+  var m2 = pendingStatus ? (STATUS_META[pendingStatus]||STATUS_META.arealis) : null;
+
+  function confirm() {
+    onStatusChange(iv.id, pendingStatus, noteText.trim());
+    setSaved(true);
+    setTimeout(function(){ setSaved(false); setPendingStatus(null); setNoteText(''); }, 1800);
+  }
+  function cancel() { setPendingStatus(null); setNoteText(''); }
+
+  return (
+    <div style={{marginBottom:14}}>
+      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
+        textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
+        Mettre à jour le statut
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
+        {Object.entries(STATUS_META).map(function(entry){
+          var k=entry[0], m=entry[1];
+          return (
+            <button key={k} onClick={function(){ setPendingStatus(k); setNoteText(''); setSaved(false); }}
+              style={{padding:'9px 6px',borderRadius:'var(--r-sm)',
+                border:'1.5px solid '+(iv.status===k?m.dot:'var(--border)'),
+                background:iv.status===k?m.bg:'var(--surface)',
+                cursor:'pointer',fontSize:12,fontWeight:500,
+                color:iv.status===k?m.text:'var(--text)',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
+              <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+              {m.label}
+            </button>
+          );
+        })}
+      </div>
+      {pendingStatus && !saved && (
+        <div style={{marginTop:10,padding:'12px',background:'var(--surface-2)',
+          border:'1.5px solid '+(m2?m2.dot:'var(--border)'),borderRadius:'var(--r-sm)'}}>
+          <div style={{fontSize:11,fontWeight:700,color:m2?m2.dot:'var(--muted)',
+            marginBottom:8,fontFamily:"'DM Mono',monospace"}}>
+            {m2?m2.label:'?'} — note optionnelle
+          </div>
+          <textarea
+            value={noteText}
+            onChange={function(e){ setNoteText(e.target.value); }}
+            placeholder="Ajouter un commentaire..."
+            style={{width:'100%',padding:'9px 11px',border:'1px solid var(--border)',
+              borderRadius:'var(--r-sm)',fontSize:13,fontFamily:"'DM Sans',sans-serif",
+              color:'var(--text)',background:'var(--surface)',resize:'vertical',
+              minHeight:64,marginBottom:10}}
+          />
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={confirm}
+              style={{flex:1,padding:'10px',borderRadius:'var(--r-sm)',border:'none',
+                background:m2?m2.dot:'var(--primary)',color:'#fff',fontSize:13,fontWeight:700,
+                cursor:'pointer',fontFamily:"'DM Sans',sans-serif"}}>
+              Confirmer
+            </button>
+            <button onClick={cancel}
+              style={{padding:'10px 14px',borderRadius:'var(--r-sm)',
+                border:'1px solid var(--border)',background:'var(--surface)',
+                color:'var(--muted)',fontSize:13,cursor:'pointer',
+                fontFamily:"'DM Sans',sans-serif"}}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+      {saved && (
+        <div style={{marginTop:8,padding:'8px 12px',background:'var(--success-l)',
+          borderRadius:'var(--r-sm)',fontSize:12,color:'var(--success)',fontWeight:600,
+          textAlign:'center'}}>Statut mis à jour</div>
+      )}
+    </div>
+  );
+}
+
+
 function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit }) {
   const iv = data.find(x=>x.id===ivId);
   if (!iv) return null;
@@ -2112,24 +2219,9 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         </div>
       )}
 
-      {/* Status update — only owner or admin */}
+      {/* Status update + optional note — only owner or admin */}
       {(session?.role==='admin' || iv.company===session?.company?.name) && (
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
-            fontFamily:"'DM Mono',monospace",marginBottom:8}}>Mettre à jour le statut</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
-            {Object.entries(STATUS_META).map(([k,m])=>(
-              <button key={k} onClick={()=>onStatusChange(iv.id,k)}
-                style={{padding:'9px 6px',borderRadius:'var(--r-sm)',border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
-                  background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',fontSize:12,fontWeight:500,
-                  color:iv.status===k?m.text:'var(--text)',display:'flex',alignItems:'center',justifyContent:'center',
-                  gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
-                <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <StatusWithNote iv={iv} session={session} onStatusChange={onStatusChange} />
       )}
 
       {session?.role==='admin'&&(
@@ -2176,6 +2268,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, onC
       id: editId||genId(), ...form,
       priority: form.priority||3, staff:1, progress:0, delay:0,
       task_number:tn, attachments,
+      off_days: form.off_days||[],
     });
   }
 
@@ -2195,9 +2288,32 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, onC
           </Select>
         </Field>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:13}}>
-          <Field label="Date début *"><Input type="date" value={form.start||''} onChange={e=>set('start',e.target.value)} /></Field>
+          <Field label="Date debut *"><Input type="date" value={form.start||''} onChange={e=>set('start',e.target.value)} /></Field>
           <Field label="Date fin"><Input type="date" value={form.end||''} onChange={e=>set('end',e.target.value)} /></Field>
         </div>
+        <Field label="Jours off (gelés)">
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {[['Lun',1],['Mar',2],['Mer',3],['Jeu',4],['Ven',5]].map(function(d){
+              var label=d[0], num=d[1];
+              var offs=form.off_days||[];
+              var active=offs.includes(num);
+              return (
+                <button key={num} type="button"
+                  onClick={function(){ set('off_days', active?offs.filter(function(x){return x!==num;}):[...offs,num]); }}
+                  style={{padding:'6px 12px',borderRadius:20,fontSize:12,fontWeight:600,cursor:'pointer',
+                    border:'1.5px solid '+(active?'var(--danger)':'var(--border)'),
+                    background:active?'var(--danger-l)':'var(--surface)',
+                    color:active?'var(--danger)':'var(--muted)',
+                    fontFamily:"'DM Sans',sans-serif",transition:'all .15s'}}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{fontSize:10,color:'var(--xmuted)',marginTop:5,fontFamily:"'DM Mono',monospace"}}>
+            La tache ne s’affiche pas ces jours dans le planning
+          </div>
+        </Field>
         <Field label="Corps de métier *">
           <Select value={form.trade||''} onChange={e=>set('trade',e.target.value)}>
             <option value="">Sélectionner…</option>
