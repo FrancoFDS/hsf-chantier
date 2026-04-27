@@ -975,7 +975,7 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
         <div style={{display:'flex',alignItems:'center',gap:6}}>
           {/* View toggle */}
           <div style={{display:'flex',background:'rgba(255,255,255,.1)',borderRadius:6,padding:2,border:'1px solid rgba(255,255,255,.14)'}}>
-            {['1s','2s','3s'].map(v=>(
+            {['1s','2s','3s','tout'].map(v=>(
               <button key={v} onClick={()=>onViewMode(v)}
                 style={{padding:'3px 8px',borderRadius:4,border:'none',fontSize:10,fontWeight:700,
                   cursor:'pointer',fontFamily:"'DM Mono',monospace",letterSpacing:'.04em',
@@ -1622,7 +1622,20 @@ function SectionCard({ title, children, accent }) {
    PLANNING SCREEN (weekly grid)
 ═══════════════════════════════════════════════════════════ */
 function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode }) {
-  const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
+  // 'tout' = show all weeks from today to the furthest deadline
+  var maxWeeks = 1;
+  if (viewMode === 'tout') {
+    var now = new Date(); now.setHours(0,0,0,0);
+    zones.forEach(function(z){
+      if(z.deadline){
+        var d = new Date(z.deadline+'T00:00:00');
+        var w = Math.ceil((d - now)/(7*24*3600*1000)) + 1;
+        if(w > maxWeeks) maxWeeks = w;
+      }
+    });
+    maxWeeks = Math.max(1, Math.min(maxWeeks, 16)); // cap at 16 weeks
+  }
+  const weeks = viewMode === 'tout' ? maxWeeks : viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const days = multiWeekDays(weekOffset, weeks);
   const isDark = document.documentElement.getAttribute('data-theme') === 'nuit';
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
@@ -1708,17 +1721,22 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                       const checked = zoneFilter.length===0||zoneFilter.includes(z.id);
                       const fc = FLOOR_COLORS[z.floor]||'#9CA3AF';
                       return (
-                        <label key={z.id} style={{display:'flex',alignItems:'center',gap:10,
+                        <div key={z.id} onClick={function(e){e.preventDefault();e.stopPropagation();toggleZone(z.id);}}
+                          style={{display:'flex',alignItems:'center',gap:10,
                           padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid var(--border)',
                           background:checked?'var(--primary-l)':'transparent',transition:'background .1s'}}>
-                          <input type="checkbox" checked={checked} onChange={()=>toggleZone(z.id)}
-                            style={{width:14,height:14,accentColor:'var(--primary)',cursor:'pointer',flexShrink:0}} />
+                          <div style={{width:14,height:14,borderRadius:3,flexShrink:0,
+                            border:`2px solid ${checked?'var(--primary)':'var(--border)'}`,
+                            background:checked?'var(--primary)':'transparent',
+                            display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            {checked&&<span style={{color:'#fff',fontSize:9,lineHeight:1}}>✓</span>}
+                          </div>
                           <span style={{width:8,height:8,borderRadius:'50%',background:fc,flexShrink:0}}></span>
                           <div>
                             <div style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
                             <div style={{fontSize:10,fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{z.short}</div>
                           </div>
-                        </label>
+                        </div>
                       );
                     })}
                   </div>
