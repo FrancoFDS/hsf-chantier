@@ -28,7 +28,6 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 </head>
 <body>
 <div id="root"></div>
-
 <script>
 // planify-data.js — Data layer, constants & utilities
 
@@ -282,7 +281,6 @@ Object.assign(window, {
 });
 
 </script>
-
 <script>
 
 /* ── SUPABASE INTEGRATION ADDON ─────────────────────────── */
@@ -367,7 +365,6 @@ Object.assign(window, {
 })();
 
 </script>
-
 <script type="text/babel">
 
 // tweaks-panel.jsx
@@ -796,7 +793,6 @@ Object.assign(window, {
 });
 
 </script>
-
 <script type="text/babel">
 // planify-components.jsx — Shared UI components
 // Exports all to window.*
@@ -1208,7 +1204,6 @@ Object.assign(window, {
 });
 
 </script>
-
 <script type="text/babel">
 // planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
@@ -1336,86 +1331,250 @@ function LoginScreen({ onLogin }) {
    DASHBOARD SCREEN
 ═══════════════════════════════════════════════════════════ */
 function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetail }) {
+  const isAdmin = session?.role === 'admin';
+  const myName  = session?.company?.name || '';
+
+  // Filter per role
+  const myData  = isAdmin ? data : data.filter(i => i.company === myName);
+
+  // Key stats
+  const encours = myData.filter(i => i.status === 'encours');
+  const blocked = myData.filter(i => i.status === 'bloque');
+  const termine = myData.filter(i => i.status === 'termine');
+  const total   = myData.length;
+  const pct     = total ? Math.round(termine.length / total * 100) : 0;
+
+  // Drawer: which stat is open
+  const [drawer, setDrawer] = useState(null); // 'encours' | 'bloque'
+  function toggle(k) { setDrawer(d => d === k ? null : k); }
+
+  // Task row
+  function TaskRow({ iv }) {
+    const z  = zones.find(x => x.id === iv.zone);
+    const tr = trades.find(x => x.id === iv.trade);
+    const c  = getTC(tr?.color || 'blue');
+    return (
+      <div onClick={() => onOpenDetail(iv.id)}
+        style={{display:'flex',gap:10,padding:'10px 0',borderBottom:'1px solid var(--border)',
+          cursor:'pointer',alignItems:'flex-start'}}
+        onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
+        onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+        <div style={{width:3,alignSelf:'stretch',borderRadius:2,background:c.b,flexShrink:0}}></div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+            <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{iv.company}</span>
+            {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--xmuted)',
+              background:'var(--surface-2)',padding:'1px 4px',borderRadius:3,border:'1px solid var(--border)'}}>
+              {iv.task_number}</span>}
+            <StatusBadge status={iv.status} size="sm" />
+          </div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:3,overflow:'hidden',
+            display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
+          {iv.prereq&&iv.prereq.trim()&&<div style={{fontSize:10,color:'#DC2626',background:'#FEF2F2',
+            padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:2}}>
+            ⚠ {iv.prereq}
+          </div>}
+          <div style={{display:'flex',gap:8,marginTop:4,alignItems:'center'}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
+              {fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}
+            </span>
+            {z&&<span style={{fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',
+              padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>{z.short}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ADMIN VIEW ─────────────────────────────────────────────
+  if (isAdmin) {
+    const companies = [...new Set(data.map(i => i.company))].sort();
+    const companyStats = companies.map(co => ({
+      name:    co,
+      total:   data.filter(i => i.company===co).length,
+      encours: data.filter(i => i.company===co&&i.status==='encours').length,
+      bloque:  data.filter(i => i.company===co&&i.status==='bloque').length,
+      termine: data.filter(i => i.company===co&&i.status==='termine').length,
+    }));
+
+    return (
+      <div style={{padding:'14px 12px 100px',overflowY:'auto',height:'100%'}}>
+        {/* 2 chips seulement */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
+          <StatChip value={encours.length} label="En cours" color="#2563EB" onClick={()=>toggle('encours')} />
+          <StatChip value={blocked.length} label="Bloquées" color="#DC2626" onClick={()=>toggle('bloque')} />
+        </div>
+
+        {/* Drawer */}
+        {drawer && (
+          <SectionCard title={drawer==='encours'?`En cours (${encours.length})`:`Bloquées (${blocked.length})`}
+            accent={drawer==='encours'?'#2563EB':'#DC2626'}>
+            {(drawer==='encours'?encours:blocked).map(iv=><TaskRow key={iv.id} iv={iv} />)}
+          </SectionCard>
+        )}
+
+        {/* Zone progress */}
+        <SectionCard title="Avancement par zone">
+          {zones.map(z => {
+            const zivs=data.filter(i=>i.zone===z.id);
+            const done=zivs.filter(i=>i.status==='termine').length;
+            const bloc=zivs.filter(i=>i.status==='bloque').length;
+            const p=zivs.length?Math.round(done/zivs.length*100):0;
+            const wd=workingDaysUntil(z.deadline);
+            const dc=z.deadline?(wd<0?'#DC2626':wd<5?'#DC2626':wd<15?'#EA580C':'#16A34A'):'var(--xmuted)';
+            return (
+              <div key={z.id} style={{marginBottom:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,display:'inline-block',
+                      background:FLOOR_COLORS[z.floor]||'#9CA3AF'}}></span>
+                    <span style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</span>
+                    {bloc>0&&<span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>⚠ {bloc}</span>}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{done}/{zivs.length}</span>
+                    {z.deadline&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:dc}}>
+                      J-{wd<0?'▲':wd}
+                    </span>}
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,
+                      color:p===100?'#16A34A':bloc>0?'#DC2626':'var(--muted)'}}>{p}%</span>
+                  </div>
+                </div>
+                <div style={{height:6,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${p}%`,borderRadius:3,transition:'width .4s',
+                    background:p===100?'#16A34A':bloc>0?'#DC2626':'#2563EB'}}></div>
+                </div>
+              </div>
+            );
+          })}
+        </SectionCard>
+
+        {/* Company table */}
+        <SectionCard title="Avancement par entreprise">
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+              <thead>
+                <tr style={{borderBottom:'2px solid var(--border)'}}>
+                  {['Entreprise','Total','Term.','En cours','Bloqué','À réal.','%'].map(h=>(
+                    <th key={h} style={{padding:'4px 6px',textAlign:h==='Entreprise'?'left':'center',
+                      fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--muted)',fontWeight:700}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {companyStats.map((co,i)=>{
+                  const arealis=co.total-co.encours-co.bloque-co.termine;
+                  const p2=co.total?Math.round(co.termine/co.total*100):0;
+                  const tr2=trades.find(t=>data.find(d=>d.company===co.name&&d.trade===t.id));
+                  const c2=getTC(tr2?.color||'navy');
+                  return (
+                    <tr key={co.name} style={{borderBottom:'1px solid var(--border)',
+                      background:i%2?'var(--surface-2)':'transparent'}}>
+                      <td style={{padding:'7px 6px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <span style={{width:8,height:8,borderRadius:'50%',background:c2.b,flexShrink:0,display:'inline-block'}}></span>
+                          <span style={{fontWeight:600,color:'var(--text)',fontSize:12}}>{co.name}</span>
+                        </div>
+                      </td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{co.total}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#16A34A',fontWeight:co.termine?700:400}}>{co.termine||'-'}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#2563EB',fontWeight:co.encours?700:400}}>{co.encours||'-'}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#DC2626',fontWeight:co.bloque?700:400}}>{co.bloque||'-'}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{arealis||'-'}</td>
+                      <td style={{padding:'7px 6px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:4}}>
+                          <div style={{flex:1,height:4,background:'var(--border)',borderRadius:2,overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${p2}%`,background:p2===100?'#16A34A':'#2563EB',borderRadius:2}}></div>
+                          </div>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',minWidth:28,textAlign:'right'}}>{p2}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  // ── COMPANY VIEW ───────────────────────────────────────────
   const days = weekDays(weekOffset);
-  const weekIvs = data.filter(i => days.some(d => inDay(i, d)));
-  const stats = {
-    total:   weekIvs.length,
-    encours: weekIvs.filter(i=>i.status==='encours').length,
-    bloque:  weekIvs.filter(i=>i.status==='bloque').length,
-    termine: weekIvs.filter(i=>i.status==='termine').length,
+  const weekIvs = myData.filter(i => days.some(d => inDay(i, d)));
+  const byStatus = {
+    bloque:  myData.filter(i=>i.status==='bloque'),
+    encours: myData.filter(i=>i.status==='encours'),
+    arealis: myData.filter(i=>i.status==='arealis'),
+    termine: myData.filter(i=>i.status==='termine'),
   };
-  const blocked = data.filter(i=>i.status==='bloque');
-  const upcoming = data.filter(i=>{
-    const s=new Date(i.start+'T00:00:00'),now=new Date();
-    const diff=(s-now)/(1000*60*60*24);
-    return diff>0&&diff<=7&&i.status!=='termine';
-  }).sort((a,b)=>a.start.localeCompare(b.start)).slice(0,5);
 
   return (
-    <div style={{padding:'16px 14px 100px',overflowY:'auto',height:'100%'}}>
-      {/* Stats row */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:16}}>
-        <StatChip value={stats.total}   label="Semaine"  color="var(--text)"    />
-        <StatChip value={stats.encours} label="En cours" color="#2563EB"        />
-        <StatChip value={stats.bloque}  label="Bloquées" color="#DC2626"        />
-        <StatChip value={stats.termine} label="Terminées" color="#16A34A"       />
+    <div style={{padding:'14px 12px 100px',overflowY:'auto',height:'100%'}}>
+      {/* Header: company name + global progress */}
+      <div style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'14px 16px',marginBottom:14,
+        display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:700,color:'#fff',marginBottom:3}}>{myName}</div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,.6)',fontFamily:"'DM Mono',monospace"}}>
+            {total} tâche{total!==1?'s':''} · {pct}% terminé{pct>=100?' ✓':''}
+          </div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:28,fontWeight:800,color:pct===100?'#4ADE80':'#fff',fontFamily:"'DM Mono',monospace"}}>{pct}%</div>
+        </div>
       </div>
 
-      {/* Zone progress */}
-      <SectionCard title="Avancement par zone">
-        {zones.map(z => <ZoneProgressBar key={z.id} zone={z} interventions={data} />)}
+      {/* 2 chips seulement */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
+        <StatChip value={byStatus.encours.length} label="En cours" color="#2563EB" onClick={()=>toggle('encours')} />
+        <StatChip value={byStatus.bloque.length}  label="Bloquées" color="#DC2626" onClick={()=>toggle('bloque')} />
+      </div>
+
+      {/* Drawer */}
+      {drawer && (
+        <SectionCard
+          title={drawer==='encours'?`En cours (${byStatus.encours.length})`:`Mes blocages (${byStatus.bloque.length})`}
+          accent={drawer==='encours'?'#2563EB':'#DC2626'}>
+          {(drawer==='encours'?byStatus.encours:byStatus.bloque).length===0
+            ? <div style={{padding:'16px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>Aucune tâche</div>
+            : (drawer==='encours'?byStatus.encours:byStatus.bloque).map(iv=><TaskRow key={iv.id} iv={iv} />)
+          }
+        </SectionCard>
+      )}
+
+      {/* Cette semaine */}
+      <SectionCard title={`Cette semaine — ${weekIvs.length} tâche${weekIvs.length!==1?'s':''}`}>
+        {weekIvs.length===0
+          ? <div style={{padding:'16px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>Aucune tâche cette semaine</div>
+          : weekIvs.sort((a,b)=>a.start.localeCompare(b.start)).map(iv=><TaskRow key={iv.id} iv={iv} />)
+        }
       </SectionCard>
 
-      {/* Blocages */}
-      {blocked.length > 0 && (
-        <SectionCard title={`Points bloquants (${blocked.length})`} accent="#DC2626">
-          {blocked.map(iv => {
-            const z = zones.find(x=>x.id===iv.zone);
-            return (
-              <div key={iv.id} onClick={()=>onOpenDetail(iv.id)}
-                style={{display:'flex',gap:10,padding:'9px 0',borderBottom:'1px solid var(--border)',
-                  cursor:'pointer',alignItems:'flex-start'}}
-                onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
-                onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                <span style={{flexShrink:0,color:'#DC2626',fontSize:12,marginTop:1}}>⚠</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:1}}>{iv.company}</div>
-                  <div style={{fontSize:11,color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
-                  {iv.prereq && <div style={{fontSize:10,color:'#DC2626',marginTop:2}}>{iv.prereq}</div>}
-                </div>
-                <TradeBadge tradeId={iv.trade} trades={trades} />
-              </div>
-            );
-          })}
-        </SectionCard>
-      )}
+      {/* Stats par statut */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:14}}>
+        <StatChip value={byStatus.arealis.length}  label="À réaliser" color="var(--muted)" />
+        <StatChip value={byStatus.encours.length}  label="En cours"   color="#2563EB" />
+        <StatChip value={byStatus.bloque.length}   label="Bloquées"   color="#DC2626" />
+        <StatChip value={byStatus.termine.length}  label="Terminées"  color="#16A34A" />
+      </div>
 
-      {/* Upcoming */}
-      {upcoming.length > 0 && (
-        <SectionCard title="À venir cette semaine">
-          {upcoming.map(iv => {
-            const z = zones.find(x=>x.id===iv.zone);
-            return (
-              <div key={iv.id} onClick={()=>onOpenDetail(iv.id)}
-                style={{display:'flex',gap:10,padding:'9px 0',borderBottom:'1px solid var(--border)',
-                  cursor:'pointer',alignItems:'flex-start'}}
-                onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
-                onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                <div style={{flexShrink:0,fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',
-                  marginTop:2,minWidth:32}}>{fmtDate(iv.start).slice(0,5)}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:1}}>{iv.company}</div>
-                  <div style={{fontSize:11,color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
-                </div>
-                <StatusBadge status={iv.status} size="sm" />
-              </div>
-            );
-          })}
-        </SectionCard>
-      )}
+      {/* Toutes mes tâches par statut */}
+      {['bloque','encours','arealis','termine'].map(st=>{
+        const items=byStatus[st]; if(!items.length) return null;
+        const labels={bloque:'Bloquées',encours:'En cours',arealis:'À réaliser',termine:'Terminées'};
+        const colors={bloque:'#DC2626',encours:'#2563EB',arealis:'var(--muted)',termine:'#16A34A'};
+        return (
+          <SectionCard key={st} title={`${labels[st]} (${items.length})`} accent={colors[st]}>
+            {items.sort((a,b)=>a.start.localeCompare(b.start)).map(iv=><TaskRow key={iv.id} iv={iv} />)}
+          </SectionCard>
+        );
+      })}
     </div>
   );
 }
+
 
 function SectionCard({ title, children, accent }) {
   return (
@@ -1953,21 +2112,25 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         </div>
       )}
 
-      {/* Status update */}
-      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
-        fontFamily:"'DM Mono',monospace",marginBottom:8}}>Mettre à jour le statut</div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
-        {Object.entries(STATUS_META).map(([k,m])=>(
-          <button key={k} onClick={()=>onStatusChange(iv.id,k)}
-            style={{padding:'9px 6px',borderRadius:'var(--r-sm)',border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
-              background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',fontSize:12,fontWeight:500,
-              color:iv.status===k?m.text:'var(--text)',display:'flex',alignItems:'center',justifyContent:'center',
-              gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
-            <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
-            {m.label}
-          </button>
-        ))}
-      </div>
+      {/* Status update — only owner or admin */}
+      {(session?.role==='admin' || iv.company===session?.company?.name) && (
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',textTransform:'uppercase',
+            fontFamily:"'DM Mono',monospace",marginBottom:8}}>Mettre à jour le statut</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
+            {Object.entries(STATUS_META).map(([k,m])=>(
+              <button key={k} onClick={()=>onStatusChange(iv.id,k)}
+                style={{padding:'9px 6px',borderRadius:'var(--r-sm)',border:`1.5px solid ${iv.status===k?m.dot:'var(--border)'}`,
+                  background:iv.status===k?m.bg:'var(--surface)',cursor:'pointer',fontSize:12,fontWeight:500,
+                  color:iv.status===k?m.text:'var(--text)',display:'flex',alignItems:'center',justifyContent:'center',
+                  gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
+                <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {session?.role==='admin'&&(
         <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier intervention</button>
@@ -2051,15 +2214,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, onC
           <Input value={form.task||''} onChange={e=>set('task',e.target.value)} placeholder="ex : Pose cloisons R+3 plateau Est" />
         </Field>
 
-        <Field label="Prédécesseur" hint="(optionnel)">
-          <Select value={form.predecessor_id||''} onChange={e=>set('predecessor_id',e.target.value)}>
-            <option value="">Aucun</option>
-            {predecessorList.map(i=>{
-              const z=zones.find(x=>x.id===i.zone);
-              return <option key={i.id} value={i.id}>{i.task_number} — {i.company} — {i.task.slice(0,30)}{z?` (${z.short})`:''}</option>;
-            })}
-          </Select>
-        </Field>
+
         <Field label="Prérequis / Point bloquant">
           <Textarea value={form.prereq||''} onChange={e=>set('prereq',e.target.value)}
             placeholder="ex : Zone libérée avant intervention…" rows={2} />
@@ -2226,7 +2381,6 @@ function PlanifyApp() {
 }
 
 </script>
-
 <script type="text/babel">
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(<PlanifyApp />);
