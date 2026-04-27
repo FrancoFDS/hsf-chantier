@@ -944,7 +944,7 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh }) {
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onPrint }) {
   const weeks = viewMode === '3w' ? 3 : 1;
   const days  = multiWeekDays(weekOffset, weeks);
   const start = days[0], end = days[days.length - 1];
@@ -1001,6 +1001,9 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
           <button onClick={onRefresh} title="Rafraichir"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:13}}>↻</button>
+          <button onClick={onPrint} title="Imprimer le planning"
+            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
+              border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:13}}>🖨</button>
           {session?.role==='admin'&&
             <button onClick={onSettings} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:28,height:28,fontSize:14}}>⚙</button>}
@@ -2726,6 +2729,247 @@ function PlanifyApp() {
     }
   };
 
+  // ── Print planning ───────────────────────────────────────────────────
+  function printPlanning() {
+    var now = new Date();
+    var nowStr = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+
+    // Build weeks array
+    var weeksCount = viewMode==='tout' ? (function(){
+      var m=1; zones.forEach(function(z){
+        if(z.deadline){var d=new Date(z.deadline+'T00:00:00');
+          var w=Math.ceil((d-now)/(7*24*3600*1000))+1; if(w>m)m=w;}
+      }); return Math.max(1,Math.min(m,16));
+    })() : viewMode==='3s'?3:viewMode==='2s'?2:1;
+
+    var allDays = (function(){
+      var arr=[];
+      for(var w=0;w<weeksCount;w++){
+        var base=new Date(now);
+        var dow=base.getDay(); if(dow===0)dow=7;
+        base.setDate(base.getDate()-dow+1+weekOffset*7+w*7);
+        for(var d=0;d<5;d++){
+          var dd=new Date(base); dd.setDate(base.getDate()+d);
+          arr.push(dd);
+        }
+      }
+      return arr;
+    })();
+
+    var MONTHS=['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+    var DAYS_S=['Lu','Ma','Me','Je','Ve'];
+    var HEX={crimson:'#B91C1C',orange:'#F97316',amber:'#D97706',brown:'#92400E',
+      forest:'#166534',lime:'#4ADE80',navy:'#1E3A8A',sky:'#38BDF8',
+      violet:'#7C3AED',pink:'#EC4899',slate:'#475569',blue:'#3B82F6',
+      green:'#16A34A',gold:'#CA8A04',teal:'#0D9488'};
+
+    function ds(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+    function isHol(d){var hols=['2026-01-01','2026-05-01','2026-05-08','2026-05-14','2026-05-25','2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25'];return hols.includes(ds(d));}
+    function fmtD(d){return d.getDate()+'/'+String(d.getMonth()+1).padStart(2,'0');}
+    function wd(ds2){if(!ds2)return null; var t=new Date(ds2+'T00:00:00'),n=new Date();n.setHours(0,0,0,0);var c=0,dir=t>=n?1:-1,cur=new Date(n);var hols=['2026-01-01','2026-05-01','2026-05-08','2026-05-14','2026-05-25','2026-07-14'];while(cur.toDateString()!==t.toDateString()){cur.setDate(cur.getDate()+dir);var dow=cur.getDay(),s2=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');if(dow!==0&&dow!==6&&!hols.includes(s2))c+=dir;}return c;}
+
+    var periodStart = allDays[0];
+    var periodEnd   = allDays[allDays.length-1];
+    var periodStr   = fmtD(periodStart)+' au '+fmtD(periodEnd);
+
+    // Collect trade legend
+    var usedTrades = {};
+    data.forEach(function(iv){
+      if(!usedTrades[iv.trade]){
+        var tr=trades.find(function(t){return t.id===iv.trade;});
+        if(tr) usedTrades[iv.trade]=tr;
+      }
+    });
+
+    // Build grid HTML
+    var colW = weeksCount<=1?'120px':weeksCount<=2?'80px':weeksCount<=3?'60px':'40px';
+    var colStyle = 'padding:3px;border:1px solid #ccc;vertical-align:top;width:'+colW+';';
+    var thStyle  = 'padding:4px 3px;border:1px solid #999;background:#f0f0f0;text-align:center;font-size:'+(weeksCount>2?'7':'8')+'px;font-family:monospace;';
+
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
+    html += '<title>Planify - HSF Av. Marceau - '+periodStr+'</title>';
+    html += '<style>';
+    html += '*{box-sizing:border-box;margin:0;padding:0;}';
+    html += 'body{font-family:Arial,sans-serif;font-size:9px;color:#111;}';
+    html += '@page{size:A4 landscape;margin:8mm 8mm 10mm 8mm;}';
+    html += '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}';
+    html += '.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;border-bottom:2px solid #333;padding-bottom:4px;}';
+    html += '.title{font-size:14px;font-weight:bold;color:#1a1a1a;}';
+    html += '.subtitle{font-size:9px;color:#555;margin-top:2px;}';
+    html += '.meta{text-align:right;font-size:8px;color:#666;font-family:monospace;}';
+    html += 'table{width:100%;border-collapse:collapse;table-layout:fixed;}';
+    html += 'th{'+thStyle+'}';
+    html += 'td{'+colStyle+'font-size:'+(weeksCount>2?'7':'8')+'px;}';
+    html += '.zone-cell{font-weight:bold;font-size:'+(weeksCount>2?'7':'8')+'px;background:#f8f8f8;text-align:center;padding:3px 2px;width:42px;word-break:break-all;vertical-align:middle;}';
+    html += '.fin-cell{text-align:center;font-family:monospace;font-size:8px;vertical-align:middle;width:30px;}';
+    html += '.task-card{border-radius:3px;padding:2px 3px;margin-bottom:2px;border-left:3px solid #999;background:#f9f9f9;page-break-inside:avoid;}';
+    html += '.task-co{font-weight:bold;font-size:'+(weeksCount>2?'6.5':'8')+'px;}';
+    html += '.task-desc{font-size:'+(weeksCount>2?'6':'7.5')+'px;color:#333;margin-top:1px;}';
+    html += '.task-prereq{font-size:6.5px;color:#c00;margin-top:1px;border-left:2px solid #c00;padding-left:3px;}';
+    html += '.task-num{font-size:6px;color:#999;font-family:monospace;}';
+    html += '.holiday{background:#d0d3d8!important;}';
+    html += '.today{background:#e8f0ff!important;}';
+    html += '.deadline{background:#ffe8e8!important;}';
+    html += '.floor-sep{border-top:3px solid #333!important;}';
+    html += '.legend{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;font-size:7px;border-top:1px solid #ccc;padding-top:4px;}';
+    html += '.leg-item{display:flex;align-items:center;gap:3px;}';
+    html += '.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}';
+    html += '.zones-legend{margin-top:4px;display:flex;flex-wrap:wrap;gap:8px;font-size:7px;}';
+    html += '.zone-leg{display:flex;align-items:center;gap:4px;}';
+    html += '.zone-dot{width:8px;height:8px;border-radius:50%;}';
+    html += '</style></head><body>';
+
+    // Header
+    html += '<div class="header">';
+    html += '<div>';
+    html += '<div class="title">Planify — HSF 66 Av. Marceau</div>';
+    html += '<div class="subtitle">Planning du '+periodStr+' &nbsp;|&nbsp; Vue : '+viewMode.toUpperCase()+' &nbsp;|&nbsp; Imprimé le '+nowStr+'</div>';
+    html += '</div>';
+    html += '<div class="meta">';
+    html += 'Zones affichées : '+zones.length+'<br>';
+    html += 'Tâches : '+data.length;
+    html += '</div>';
+    html += '</div>';
+
+    // Table
+    html += '<table><colgroup>';
+    html += '<col style="width:42px">';
+    allDays.forEach(function(){html += '<col style="width:'+colW+'">';});
+    html += '<col style="width:30px">';
+    html += '</colgroup><thead><tr>';
+    html += '<th style="width:42px;background:#e8e8e8;">Zone</th>';
+
+    allDays.forEach(function(d,i){
+      var hol = isHol(d);
+      var isFirst = i>0 && i%5===0;
+      var bg = hol?'#d0d3d8':'#f0f0f0';
+      var border = isFirst?'border-left:2px solid #999;':'';
+      html += '<th style="'+border+'background:'+bg+';">';
+      html += '<div>'+DAYS_S[d.getDay()-1]+'</div>';
+      html += '<div style="font-size:'+(weeksCount>2?'7':'8')+'px;font-weight:bold;">'+d.getDate()+'</div>';
+      html += '<div>'+MONTHS[d.getMonth()]+'</div>';
+      if(hol) html += '<div style="color:#666;font-size:6px;">JF</div>';
+      html += '</th>';
+    });
+    html += '<th style="background:#ffe8e8;font-size:7px;writing-mode:vertical-rl;transform:rotate(180deg);">FIN</th>';
+    html += '</tr></thead><tbody>';
+
+    // Zone rows
+    var prevFloor = null;
+    zones.forEach(function(zone){
+      var floorChange = prevFloor !== null && prevFloor !== zone.floor;
+      prevFloor = zone.floor;
+      var fc = {R3:'#2152C8',R2:'#0D9488','R+3':'#2152C8','R+2':'#0D9488','R+1':'#8B5CF6'}[zone.floor]||'#9CA3AF';
+      var wdVal = wd(zone.deadline);
+      var trClass = floorChange?'class="floor-sep"':'';
+
+      html += '<tr '+trClass+'>';
+      html += '<td class="zone-cell" style="border-right:3px solid '+fc+';color:'+fc+';">';
+      html += '<div>'+zone.short+'</div>';
+      if(zone.deadline){
+        var wdStr = wdVal===null?'':wdVal<0?'▲':'J-'+wdVal;
+        var wdColor = wdVal!==null&&wdVal<5?'#DC2626':'#666';
+        html += '<div style="font-size:6px;color:'+wdColor+';margin-top:2px;">'+wdStr+'</div>';
+        html += '<div style="font-size:6px;color:#999;">'+zone.deadline.slice(5,10).replace('-','/')+'</div>';
+      }
+      html += '</td>';
+
+      allDays.forEach(function(day,i){
+        var dayStr = ds(day);
+        var hol = isHol(day);
+        var isFirst = i>0&&i%5===0;
+        var isDeadline = zone.deadline && dayStr===zone.deadline;
+        var isPast = zone.deadline && dayStr>zone.deadline;
+        var bg = hol?'#d0d3d8':isPast&&!isDeadline?'rgba(220,38,38,.07)':isDeadline?'#ffe0e0':'transparent';
+        var border = isFirst?'border-left:2px solid #aaa;':'';
+
+        var cards = hol?[]:data.filter(function(iv){
+          if(iv.zone!==zone.id) return false;
+          if(!inDay(iv,day)) return false;
+          var offs=iv.off_days||[];
+          if(offs.includes(dayStr)) return false;
+          return true;
+        });
+
+        html += '<td style="'+border+'background:'+bg+';">';
+        cards.forEach(function(iv){
+          var tr2 = trades.find(function(t){return t.id===iv.trade;});
+          var color = tr2 ? (HEX[tr2.color]||'#999') : '#999';
+          html += '<div class="task-card" style="border-left-color:'+color+';background:'+color+'15;">';
+          html += '<div class="task-num">'+iv.task_number+'</div>';
+          html += '<div class="task-co" style="color:'+color+';">'+iv.company+'</div>';
+          html += '<div class="task-desc">'+iv.task+'</div>';
+          if(iv.prereq&&iv.prereq.trim()){
+            html += '<div class="task-prereq">'+iv.prereq+'</div>';
+          }
+          if(iv.notes&&iv.notes.trim()&&!iv.notes.startsWith('Etage')&&!iv.notes.startsWith('Étage')){
+            html += '<div style="font-size:6px;color:#555;margin-top:1px;font-style:italic;">'+iv.notes+'</div>';
+          }
+          html += '</div>';
+        });
+        html += '</td>';
+      });
+
+      // FIN cell
+      if(zone.deadline){
+        var wdVal2=wd(zone.deadline);
+        var wdStr2=wdVal2===null?'':wdVal2<0?'▲':'J-'+wdVal2;
+        var wdCol2=wdVal2!==null&&wdVal2<5?'#DC2626':'#333';
+        html += '<td class="fin-cell"><div style="font-weight:bold;color:'+wdCol2+';">'+wdStr2+'</div>';
+        html += '<div style="font-size:6px;color:#999;">'+zone.deadline.slice(5,10).replace('-','/')+'</div></td>';
+      } else {
+        html += '<td class="fin-cell" style="color:#ccc;">—</td>';
+      }
+
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+
+    // Legend — trades
+    html += '<div class="legend">';
+    html += '<strong style="font-size:7px;color:#333;margin-right:4px;">Corps de métier :</strong>';
+    Object.values(usedTrades).forEach(function(tr){
+      var color = HEX[tr.color]||'#999';
+      html += '<div class="leg-item"><div class="leg-dot" style="background:'+color+';"></div><span>'+tr.name+'</span></div>';
+    });
+    html += '</div>';
+
+    // Legend — zones
+    html += '<div class="zones-legend">';
+    var floors = {};
+    zones.forEach(function(z){if(!floors[z.floor])floors[z.floor]=[];floors[z.floor].push(z);});
+    var floorColors={'R+3':'#2152C8','R+2':'#0D9488','R+1':'#8B5CF6'};
+    Object.entries(floors).forEach(function(e){
+      var floor=e[0], fzones=e[1];
+      var fc2=floorColors[floor]||'#9CA3AF';
+      html += '<div class="zone-leg"><div class="zone-dot" style="background:'+fc2+';"></div>';
+      html += '<strong>'+floor+' :</strong>';
+      fzones.forEach(function(z){
+        var wdV=wd(z.deadline);
+        var wdS=wdV===null?'':' J-'+(wdV<0?'▲':wdV);
+        html += '<span style="margin-left:4px;">'+z.name+(wdS?'<span style="color:#c00;">'+wdS+'</span>':'')+'</span>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+
+    // Status legend
+    html += '<div style="margin-top:4px;display:flex;gap:8px;font-size:7px;color:#666;">';
+    html += '<span style="background:#d0d3d8;padding:1px 4px;border-radius:2px;">Gris = Jour férié</span>';
+    html += '<span style="background:#ffe8e8;padding:1px 4px;border-radius:2px;">Rouge = Après jalon</span>';
+    html += '<span style="background:#e8f0ff;padding:1px 4px;border-radius:2px;">Bleu = Aujourd’hui</span>';
+    html += '</div>';
+
+    html += '</body></html>';
+
+    var w2 = window.open('','_blank','width=1200,height=800');
+    w2.document.write(html);
+    w2.document.close();
+    setTimeout(function(){w2.print();},800);
+  }
+
+
   return (
     <>
       <div style={{display:'flex',flexDirection:'column',height:'100vh',overflow:'hidden'}}>
@@ -2737,6 +2981,7 @@ function PlanifyApp() {
           zones={zones} data={data}
           viewMode={viewMode} onViewMode={setViewMode}
           onToday={()=>setWeekOffset(0)}
+          onPrint={printPlanning}
           onRefresh={()=>{
             loadFromSupabase(session);
           }} />
