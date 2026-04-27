@@ -1451,6 +1451,89 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
 }
 
 
+
+function isTaskLate(iv) {
+  if (!iv || iv.status === 'termine') return false;
+  const rawDate = iv.end || iv.start;
+  if (!rawDate) return false;
+  const due = new Date(rawDate + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due < today;
+}
+
+function ZoneTaskList({ items, zones, trades, onOpenDetail, isAdmin, title, emptyLabel }) {
+  const ordered = [...items].sort(function(a,b) {
+    const rank = function(iv) {
+      if (iv.status === 'bloque') return 0;
+      if (isTaskLate(iv)) return 1;
+      if (iv.status === 'encours') return 2;
+      if (iv.status === 'arealis') return 3;
+      if (iv.status === 'termine') return 4;
+      return 9;
+    };
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    return (a.start || '').localeCompare(b.start || '');
+  });
+
+  const counts = ordered.reduce(function(acc, iv) {
+    acc[iv.status] = (acc[iv.status] || 0) + 1;
+    if (isTaskLate(iv)) acc.retard += 1;
+    acc.total += 1;
+    return acc;
+  }, { total: 0, termine: 0, encours: 0, bloque: 0, arealis: 0, retard: 0 });
+
+  const stat = function(label, value, color) {
+    return (
+      <div style={{display:'flex',alignItems:'center',gap:4,padding:'4px 7px',
+        border:'1px solid var(--border)',borderRadius:20,background:'var(--surface)',
+        fontSize:10,fontFamily:"'DM Mono',monospace",color:'var(--muted)',whiteSpace:'nowrap'}}>
+        <span style={{width:6,height:6,borderRadius:'50%',background:color,display:'inline-block',flexShrink:0}}></span>
+        <span style={{fontWeight:700,color:color}}>{value}</span>
+        <span>{label}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{margin:'8px 0 14px',padding:'10px 12px',
+      background:'var(--surface-2)',border:'1px solid var(--border)',
+      borderRadius:'var(--r-sm)'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+        gap:8,marginBottom:9,flexWrap:'wrap'}}>
+        <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',
+          fontFamily:"'DM Mono',monospace",textTransform:'uppercase',letterSpacing:'.04em'}}>
+          {title || (isAdmin ? 'Toutes les tâches de la zone' : 'Mes tâches dans cette zone')}
+        </div>
+        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+          {stat('total', counts.total, 'var(--muted)')}
+          {counts.bloque > 0 && stat('bloquée' + (counts.bloque > 1 ? 's' : ''), counts.bloque, '#DC2626')}
+          {counts.retard > 0 && stat('en retard', counts.retard, '#EA580C')}
+          {counts.encours > 0 && stat('en cours', counts.encours, '#2563EB')}
+          {counts.arealis > 0 && stat('à faire', counts.arealis, '#6B7280')}
+          {counts.termine > 0 && stat('terminée' + (counts.termine > 1 ? 's' : ''), counts.termine + '/' + counts.total, '#16A34A')}
+        </div>
+      </div>
+
+      {ordered.length === 0 ? (
+        <div style={{padding:'10px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>
+          {emptyLabel || 'Aucune tâche à afficher.'}
+        </div>
+      ) : (
+        <div>
+          {ordered.map(function(iv) {
+            return isAdmin
+              ? <TaskRowAdmin key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />
+              : <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionCard({ title, children, accent }) {
   return (
     <div style={{
@@ -1502,16 +1585,132 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   const encours = myData.filter(i => i.status === 'encours');
   const blocked = myData.filter(i => i.status === 'bloque');
   const termine = myData.filter(i => i.status === 'termine');
+  const overdue = myData.filter(i => isTaskLate(i));
   const total   = myData.length;
   const pct     = total ? Math.round(termine.length / total * 100) : 0;
 
   // Drawer: which stat is open
   const [drawer, setDrawer] = React.useState(null);
-  function toggle(k) { setDrawer(function(d){ return d===k?null:k; }); }
+  const [openZoneId, setOpenZoneId] = React.useState(null);
 
-  // (no inline TaskRow in DashboardScreen - use TaskRowAdmin below)
+  function toggle(k) {
+    setDrawer(function(d){ return d === k ? null : k; });
+    setOpenZoneId(null);
+  }
 
+  function toggleZoneDetail(id) {
+    setDrawer(null);
+    setOpenZoneId(function(current){ return current === id ? null : id; });
+  }
 
+  function getDrawerConfig() {
+    if (drawer === 'all') {
+      return {
+        title: isAdmin ? `Toutes les tâches du chantier (${myData.length})` : `Toutes mes tâches (${myData.length})`,
+        items: myData,
+        accent: 'var(--primary)',
+        empty: 'Aucune tâche à afficher.'
+      };
+    }
+    if (drawer === 'encours') {
+      return {
+        title: `En cours (${encours.length})`,
+        items: encours,
+        accent: '#2563EB',
+        empty: 'Aucune tâche en cours.'
+      };
+    }
+    if (drawer === 'bloque') {
+      return {
+        title: `Bloquées (${blocked.length})`,
+        items: blocked,
+        accent: '#DC2626',
+        empty: 'Aucune tâche bloquée.'
+      };
+    }
+    if (drawer === 'retard') {
+      return {
+        title: `En retard (${overdue.length})`,
+        items: overdue,
+        accent: '#EA580C',
+        empty: 'Aucune tâche en retard.'
+      };
+    }
+    if (drawer === 'termine') {
+      return {
+        title: `Terminées (${termine.length}/${total})`,
+        items: termine,
+        accent: '#16A34A',
+        empty: 'Aucune tâche terminée.'
+      };
+    }
+    return null;
+  }
+
+  function renderDrawer() {
+    const cfg = getDrawerConfig();
+    if (!cfg) return null;
+    return (
+      <SectionCard title={cfg.title} accent={cfg.accent}>
+        <ZoneTaskList
+          items={cfg.items}
+          zones={zones}
+          trades={trades}
+          onOpenDetail={onOpenDetail}
+          isAdmin={isAdmin}
+          title={isAdmin ? 'Liste des tâches' : 'Liste de mes tâches'}
+          emptyLabel={cfg.empty}
+        />
+      </SectionCard>
+    );
+  }
+
+  function renderStatsGrid() {
+    return (
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:7,marginBottom:14}}>
+        <StatChip value={encours.length} label="En cours" color="#2563EB" onClick={()=>toggle('encours')} />
+        <StatChip value={blocked.length} label="Bloquées" color="#DC2626" onClick={()=>toggle('bloque')} />
+        <StatChip value={overdue.length} label="En retard" color="#EA580C" onClick={()=>toggle('retard')} />
+        <StatChip value={`${termine.length}/${total}`} label="Terminées" color="#16A34A" onClick={()=>toggle('termine')} />
+      </div>
+    );
+  }
+
+  function renderSummaryBanner(title, subtitle) {
+    return (
+      <div onClick={()=>toggle('all')}
+        style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'14px 16px',
+          marginBottom:12,cursor:'pointer',boxShadow:'var(--shadow)',
+          border:drawer==='all'?'1px solid var(--primary)':'1px solid transparent',
+          transition:'transform .12s, border-color .12s'}}
+        onMouseEnter={function(e){e.currentTarget.style.transform='translateY(-1px)';}}
+        onMouseLeave={function(e){e.currentTarget.style.transform='';}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:8,gap:12}}>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:17,fontWeight:800,color:'#fff',marginBottom:2,letterSpacing:'-.01em',
+              whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{title}</div>
+            <div style={{fontSize:11,color:'rgba(255,255,255,.55)',fontFamily:"'DM Mono',monospace"}}>
+              {subtitle}
+            </div>
+            <div style={{fontSize:10,color:'rgba(255,255,255,.45)',fontFamily:"'DM Mono',monospace",marginTop:4}}>
+              Cliquer pour voir toutes les tâches
+            </div>
+          </div>
+          <div style={{textAlign:'right',flexShrink:0}}>
+            <div style={{fontSize:26,fontWeight:800,color:pct===100?'#4ADE80':'#fff',
+              fontFamily:"'DM Mono',monospace",lineHeight:1}}>{pct}%</div>
+            <div style={{fontSize:9,color:'rgba(255,255,255,.5)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
+              terminé
+            </div>
+          </div>
+        </div>
+        <div style={{height:5,background:'rgba(255,255,255,.15)',borderRadius:3,overflow:'hidden'}}>
+          <div style={{height:'100%',width:`${pct}%`,borderRadius:3,
+            background:pct===100?'#4ADE80':'#60A5FA',transition:'width .5s ease'}}></div>
+        </div>
+      </div>
+    );
+  }
 
   // ── ADMIN VIEW ─────────────────────────────────────────────
   if (isAdmin) {
@@ -1521,24 +1720,19 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
       total:   data.filter(i => i.company===co).length,
       encours: data.filter(i => i.company===co&&i.status==='encours').length,
       bloque:  data.filter(i => i.company===co&&i.status==='bloque').length,
+      retard:  data.filter(i => i.company===co&&isTaskLate(i)).length,
       termine: data.filter(i => i.company===co&&i.status==='termine').length,
     }));
 
     return (
       <div style={{padding:'14px 12px 100px',overflowY:'auto',height:'100%'}}>
-        {/* 2 chips seulement */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
-          <StatChip value={encours.length} label="En cours" color="#2563EB" onClick={()=>toggle('encours')} />
-          <StatChip value={blocked.length} label="Bloquées" color="#DC2626" onClick={()=>toggle('bloque')} />
-        </div>
-
-        {/* Drawer */}
-        {drawer && (
-          <SectionCard title={drawer==='encours'?`En cours (${encours.length})`:`Bloquées (${blocked.length})`}
-            accent={drawer==='encours'?'#2563EB':'#DC2626'}>
-            {(drawer==='encours'?encours:blocked).map(function(iv){return <TaskRowAdmin key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;} )}
-          </SectionCard>
+        {renderSummaryBanner(
+          'HSF — Av. Marceau',
+          `${total} tâche${total!==1?'s':''} · ${zones.length} zone${zones.length!==1?'s':''} · ${companies.length} entreprise${companies.length!==1?'s':''}`
         )}
+
+        {renderStatsGrid()}
+        {renderDrawer()}
 
         {/* Zone progress */}
         <SectionCard title="Avancement par zone">
@@ -1546,17 +1740,31 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
             const zivs=data.filter(i=>i.zone===z.id);
             const done=zivs.filter(i=>i.status==='termine').length;
             const bloc=zivs.filter(i=>i.status==='bloque').length;
+            const enc=zivs.filter(i=>i.status==='encours').length;
+            const late=zivs.filter(i=>isTaskLate(i)).length;
             const p=zivs.length?Math.round(done/zivs.length*100):0;
             const wd=workingDaysUntil(z.deadline);
             const dc=z.deadline?(wd<0?'#DC2626':wd<5?'#DC2626':wd<15?'#EA580C':'#16A34A'):'var(--xmuted)';
+            const isOpen = openZoneId === z.id;
             return (
               <div key={z.id} style={{marginBottom:12}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <div onClick={function(){toggleZoneDetail(z.id);}}
+                  style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    marginBottom:4,cursor:'pointer',padding:'4px 2px',borderRadius:'var(--r-xs)',
+                    transition:'background .12s'}}
+                  onMouseEnter={function(e){e.currentTarget.style.background='var(--surface-2)';}}
+                  onMouseLeave={function(e){e.currentTarget.style.background='transparent';}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                     <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,display:'inline-block',
                       background:FLOOR_COLORS[z.floor]||'#9CA3AF'}}></span>
                     <span style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</span>
+                    {enc>0&&<span style={{fontSize:10,color:'#2563EB',fontWeight:700}}>▶ {enc}</span>}
                     {bloc>0&&<span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>⚠ {bloc}</span>}
+                    {late>0&&<span style={{fontSize:10,color:'#EA580C',fontWeight:700}}>⏱ {late}</span>}
+                    {done>0&&<span style={{fontSize:10,color:'#16A34A',fontWeight:700}}>✓ {done}/{zivs.length}</span>}
+                    <span style={{fontSize:10,color:'var(--xmuted)',fontWeight:600}}>
+                      {isOpen ? 'Masquer' : 'Voir tâches'}
+                    </span>
                   </div>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{done}/{zivs.length}</span>
@@ -1564,13 +1772,18 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
                       J-{wd<0?'▲':wd}
                     </span>}
                     <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,
-                      color:p===100?'#16A34A':bloc>0?'#DC2626':'var(--muted)'}}>{p}%</span>
+                      color:p===100?'#16A34A':late>0?'#EA580C':bloc>0?'#DC2626':'var(--muted)'}}>{p}%</span>
                   </div>
                 </div>
                 <div style={{height:6,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
                   <div style={{height:'100%',width:`${p}%`,borderRadius:3,transition:'width .4s',
-                    background:p===100?'#16A34A':bloc>0?'#DC2626':'#2563EB'}}></div>
+                    background:p===100?'#16A34A':late>0?'#EA580C':bloc>0?'#DC2626':'#2563EB'}}></div>
                 </div>
+                {isOpen && (
+                  <ZoneTaskList items={zivs} zones={zones} trades={trades}
+                    onOpenDetail={onOpenDetail} isAdmin={true}
+                    title="Toutes les tâches de la zone" />
+                )}
               </div>
             );
           })}
@@ -1582,7 +1795,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
               <thead>
                 <tr style={{borderBottom:'2px solid var(--border)'}}>
-                  {['Entreprise','Total','Term.','En cours','Bloqué','À réal.','%'].map(h=>(
+                  {['Entreprise','Total','Term.','En cours','Bloqué','Retard','À réal.','%'].map(h=>(
                     <th key={h} style={{padding:'4px 6px',textAlign:h==='Entreprise'?'left':'center',
                       fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--muted)',fontWeight:700}}>{h}</th>
                   ))}
@@ -1607,6 +1820,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
                       <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#16A34A',fontWeight:co.termine?700:400}}>{co.termine||'-'}</td>
                       <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#2563EB',fontWeight:co.encours?700:400}}>{co.encours||'-'}</td>
                       <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#DC2626',fontWeight:co.bloque?700:400}}>{co.bloque||'-'}</td>
+                      <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'#EA580C',fontWeight:co.retard?700:400}}>{co.retard||'-'}</td>
                       <td style={{textAlign:'center',fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{arealis||'-'}</td>
                       <td style={{padding:'7px 6px'}}>
                         <div style={{display:'flex',alignItems:'center',gap:4}}>
@@ -1641,52 +1855,15 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   var myZoneIds = [...new Set(myData.map(function(i){return i.zone;}))];
   var myZones = zones.filter(function(z){return myZoneIds.includes(z.id);});
 
-
   return (
     <div style={{padding:'12px 12px 100px',overflowY:'auto',height:'100%'}}>
-
-      {/* ── Bandeau identitaire ── */}
-      <div style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'14px 16px',marginBottom:12}}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:8}}>
-          <div>
-            <div style={{fontSize:17,fontWeight:800,color:'#fff',marginBottom:2,letterSpacing:'-.01em'}}>{myName}</div>
-            <div style={{fontSize:11,color:'rgba(255,255,255,.55)',fontFamily:"'DM Mono',monospace"}}>
-              {total} tâche{total!==1?'s':''} · {myZones.length} zone{myZones.length!==1?'s':''}
-            </div>
-          </div>
-          <div style={{textAlign:'right'}}>
-            <div style={{fontSize:26,fontWeight:800,color:pct===100?'#4ADE80':'#fff',
-              fontFamily:"'DM Mono',monospace",lineHeight:1}}>{pct}%</div>
-            <div style={{fontSize:9,color:'rgba(255,255,255,.5)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
-              terminé
-            </div>
-          </div>
-        </div>
-        <div style={{height:5,background:'rgba(255,255,255,.15)',borderRadius:3,overflow:'hidden'}}>
-          <div style={{height:'100%',width:`${pct}%`,borderRadius:3,
-            background:pct===100?'#4ADE80':'#60A5FA',transition:'width .5s ease'}}></div>
-        </div>
-      </div>
-
-      {/* ── 2 chips : En cours + Bloquées ── */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
-        <StatChip value={encours.length} label="En cours" color="#2563EB"
-          onClick={function(){setDrawer(function(d){return d==='encours'?null:'encours';});}} />
-        <StatChip value={blocked.length} label="Bloquées" color="#DC2626"
-          onClick={function(){setDrawer(function(d){return d==='bloque'?null:'bloque';});}} />
-      </div>
-
-      {/* ── Drawer En cours / Bloquées ── */}
-      {drawer && (
-        <SectionCard
-          title={drawer==='encours'?`En cours (${encours.length})`:`Bloquées (${blocked.length})`}
-          accent={drawer==='encours'?'#2563EB':'#DC2626'}>
-          {(drawer==='encours'?encours:blocked).length===0
-            ? <div style={{padding:'12px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>Aucune tâche</div>
-            : (drawer==='encours'?encours:blocked).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})
-          }
-        </SectionCard>
+      {renderSummaryBanner(
+        myName,
+        `${total} tâche${total!==1?'s':''} · ${myZones.length} zone${myZones.length!==1?'s':''}`
       )}
+
+      {renderStatsGrid()}
+      {renderDrawer()}
 
       {/* ── Avancement par zone (mes zones uniquement) ── */}
       {myZones.length > 0 && (
@@ -1696,18 +1873,30 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
             var done=zivs.filter(function(i){return i.status==='termine';}).length;
             var bloc=zivs.filter(function(i){return i.status==='bloque';}).length;
             var enc=zivs.filter(function(i){return i.status==='encours';}).length;
+            var late=zivs.filter(function(i){return isTaskLate(i);}).length;
             var p=zivs.length?Math.round(done/zivs.length*100):0;
             var wdv=workingDaysUntil(z.deadline);
             var dc=z.deadline?(wdv<0?'#DC2626':wdv<5?'#DC2626':wdv<15?'#EA580C':'#16A34A'):'var(--xmuted)';
             var fc=FLOOR_COLORS[z.floor]||'#9CA3AF';
+            var isOpen = openZoneId === z.id;
             return (
               <div key={z.id} style={{marginBottom:12}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <div onClick={function(){toggleZoneDetail(z.id);}}
+                  style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    marginBottom:4,cursor:'pointer',padding:'4px 2px',borderRadius:'var(--r-xs)',
+                    transition:'background .12s'}}
+                  onMouseEnter={function(e){e.currentTarget.style.background='var(--surface-2)';}}
+                  onMouseLeave={function(e){e.currentTarget.style.background='transparent';}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                     <span style={{width:8,height:8,borderRadius:'50%',background:fc,flexShrink:0,display:'inline-block'}}></span>
                     <span style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</span>
                     {bloc>0&&<span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>⚠ {bloc} bloquée{bloc>1?'s':''}</span>}
+                    {late>0&&<span style={{fontSize:10,color:'#EA580C',fontWeight:700}}>⏱ {late}</span>}
                     {enc>0&&<span style={{fontSize:10,color:'#2563EB',fontWeight:600}}>▶ {enc}</span>}
+                    {done>0&&<span style={{fontSize:10,color:'#16A34A',fontWeight:700}}>✓ {done}/{zivs.length}</span>}
+                    <span style={{fontSize:10,color:'var(--xmuted)',fontWeight:600}}>
+                      {isOpen ? 'Masquer' : 'Voir tâches'}
+                    </span>
                   </div>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{done}/{zivs.length}</span>
@@ -1715,13 +1904,18 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
                       J-{wdv<0?'▲':wdv}
                     </span>}
                     <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,
-                      color:p===100?'#16A34A':bloc>0?'#DC2626':'var(--muted)'}}>{p}%</span>
+                      color:p===100?'#16A34A':late>0?'#EA580C':bloc>0?'#DC2626':'var(--muted)'}}>{p}%</span>
                   </div>
                 </div>
                 <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
                   <div style={{height:'100%',borderRadius:3,transition:'width .4s',
-                    width:`${p}%`,background:p===100?'#16A34A':bloc>0?'#DC2626':'#2563EB'}}></div>
+                    width:`${p}%`,background:p===100?'#16A34A':late>0?'#EA580C':bloc>0?'#DC2626':'#2563EB'}}></div>
                 </div>
+                {isOpen && (
+                  <ZoneTaskList items={zivs} zones={zones} trades={trades}
+                    onOpenDetail={onOpenDetail} isAdmin={false}
+                    title="Mes tâches dans cette zone" />
+                )}
               </div>
             );
           })}
@@ -1736,7 +1930,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
         }
       </SectionCard>
 
-      {/* ── Prochaines tâches à démarrer (7j) ── */}
+      {/* ── Prochaines tâches à démarrer (10j) ── */}
       {soon.length > 0 && (
         <SectionCard title={`Prochaines échéances — ${soon.length} tâche${soon.length!==1?'s':''}`}>
           {soon.map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;}) }
@@ -1761,6 +1955,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
     </div>
   );
 }
+
 
 
 /* ════════════════════════════════════════════════════════════
