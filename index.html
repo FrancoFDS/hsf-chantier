@@ -24,6 +24,9 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -944,8 +947,8 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onPrint }) {
-  const weeks = viewMode === '3w' ? 3 : 1;
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onExport }) {
+  const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const days  = multiWeekDays(weekOffset, weeks);
   const start = days[0], end = days[days.length - 1];
 
@@ -958,6 +961,23 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
     const tr = trades.find(t=>t.id===top[0]);
     return tr ? getTC(tr.color).b : '#9CA3AF';
   }
+
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const exportRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!exportOpen) return;
+    const close = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [exportOpen]);
+  const exportModes = [
+    {key:'1s', label:'1S'},
+    {key:'2s', label:'2S'},
+    {key:'3s', label:'3S'},
+    {key:'tout', label:'Tout'},
+  ];
 
   return (
     <header style={{background:'var(--hdr)',color:'var(--hdr-text)',padding:'10px 14px 0',flexShrink:0,
@@ -1001,9 +1021,36 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
           <button onClick={onRefresh} title="Rafraichir"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:13}}>↻</button>
-          <button onClick={onPrint} title="Imprimer le planning"
-            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
-              border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:13}}>🖨</button>
+          <div ref={exportRef} style={{position:'relative'}}>
+            <button onClick={()=>setExportOpen(o=>!o)} title="Télécharger le planning"
+              style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
+                border:'1px solid rgba(255,255,255,.14)',borderRadius:6,minWidth:42,height:26,
+                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",letterSpacing:'.03em'}}>
+              ⇩ Export
+            </button>
+            {exportOpen && (
+              <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:80,
+                width:220,background:'var(--surface)',color:'var(--text)',border:'1px solid var(--border)',
+                borderRadius:'var(--r-sm)',boxShadow:'var(--shadow-lg)',overflow:'hidden'}}>
+                <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',
+                  fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:800,color:'var(--muted)',
+                  letterSpacing:'.05em',textTransform:'uppercase'}}>Télécharger planning</div>
+                {exportModes.map(m => (
+                  <div key={m.key} style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,
+                    padding:'8px 10px',borderBottom:'1px solid var(--border)'}}>
+                    <div style={{gridColumn:'1 / -1',fontSize:11,fontWeight:700,color:'var(--muted)',
+                      fontFamily:"'DM Mono',monospace"}}>Vue {m.label}</div>
+                    <button onClick={()=>{setExportOpen(false);onExport&&onExport('pdf',m.key);}}
+                      style={{padding:'7px 8px',border:'1px solid var(--border)',borderRadius:6,
+                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>PDF</button>
+                    <button onClick={()=>{setExportOpen(false);onExport&&onExport('xlsx',m.key);}}
+                      style={{padding:'7px 8px',border:'1px solid var(--border)',borderRadius:6,
+                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           {session?.role==='admin'&&
             <button onClick={onSettings} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:28,height:28,fontSize:14}}>⚙</button>}
@@ -3016,7 +3063,7 @@ function PlanifyApp() {
   }/*EDITMODE-END*/);
 
   const [session,    setSession]    = useState(null);
-  const [screen,     setScreen]     = useState('planning');
+  const [screen,     setScreen]     = useState('dashboard');
   const [weekOffset, setWeekOffset] = useState(0);
   const [filter,     setFilter]     = useState('all');
   const [data,       setData]       = useState([...INTERVENTIONS]);
@@ -3166,246 +3213,125 @@ function PlanifyApp() {
     }
   };
 
-  // ── Print planning ───────────────────────────────────────────────────
-  function printPlanning() {
-    var now = new Date();
-    var nowStr = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-
-    // Build weeks array
-    var weeksCount = viewMode==='tout' ? (function(){
-      var m=1; zones.forEach(function(z){
-        if(z.deadline){var d=new Date(z.deadline+'T00:00:00');
-          var w=Math.ceil((d-now)/(7*24*3600*1000))+1; if(w>m)m=w;}
-      }); return Math.max(1,Math.min(m,16));
-    })() : viewMode==='3s'?3:viewMode==='2s'?2:1;
-
-    var allDays = (function(){
-      var arr=[];
-      for(var w=0;w<weeksCount;w++){
-        var base=new Date(now);
-        var dow=base.getDay(); if(dow===0)dow=7;
-        base.setDate(base.getDate()-dow+1+weekOffset*7+w*7);
-        for(var d=0;d<5;d++){
-          var dd=new Date(base); dd.setDate(base.getDate()+d);
-          arr.push(dd);
+  // ── Download planning as PDF / XLSX ───────────────────────────────────
+  function getExportWeeks(mode) {
+    if (mode === 'tout') {
+      var now = new Date(); now.setHours(0,0,0,0);
+      var maxWeeks = 1;
+      zones.forEach(function(z){
+        if (z.deadline) {
+          var d = new Date(z.deadline+'T00:00:00');
+          var w = Math.ceil((d - now)/(7*24*3600*1000)) + 1;
+          if (w > maxWeeks) maxWeeks = w;
         }
-      }
-      return arr;
-    })();
-
-    var MONTHS=['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
-    var DAYS_S=['Lu','Ma','Me','Je','Ve'];
-    var HEX={crimson:'#B91C1C',orange:'#F97316',amber:'#D97706',brown:'#92400E',
-      forest:'#166534',lime:'#4ADE80',navy:'#1E3A8A',sky:'#38BDF8',
-      violet:'#7C3AED',pink:'#EC4899',slate:'#475569',blue:'#3B82F6',
-      green:'#16A34A',gold:'#CA8A04',teal:'#0D9488'};
-
-    function ds(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-    function isHol(d){var hols=['2026-01-01','2026-05-01','2026-05-08','2026-05-14','2026-05-25','2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25'];return hols.includes(ds(d));}
-    function fmtD(d){return d.getDate()+'/'+String(d.getMonth()+1).padStart(2,'0');}
-    function wd(ds2){if(!ds2)return null; var t=new Date(ds2+'T00:00:00'),n=new Date();n.setHours(0,0,0,0);var c=0,dir=t>=n?1:-1,cur=new Date(n);var hols=['2026-01-01','2026-05-01','2026-05-08','2026-05-14','2026-05-25','2026-07-14'];while(cur.toDateString()!==t.toDateString()){cur.setDate(cur.getDate()+dir);var dow=cur.getDay(),s2=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');if(dow!==0&&dow!==6&&!hols.includes(s2))c+=dir;}return c;}
-
-    var periodStart = allDays[0];
-    var periodEnd   = allDays[allDays.length-1];
-    var periodStr   = fmtD(periodStart)+' au '+fmtD(periodEnd);
-
-    // Collect trade legend
-    var usedTrades = {};
-    data.forEach(function(iv){
-      if(!usedTrades[iv.trade]){
-        var tr=trades.find(function(t){return t.id===iv.trade;});
-        if(tr) usedTrades[iv.trade]=tr;
-      }
-    });
-
-    // Build grid HTML
-    var colW = weeksCount<=1?'120px':weeksCount<=2?'80px':weeksCount<=3?'60px':'40px';
-    var colStyle = 'padding:3px;border:1px solid #ccc;vertical-align:top;width:'+colW+';';
-    var thStyle  = 'padding:4px 3px;border:1px solid #999;background:#f0f0f0;text-align:center;font-size:'+(weeksCount>2?'7':'8')+'px;font-family:monospace;';
-
-    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
-    html += '<title>Planify - HSF Av. Marceau - '+periodStr+'</title>';
-    html += '<style>';
-    html += '*{box-sizing:border-box;margin:0;padding:0;}';
-    html += 'body{font-family:Arial,sans-serif;font-size:9px;color:#111;}';
-    html += '@page{size:A4 landscape;margin:8mm 8mm 10mm 8mm;}';
-    html += '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}';
-    html += '.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;border-bottom:2px solid #333;padding-bottom:4px;}';
-    html += '.title{font-size:14px;font-weight:bold;color:#1a1a1a;}';
-    html += '.subtitle{font-size:9px;color:#555;margin-top:2px;}';
-    html += '.meta{text-align:right;font-size:8px;color:#666;font-family:monospace;}';
-    html += 'table{width:100%;border-collapse:collapse;table-layout:fixed;}';
-    html += 'th{'+thStyle+'}';
-    html += 'td{'+colStyle+'font-size:'+(weeksCount>2?'7':'8')+'px;}';
-    html += '.zone-cell{font-weight:bold;font-size:'+(weeksCount>2?'7':'8')+'px;background:#f8f8f8;text-align:center;padding:3px 2px;width:42px;word-break:break-all;vertical-align:middle;}';
-    html += '.fin-cell{text-align:center;font-family:monospace;font-size:8px;vertical-align:middle;width:30px;}';
-    html += '.task-card{border-radius:3px;padding:2px 3px;margin-bottom:2px;border-left:3px solid #999;background:#f9f9f9;page-break-inside:avoid;}';
-    html += '.task-co{font-weight:bold;font-size:'+(weeksCount>2?'6.5':'8')+'px;}';
-    html += '.task-desc{font-size:'+(weeksCount>2?'6':'7.5')+'px;color:#333;margin-top:1px;}';
-    html += '.task-prereq{font-size:6.5px;color:#c00;margin-top:1px;border-left:2px solid #c00;padding-left:3px;}';
-    html += '.task-num{font-size:6px;color:#999;font-family:monospace;}';
-    html += '.holiday{background:#d0d3d8!important;}';
-    html += '.today{background:#e8f0ff!important;}';
-    html += '.deadline{background:#ffe8e8!important;}';
-    html += '.floor-sep{border-top:3px solid #333!important;}';
-    html += '.legend{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;font-size:7px;border-top:1px solid #ccc;padding-top:4px;}';
-    html += '.leg-item{display:flex;align-items:center;gap:3px;}';
-    html += '.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}';
-    html += '.zones-legend{margin-top:4px;display:flex;flex-wrap:wrap;gap:8px;font-size:7px;}';
-    html += '.zone-leg{display:flex;align-items:center;gap:4px;}';
-    html += '.zone-dot{width:8px;height:8px;border-radius:50%;}';
-    html += '</style></head><body>';
-
-    // Header
-    html += '<div class="header">';
-    html += '<div>';
-    html += '<div class="title">Planify — HSF 66 Av. Marceau</div>';
-    html += '<div class="subtitle">Planning du '+periodStr+' &nbsp;|&nbsp; Vue : '+viewMode.toUpperCase()+' &nbsp;|&nbsp; Imprimé le '+nowStr+'</div>';
-    html += '</div>';
-    html += '<div class="meta">';
-    html += 'Zones affichées : '+zones.length+'<br>';
-    html += 'Tâches : '+data.length;
-    html += '</div>';
-    html += '</div>';
-
-    // Table
-    html += '<table><colgroup>';
-    html += '<col style="width:42px">';
-    allDays.forEach(function(){html += '<col style="width:'+colW+'">';});
-    html += '<col style="width:30px">';
-    html += '</colgroup><thead><tr>';
-    html += '<th style="width:42px;background:#e8e8e8;">Zone</th>';
-
-    allDays.forEach(function(d,i){
-      var hol = isHol(d);
-      var isFirst = i>0 && i%5===0;
-      var bg = hol?'#d0d3d8':'#f0f0f0';
-      var border = isFirst?'border-left:2px solid #999;':'';
-      html += '<th style="'+border+'background:'+bg+';">';
-      html += '<div>'+DAYS_S[d.getDay()-1]+'</div>';
-      html += '<div style="font-size:'+(weeksCount>2?'7':'8')+'px;font-weight:bold;">'+d.getDate()+'</div>';
-      html += '<div>'+MONTHS[d.getMonth()]+'</div>';
-      if(hol) html += '<div style="color:#666;font-size:6px;">JF</div>';
-      html += '</th>';
-    });
-    html += '<th style="background:#ffe8e8;font-size:7px;writing-mode:vertical-rl;transform:rotate(180deg);">FIN</th>';
-    html += '</tr></thead><tbody>';
-
-    // Zone rows
-    var prevFloor = null;
-    zones.forEach(function(zone){
-      var floorChange = prevFloor !== null && prevFloor !== zone.floor;
-      prevFloor = zone.floor;
-      var fc = {R3:'#2152C8',R2:'#0D9488','R+3':'#2152C8','R+2':'#0D9488','R+1':'#8B5CF6'}[zone.floor]||'#9CA3AF';
-      var wdVal = wd(zone.deadline);
-      var trClass = floorChange?'class="floor-sep"':'';
-
-      html += '<tr '+trClass+'>';
-      html += '<td class="zone-cell" style="border-right:3px solid '+fc+';color:'+fc+';">';
-      html += '<div>'+zone.short+'</div>';
-      if(zone.deadline){
-        var wdStr = wdVal===null?'':wdVal<0?'▲':'J-'+wdVal;
-        var wdColor = wdVal!==null&&wdVal<5?'#DC2626':'#666';
-        html += '<div style="font-size:6px;color:'+wdColor+';margin-top:2px;">'+wdStr+'</div>';
-        html += '<div style="font-size:6px;color:#999;">'+zone.deadline.slice(5,10).replace('-','/')+'</div>';
-      }
-      html += '</td>';
-
-      allDays.forEach(function(day,i){
-        var dayStr = ds(day);
-        var hol = isHol(day);
-        var isFirst = i>0&&i%5===0;
-        var isDeadline = zone.deadline && dayStr===zone.deadline;
-        var isPast = zone.deadline && dayStr>zone.deadline;
-        var bg = hol?'#d0d3d8':isPast&&!isDeadline?'rgba(220,38,38,.07)':isDeadline?'#ffe0e0':'transparent';
-        var border = isFirst?'border-left:2px solid #aaa;':'';
-
-        var cards = hol?[]:data.filter(function(iv){
-          if(iv.zone!==zone.id) return false;
-          if(!inDay(iv,day)) return false;
-          var offs=iv.off_days||[];
-          if(offs.includes(dayStr)) return false;
-          return true;
-        });
-
-        html += '<td style="'+border+'background:'+bg+';">';
-        cards.forEach(function(iv){
-          var tr2 = trades.find(function(t){return t.id===iv.trade;});
-          var color = tr2 ? (HEX[tr2.color]||'#999') : '#999';
-          html += '<div class="task-card" style="border-left-color:'+color+';background:'+color+'15;">';
-          html += '<div class="task-num">'+iv.task_number+'</div>';
-          html += '<div class="task-co" style="color:'+color+';">'+iv.company+'</div>';
-          html += '<div class="task-desc">'+iv.task+'</div>';
-          if(iv.prereq&&iv.prereq.trim()){
-            html += '<div class="task-prereq">'+iv.prereq+'</div>';
-          }
-          if(iv.notes&&iv.notes.trim()&&!iv.notes.startsWith('Etage')&&!iv.notes.startsWith('Étage')){
-            html += '<div style="font-size:6px;color:#555;margin-top:1px;font-style:italic;">'+iv.notes+'</div>';
-          }
-          html += '</div>';
-        });
-        html += '</td>';
       });
-
-      // FIN cell
-      if(zone.deadline){
-        var wdVal2=wd(zone.deadline);
-        var wdStr2=wdVal2===null?'':wdVal2<0?'▲':'J-'+wdVal2;
-        var wdCol2=wdVal2!==null&&wdVal2<5?'#DC2626':'#333';
-        html += '<td class="fin-cell"><div style="font-weight:bold;color:'+wdCol2+';">'+wdStr2+'</div>';
-        html += '<div style="font-size:6px;color:#999;">'+zone.deadline.slice(5,10).replace('-','/')+'</div></td>';
-      } else {
-        html += '<td class="fin-cell" style="color:#ccc;">—</td>';
-      }
-
-      html += '</tr>';
-    });
-
-    html += '</tbody></table>';
-
-    // Legend — trades
-    html += '<div class="legend">';
-    html += '<strong style="font-size:7px;color:#333;margin-right:4px;">Corps de métier :</strong>';
-    Object.values(usedTrades).forEach(function(tr){
-      var color = HEX[tr.color]||'#999';
-      html += '<div class="leg-item"><div class="leg-dot" style="background:'+color+';"></div><span>'+tr.name+'</span></div>';
-    });
-    html += '</div>';
-
-    // Legend — zones
-    html += '<div class="zones-legend">';
-    var floors = {};
-    zones.forEach(function(z){if(!floors[z.floor])floors[z.floor]=[];floors[z.floor].push(z);});
-    var floorColors={'R+3':'#2152C8','R+2':'#0D9488','R+1':'#8B5CF6'};
-    Object.entries(floors).forEach(function(e){
-      var floor=e[0], fzones=e[1];
-      var fc2=floorColors[floor]||'#9CA3AF';
-      html += '<div class="zone-leg"><div class="zone-dot" style="background:'+fc2+';"></div>';
-      html += '<strong>'+floor+' :</strong>';
-      fzones.forEach(function(z){
-        var wdV=wd(z.deadline);
-        var wdS=wdV===null?'':' J-'+(wdV<0?'▲':wdV);
-        html += '<span style="margin-left:4px;">'+z.name+(wdS?'<span style="color:#c00;">'+wdS+'</span>':'')+'</span>';
-      });
-      html += '</div>';
-    });
-    html += '</div>';
-
-    // Status legend
-    html += '<div style="margin-top:4px;display:flex;gap:8px;font-size:7px;color:#666;">';
-    html += '<span style="background:#d0d3d8;padding:1px 4px;border-radius:2px;">Gris = Jour férié</span>';
-    html += '<span style="background:#ffe8e8;padding:1px 4px;border-radius:2px;">Rouge = Après jalon</span>';
-    html += '<span style="background:#e8f0ff;padding:1px 4px;border-radius:2px;">Bleu = Aujourd’hui</span>';
-    html += '</div>';
-
-    html += '</body></html>';
-
-    var w2 = window.open('','_blank','width=1200,height=800');
-    w2.document.write(html);
-    w2.document.close();
-    setTimeout(function(){w2.print();},800);
+      return Math.max(1, Math.min(maxWeeks, 16));
+    }
+    return mode === '3s' ? 3 : mode === '2s' ? 2 : 1;
   }
 
+  function getPlanningExportRows(mode) {
+    var weeks = getExportWeeks(mode);
+    var days = multiWeekDays(weekOffset, weeks);
+    var first = days[0];
+    var last = days[days.length - 1];
+    var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+    var rows = source.filter(function(iv){
+      return days.some(function(d){ return inDay(iv, d); });
+    }).sort(function(a,b){
+      return (a.start||'').localeCompare(b.start||'') ||
+             (a.zone||'').localeCompare(b.zone||'') ||
+             (a.company||'').localeCompare(b.company||'');
+    }).map(function(iv){
+      var z = zones.find(function(x){ return x.id === iv.zone; });
+      var tr = trades.find(function(x){ return x.id === iv.trade; });
+      var st = STATUS_META[iv.status] || STATUS_META.arealis;
+      return {
+        zone: z ? z.name : iv.zone,
+        zoneShort: z ? z.short : iv.zone,
+        floor: z ? z.floor : '',
+        trade: tr ? tr.name : iv.trade,
+        company: iv.company || '',
+        taskNumber: iv.task_number || '',
+        task: iv.task || '',
+        status: st.label,
+        start: fmtDate(iv.start),
+        end: fmtDate(iv.end || iv.start),
+        prereq: iv.prereq || '',
+        notes: iv.notes || '',
+        offDays: (iv.off_days || []).map(fmtDate).join(', '),
+      };
+    });
+    return {rows: rows, first: first, last: last, weeks: weeks};
+  }
+
+  function exportPlanning(format, mode) {
+    var pack = getPlanningExportRows(mode);
+    var rows = pack.rows;
+    var period = dateStr(pack.first).replaceAll('-','') + '_' + dateStr(pack.last).replaceAll('-','');
+    var label = mode.toUpperCase();
+    var fileBase = 'planify_hsf_planning_' + label + '_' + period;
+    var headers = ['Zone','Étage','Entreprise','Lot','N° tâche','Tâche','Statut','Début','Fin','Prérequis / blocage','Notes','Jours gelés'];
+    var body = rows.map(function(r){ return [
+      r.zone, r.floor, r.company, r.trade, r.taskNumber, r.task, r.status,
+      r.start, r.end, r.prereq, r.notes, r.offDays
+    ]; });
+
+    if (!rows.length) {
+      alert('Aucune tâche à exporter sur cette période.');
+      return;
+    }
+
+    if (format === 'xlsx') {
+      if (!window.XLSX) {
+        alert('La librairie XLSX n’est pas chargée. Vérifiez la connexion internet puis rechargez la page.');
+        return;
+      }
+      var aoa = [
+        ['Planify — HSF 66 Av. Marceau'],
+        ['Vue', label, 'Période', fmtDate(dateStr(pack.first)) + ' au ' + fmtDate(dateStr(pack.last))],
+        [],
+        headers
+      ].concat(body);
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [
+        {wch:26},{wch:8},{wch:18},{wch:16},{wch:12},{wch:52},
+        {wch:14},{wch:12},{wch:12},{wch:32},{wch:32},{wch:20}
+      ];
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Planning '+label);
+      XLSX.writeFile(wb, fileBase + '.xlsx');
+      return;
+    }
+
+    if (format === 'pdf') {
+      var JSPDF = window.jspdf && window.jspdf.jsPDF;
+      if (!JSPDF) {
+        alert('La librairie PDF n’est pas chargée. Vérifiez la connexion internet puis rechargez la page.');
+        return;
+      }
+      var doc = new JSPDF({orientation:'landscape', unit:'pt', format:'a4'});
+      doc.setFontSize(14);
+      doc.text('Planify — HSF 66 Av. Marceau', 32, 30);
+      doc.setFontSize(9);
+      doc.text('Planning '+label+' · '+fmtDate(dateStr(pack.first))+' au '+fmtDate(dateStr(pack.last))+' · '+rows.length+' tâche(s)', 32, 47);
+      doc.autoTable({
+        head: [headers],
+        body: body,
+        startY: 62,
+        theme: 'grid',
+        styles: {fontSize: 6.5, cellPadding: 3, overflow: 'linebreak', valign: 'top'},
+        headStyles: {fillColor: [26,26,26], textColor: 255, fontStyle: 'bold'},
+        columnStyles: {
+          0:{cellWidth:90}, 1:{cellWidth:32}, 2:{cellWidth:62}, 3:{cellWidth:52},
+          4:{cellWidth:42}, 5:{cellWidth:150}, 6:{cellWidth:42}, 7:{cellWidth:38},
+          8:{cellWidth:38}, 9:{cellWidth:90}, 10:{cellWidth:90}, 11:{cellWidth:54}
+        },
+        margin: {left: 24, right: 24}
+      });
+      doc.save(fileBase + '.pdf');
+    }
+  }
 
   return (
     <>
@@ -3418,7 +3344,7 @@ function PlanifyApp() {
           zones={zones} data={data}
           viewMode={viewMode} onViewMode={setViewMode}
           onToday={()=>setWeekOffset(0)}
-          onPrint={printPlanning}
+          onExport={exportPlanning}
           onRefresh={()=>{
             loadFromSupabase(session);
           }} />
