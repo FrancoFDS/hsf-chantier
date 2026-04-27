@@ -1536,72 +1536,183 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
 
   // ── COMPANY VIEW ───────────────────────────────────────────
   const days = weekDays(weekOffset);
-  const weekIvs = myData.filter(i => days.some(d => inDay(i, d)));
-  const byStatus = {
-    bloque:  myData.filter(i=>i.status==='bloque'),
-    encours: myData.filter(i=>i.status==='encours'),
-    arealis: myData.filter(i=>i.status==='arealis'),
-    termine: myData.filter(i=>i.status==='termine'),
-  };
+  const weekIvs = myData.filter(function(i){ return days.some(function(d){ return inDay(i,d); }); });
+  const soon = myData.filter(function(i){
+    if(i.status==='termine') return false;
+    var st=new Date(i.start+'T00:00:00'), now2=new Date(); now2.setHours(0,0,0,0);
+    var diff=(st-now2)/(1000*60*60*24);
+    return diff>0&&diff<=10;
+  }).sort(function(a,b){return a.start.localeCompare(b.start);});
 
-  return (
-    <div style={{padding:'14px 12px 100px',overflowY:'auto',height:'100%'}}>
-      {/* Header: company name + global progress */}
-      <div style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'14px 16px',marginBottom:14,
-        display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div>
-          <div style={{fontSize:16,fontWeight:700,color:'#fff',marginBottom:3}}>{myName}</div>
-          <div style={{fontSize:11,color:'rgba(255,255,255,.6)',fontFamily:"'DM Mono',monospace"}}>
-            {total} tâche{total!==1?'s':''} · {pct}% terminé{pct>=100?' ✓':''}
+  // Zones where this company has tasks
+  var myZoneIds = [...new Set(myData.map(function(i){return i.zone;}))];
+  var myZones = zones.filter(function(z){return myZoneIds.includes(z.id);});
+
+  // Full task card
+  function TaskCard2({ iv }) {
+    const z  = zones.find(function(x){return x.id===iv.zone;});
+    const tr = trades.find(function(x){return x.id===iv.trade;});
+    const c  = getTC(tr?tr.color:'blue');
+    const m  = STATUS_META[iv.status]||STATUS_META.arealis;
+    return (
+      <div onClick={function(){onOpenDetail(iv.id);}}
+        style={{padding:'11px 12px',marginBottom:8,borderRadius:'var(--r-sm)',cursor:'pointer',
+          background:'var(--surface)',border:'1px solid var(--border)',
+          borderLeft:'4px solid '+c.b,boxShadow:'var(--shadow)',transition:'box-shadow .15s'}}
+        onMouseEnter={function(e){e.currentTarget.style.boxShadow='var(--shadow-md)';}}
+        onMouseLeave={function(e){e.currentTarget.style.boxShadow='var(--shadow)';}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:4}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,flex:1,minWidth:0,flexWrap:'wrap'}}>
+            {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,
+              color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 5px',
+              borderRadius:3,border:'1px solid var(--border)',flexShrink:0}}>{iv.task_number}</span>}
+            {z&&<span style={{fontSize:10,color:c.b,background:c.bg,padding:'1px 6px',
+              borderRadius:10,fontWeight:600,flexShrink:0}}>{z.short}</span>}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,marginLeft:6}}>
+            <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+            <span style={{fontSize:11,fontWeight:600,color:m.dot}}>{m.label}</span>
           </div>
         </div>
-        <div style={{textAlign:'right'}}>
-          <div style={{fontSize:28,fontWeight:800,color:pct===100?'#4ADE80':'#fff',fontFamily:"'DM Mono',monospace"}}>{pct}%</div>
+        <div style={{fontSize:13,fontWeight:600,color:'var(--text)',lineHeight:1.45,marginBottom:5}}>{iv.task}</div>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:iv.prereq||iv.notes?5:0}}>
+          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
+            {fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}
+          </span>
+          {iv.off_days&&iv.off_days.length>0&&(
+            <span style={{fontSize:9,color:'var(--danger)',fontFamily:"'DM Mono',monospace"}}>
+              {iv.off_days.length} jour{iv.off_days.length>1?'s':''} gelé{iv.off_days.length>1?'s':''}
+            </span>
+          )}
+        </div>
+        {iv.prereq&&iv.prereq.trim()&&(
+          <div style={{fontSize:11,color:'#DC2626',background:'#FEF2F2',padding:'4px 8px',
+            borderRadius:3,borderLeft:'3px solid #DC2626',marginBottom:4}}>
+            ⚠ Prérequis : {iv.prereq}
+          </div>
+        )}
+        {iv.notes&&iv.notes.trim()&&!iv.notes.startsWith('Etage')&&!iv.notes.startsWith('Étage')&&(
+          <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',marginTop:2}}>
+            {iv.notes}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{padding:'12px 12px 100px',overflowY:'auto',height:'100%'}}>
+
+      {/* ── Bandeau identitaire ── */}
+      <div style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'14px 16px',marginBottom:12}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:8}}>
+          <div>
+            <div style={{fontSize:17,fontWeight:800,color:'#fff',marginBottom:2,letterSpacing:'-.01em'}}>{myName}</div>
+            <div style={{fontSize:11,color:'rgba(255,255,255,.55)',fontFamily:"'DM Mono',monospace"}}>
+              {total} tâche{total!==1?'s':''} · {myZones.length} zone{myZones.length!==1?'s':''}
+            </div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:26,fontWeight:800,color:pct===100?'#4ADE80':'#fff',
+              fontFamily:"'DM Mono',monospace",lineHeight:1}}>{pct}%</div>
+            <div style={{fontSize:9,color:'rgba(255,255,255,.5)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
+              terminé
+            </div>
+          </div>
+        </div>
+        <div style={{height:5,background:'rgba(255,255,255,.15)',borderRadius:3,overflow:'hidden'}}>
+          <div style={{height:'100%',width:`${pct}%`,borderRadius:3,
+            background:pct===100?'#4ADE80':'#60A5FA',transition:'width .5s ease'}}></div>
         </div>
       </div>
 
-      {/* 2 chips seulement */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:14}}>
-        <StatChip value={byStatus.encours.length} label="En cours" color="#2563EB" onClick={()=>toggle('encours')} />
-        <StatChip value={byStatus.bloque.length}  label="Bloquées" color="#DC2626" onClick={()=>toggle('bloque')} />
+      {/* ── 2 chips : En cours + Bloquées ── */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
+        <StatChip value={encours.length} label="En cours" color="#2563EB"
+          onClick={function(){setDrawer(function(d){return d==='encours'?null:'encours';});}} />
+        <StatChip value={blocked.length} label="Bloquées" color="#DC2626"
+          onClick={function(){setDrawer(function(d){return d==='bloque'?null:'bloque';});}} />
       </div>
 
-      {/* Drawer */}
+      {/* ── Drawer En cours / Bloquées ── */}
       {drawer && (
         <SectionCard
-          title={drawer==='encours'?`En cours (${byStatus.encours.length})`:`Mes blocages (${byStatus.bloque.length})`}
+          title={drawer==='encours'?`En cours (${encours.length})`:`Bloquées (${blocked.length})`}
           accent={drawer==='encours'?'#2563EB':'#DC2626'}>
-          {(drawer==='encours'?byStatus.encours:byStatus.bloque).length===0
-            ? <div style={{padding:'16px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>Aucune tâche</div>
-            : (drawer==='encours'?byStatus.encours:byStatus.bloque).map(iv=><TaskRow key={iv.id} iv={iv} />)
+          {(drawer==='encours'?encours:blocked).length===0
+            ? <div style={{padding:'12px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>Aucune tâche</div>
+            : (drawer==='encours'?encours:blocked).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} />;})
           }
         </SectionCard>
       )}
 
-      {/* Cette semaine */}
+      {/* ── Avancement par zone (mes zones uniquement) ── */}
+      {myZones.length > 0 && (
+        <SectionCard title="Avancement par zone">
+          {myZones.map(function(z){
+            var zivs=myData.filter(function(i){return i.zone===z.id;});
+            var done=zivs.filter(function(i){return i.status==='termine';}).length;
+            var bloc=zivs.filter(function(i){return i.status==='bloque';}).length;
+            var enc=zivs.filter(function(i){return i.status==='encours';}).length;
+            var p=zivs.length?Math.round(done/zivs.length*100):0;
+            var wdv=workingDaysUntil(z.deadline);
+            var dc=z.deadline?(wdv<0?'#DC2626':wdv<5?'#DC2626':wdv<15?'#EA580C':'#16A34A'):'var(--xmuted)';
+            var fc=FLOOR_COLORS[z.floor]||'#9CA3AF';
+            return (
+              <div key={z.id} style={{marginBottom:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{width:8,height:8,borderRadius:'50%',background:fc,flexShrink:0,display:'inline-block'}}></span>
+                    <span style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</span>
+                    {bloc>0&&<span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>⚠ {bloc} bloquée{bloc>1?'s':''}</span>}
+                    {enc>0&&<span style={{fontSize:10,color:'#2563EB',fontWeight:600}}>▶ {enc}</span>}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{done}/{zivs.length}</span>
+                    {z.deadline&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:dc}}>
+                      J-{wdv<0?'▲':wdv}
+                    </span>}
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,
+                      color:p===100?'#16A34A':bloc>0?'#DC2626':'var(--muted)'}}>{p}%</span>
+                  </div>
+                </div>
+                <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+                  <div style={{height:'100%',borderRadius:3,transition:'width .4s',
+                    width:`${p}%`,background:p===100?'#16A34A':bloc>0?'#DC2626':'#2563EB'}}></div>
+                </div>
+              </div>
+            );
+          })}
+        </SectionCard>
+      )}
+
+      {/* ── Tâches cette semaine ── */}
       <SectionCard title={`Cette semaine — ${weekIvs.length} tâche${weekIvs.length!==1?'s':''}`}>
         {weekIvs.length===0
-          ? <div style={{padding:'16px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>Aucune tâche cette semaine</div>
-          : weekIvs.sort((a,b)=>a.start.localeCompare(b.start)).map(iv=><TaskRow key={iv.id} iv={iv} />)
+          ? <div style={{padding:'12px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>Aucune tâche planifiée cette semaine</div>
+          : weekIvs.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} />;})
         }
       </SectionCard>
 
-      {/* Stats par statut */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7,marginBottom:14}}>
-        <StatChip value={byStatus.arealis.length}  label="À réaliser" color="var(--muted)" />
-        <StatChip value={byStatus.encours.length}  label="En cours"   color="#2563EB" />
-        <StatChip value={byStatus.bloque.length}   label="Bloquées"   color="#DC2626" />
-        <StatChip value={byStatus.termine.length}  label="Terminées"  color="#16A34A" />
-      </div>
+      {/* ── Prochaines tâches à démarrer (7j) ── */}
+      {soon.length > 0 && (
+        <SectionCard title={`Prochaines échéances — ${soon.length} tâche${soon.length!==1?'s':''}`}>
+          {soon.map(function(iv){return <TaskCard2 key={iv.id} iv={iv} />;}) }
+        </SectionCard>
+      )}
 
-      {/* Toutes mes tâches par statut */}
-      {['bloque','encours','arealis','termine'].map(st=>{
-        const items=byStatus[st]; if(!items.length) return null;
-        const labels={bloque:'Bloquées',encours:'En cours',arealis:'À réaliser',termine:'Terminées'};
-        const colors={bloque:'#DC2626',encours:'#2563EB',arealis:'var(--muted)',termine:'#16A34A'};
+      {/* ── Toutes mes tâches par statut ── */}
+      {[
+        {key:'bloque', label:'Bloquées', color:'#DC2626'},
+        {key:'encours', label:'En cours', color:'#2563EB'},
+        {key:'arealis', label:'À réaliser', color:'var(--muted)'},
+        {key:'termine', label:'Terminées', color:'#16A34A'},
+      ].map(function(st){
+        var items=myData.filter(function(i){return i.status===st.key;});
+        if(!items.length) return null;
         return (
-          <SectionCard key={st} title={`${labels[st]} (${items.length})`} accent={colors[st]}>
-            {items.sort((a,b)=>a.start.localeCompare(b.start)).map(iv=><TaskRow key={iv.id} iv={iv} />)}
+          <SectionCard key={st.key} title={`${st.label} (${items.length})`} accent={st.color}>
+            {items.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} />;}) }
           </SectionCard>
         );
       })}
@@ -1609,17 +1720,6 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   );
 }
 
-
-function SectionCard({ title, children, accent }) {
-  return (
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',
-      padding:'14px',marginBottom:12,boxShadow:'var(--shadow)'}}>
-      <div style={{fontSize:11,fontWeight:700,color:accent||'var(--muted)',letterSpacing:'.05em',
-        textTransform:'uppercase',marginBottom:12,fontFamily:"'DM Mono',monospace"}}>{title}</div>
-      {children}
-    </div>
-  );
-}
 
 /* ════════════════════════════════════════════════════════════
    PLANNING SCREEN (weekly grid)
