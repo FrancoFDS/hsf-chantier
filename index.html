@@ -1024,11 +1024,11 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
           <button onClick={onToday} title="Aujourd'hui"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:11}}>◎</button>
-          <button onClick={onRefresh} disabled={!!syncing} title="Synchroniser les données avec Supabase"
+          <button onClick={onRefresh} disabled={!!syncing} title="Rafraîchir les données"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,minWidth:42,height:26,
               fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:syncing ? .65 : 1}}>
-            {syncing?'…':'Sync'}
+            {syncing?'…':'Actualiser'}
           </button>
           <button onClick={onHistory} title="Historique détaillé"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
@@ -1458,6 +1458,57 @@ function LoginScreen({ onLogin, companies }) {
   );
 }
 
+
+function getCompanyMainTrade(companyName, data, companies, trades) {
+  var co = (companies || []).find(function(c){ return c.name === companyName; });
+  var tradeId = co && (co.tradeId || co.trade_id) ? (co.tradeId || co.trade_id) : '';
+  if (!tradeId) {
+    var counts = {};
+    (data || []).filter(function(i){ return i.company === companyName; }).forEach(function(i){ counts[i.trade] = (counts[i.trade] || 0) + 1; });
+    var top = Object.entries(counts).sort(function(a,b){ return b[1] - a[1]; })[0];
+    tradeId = top ? top[0] : '';
+  }
+  var tr = trades.find(function(t){ return t.id === tradeId; });
+  return tr || trades[0] || null;
+}
+
+function EnterpriseTaskItem({ iv, zones, trades, onOpenDetail, onStatusChange, canChangeStatus, compact = false }) {
+  var z = zones.find(function(x){ return x.id === iv.zone; });
+  var tr = trades.find(function(t){ return t.id === iv.trade; });
+  var c = getTC(tr ? tr.color : 'blue');
+  var late = isTaskLate(iv);
+  return (
+    <div onClick={function(){onOpenDetail(iv.id);}}
+      style={{background:'var(--surface)',border:'1px solid '+(late?'rgba(234,88,12,.4)':'var(--border)'),
+        borderLeft:'4px solid '+(late?'#EA580C':c.b),borderRadius:'var(--r-sm)',padding:compact?'9px 10px':'11px 13px',
+        marginBottom:8,cursor:'pointer',boxShadow:'var(--shadow)',transition:'all .15s'}}
+      onMouseEnter={function(e){e.currentTarget.style.transform='translateX(2px)';e.currentTarget.style.boxShadow='var(--shadow-md)';}}
+      onMouseLeave={function(e){e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='var(--shadow)';}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:5}}>
+        <div style={{minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 5px',borderRadius:4,border:'1px solid var(--border)'}}>{iv.task_number}</span>}
+            {z && <span style={{fontSize:10,color:c.t,background:c.bg,padding:'1px 6px',borderRadius:10,fontWeight:700}}>{z.short}</span>}
+            {late && <span style={{fontSize:10,color:'#EA580C',fontWeight:800}}>⏱ En retard</span>}
+          </div>
+          <div style={{fontSize:13,fontWeight:800,color:'var(--text)',lineHeight:1.35,marginTop:4}}>{iv.task}</div>
+        </div>
+        <StatusBadge status={iv.status} size="sm" />
+      </div>
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',fontSize:11,color:'var(--muted)',marginBottom:(iv.prereq||iv.impact||iv.notes)?6:0}}>
+        <span style={{fontFamily:"'DM Mono',monospace"}}>{fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}</span>
+        {tr && <TradeBadge tradeId={iv.trade} trades={trades} />}
+      </div>
+      {iv.prereq && <div style={{fontSize:11,color:'#DC2626',background:'rgba(220,38,38,.08)',borderLeft:'2px solid #DC2626',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>⚠ {iv.prereq}</div>}
+      {iv.impact && <div style={{fontSize:11,color:'#92400E',background:'rgba(202,138,4,.10)',borderLeft:'2px solid #CA8A04',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>↪ Impact : {iv.impact}</div>}
+      {!compact && iv.notes && iv.notes.trim() && !iv.notes.startsWith('Etage') && !iv.notes.startsWith('Étage') && <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',marginTop:5}}>{iv.notes}</div>}
+      <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:8}}>
+        Cliquer pour ouvrir la fiche
+      </div>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════
    DASHBOARD SCREEN
 ═══════════════════════════════════════════════════════════ */
@@ -1503,6 +1554,12 @@ function TaskCard2({ iv, zones, trades, onOpenDetail }) {
           ⚠ Prérequis : {iv.prereq}
         </div>
       )}
+      {iv.impact&&iv.impact.trim()&&(
+        <div style={{fontSize:11,color:'#92400E',background:'rgba(202,138,4,.10)',padding:'4px 8px',
+          borderRadius:3,borderLeft:'3px solid #CA8A04',marginBottom:4}}>
+          ↪ Impact : {iv.impact}
+        </div>
+      )}
       {iv.notes&&iv.notes.trim()&&!iv.notes.startsWith('Etage')&&!iv.notes.startsWith('Étage')&&(
         <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',marginTop:2}}>
           {iv.notes}
@@ -1536,6 +1593,10 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
         {iv.prereq&&iv.prereq.trim()&&<div style={{fontSize:10,color:'#DC2626',background:'#FEF2F2',
           padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:2}}>
           ⚠ {iv.prereq}
+        </div>}
+        {iv.impact&&iv.impact.trim()&&<div style={{fontSize:10,color:'#92400E',background:'rgba(202,138,4,.10)',
+          padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #CA8A04',marginTop:2}}>
+          ↪ {iv.impact}
         </div>}
         <div style={{display:'flex',gap:8,marginTop:4,alignItems:'center'}}>
           <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
@@ -1673,6 +1734,23 @@ function SectionCard({ title, children, accent }) {
 }
 
 
+
+function calcReliability(items) {
+  var now = new Date();
+  now.setHours(0,0,0,0);
+  var due = (items || []).filter(function(iv){
+    var ds = iv.end || iv.start;
+    if (!ds) return false;
+    var d = new Date(ds + 'T00:00:00');
+    d.setHours(0,0,0,0);
+    return d <= now;
+  });
+  if (!due.length) return { value: 100, label: '100%', done: 0, total: 0 };
+  var kept = due.filter(function(iv){ return iv.status === 'termine'; }).length;
+  var value = Math.round(kept / due.length * 100);
+  return { value: value, label: value + '%', done: kept, total: due.length };
+}
+
 function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetail }) {
   const isAdmin = session?.role === 'admin';
   const myName  = session?.company?.name || '';
@@ -1687,6 +1765,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   const overdue = myData.filter(i => isTaskLate(i));
   const total   = myData.length;
   const pct     = total ? Math.round(termine.length / total * 100) : 0;
+  const reliability = calcReliability(myData);
 
   // Drawer: which stat is open
   const [drawer, setDrawer] = React.useState(null);
@@ -1776,6 +1855,119 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   }
 
   function renderSummaryBanner(title, subtitle) {
+    if (!isAdmin) {
+      var mainTrade = getCompanyMainTrade(myName, data, [], trades);
+      var accentColor = getTC(mainTrade ? mainTrade.color : 'blue');
+
+      return (
+        <div onClick={()=>toggle('all')}
+          style={{
+            background:'var(--hdr)',
+            borderRadius:'var(--r)',
+            padding:'14px 16px',
+            marginBottom:12,
+            color:'#fff',
+            cursor:'pointer',
+            boxShadow:'var(--shadow-md)',
+            borderLeft:`5px solid ${accentColor.b}`,
+            outline:drawer==='all'?'1px solid var(--primary)':'1px solid transparent',
+            transition:'transform .12s, outline-color .12s'
+          }}
+          onMouseEnter={function(e){e.currentTarget.style.transform='translateY(-1px)';}}
+          onMouseLeave={function(e){e.currentTarget.style.transform='';}}>
+          <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',marginBottom:10}}>
+            <div style={{minWidth:0}}>
+              <div style={{
+                fontSize:10,
+                fontFamily:"'DM Mono',monospace",
+                letterSpacing:'.08em',
+                textTransform:'uppercase',
+                opacity:.65,
+                marginBottom:3
+              }}>
+                Mon espace entreprise
+              </div>
+              <div style={{
+                fontSize:19,
+                fontWeight:900,
+                whiteSpace:'nowrap',
+                overflow:'hidden',
+                textOverflow:'ellipsis'
+              }}>
+                {title}
+              </div>
+              <div style={{
+                fontSize:11,
+                opacity:.7,
+                fontFamily:"'DM Mono',monospace",
+                marginTop:2
+              }}>
+                {subtitle}
+              </div>
+              <div style={{
+                fontSize:10,
+                opacity:.5,
+                fontFamily:"'DM Mono',monospace",
+                marginTop:4
+              }}>
+                Fiabilité = tâches dues terminées / tâches dues à date
+              </div>
+              <div style={{
+                fontSize:10,
+                opacity:.45,
+                fontFamily:"'DM Mono',monospace",
+                marginTop:4
+              }}>
+                Cliquer pour voir toutes les tâches
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:14,alignItems:'flex-start',flexShrink:0,textAlign:'right'}}>
+              <div>
+                <div style={{
+                  fontFamily:"'DM Mono',monospace",
+                  fontSize:26,
+                  fontWeight:900,
+                  lineHeight:1,
+                  color:pct===100?'#4ADE80':'#fff'
+                }}>
+                  {pct}%
+                </div>
+                <div style={{fontSize:9,opacity:.55,fontFamily:"'DM Mono',monospace"}}>
+                  Avancement
+                </div>
+              </div>
+
+              <div title="Fiabilité = tâches dues terminées / tâches dues à date">
+                <div style={{
+                  fontFamily:"'DM Mono',monospace",
+                  fontSize:26,
+                  fontWeight:900,
+                  lineHeight:1,
+                  color:reliability.value>=85?'#4ADE80':reliability.value>=60?'#FBBF24':'#F87171'
+                }}>
+                  {reliability.label}
+                </div>
+                <div style={{fontSize:9,opacity:.55,fontFamily:"'DM Mono',monospace"}}>
+                  Fiabilité
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{height:6,background:'rgba(255,255,255,.18)',borderRadius:4,overflow:'hidden'}}>
+            <div style={{
+              height:'100%',
+              width:`${pct}%`,
+              background:'#60A5FA',
+              borderRadius:4,
+              transition:'width .5s ease'
+            }}></div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div onClick={()=>toggle('all')}
         style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'14px 16px',
@@ -1795,11 +1987,20 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
               Cliquer pour voir toutes les tâches
             </div>
           </div>
-          <div style={{textAlign:'right',flexShrink:0}}>
-            <div style={{fontSize:26,fontWeight:800,color:pct===100?'#4ADE80':'#fff',
-              fontFamily:"'DM Mono',monospace",lineHeight:1}}>{pct}%</div>
-            <div style={{fontSize:9,color:'rgba(255,255,255,.5)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
-              terminé
+          <div style={{display:'flex',gap:14,alignItems:'flex-start',flexShrink:0,textAlign:'right'}}>
+            <div>
+              <div style={{fontSize:26,fontWeight:800,color:pct===100?'#4ADE80':'#fff',
+                fontFamily:"'DM Mono',monospace",lineHeight:1}}>{pct}%</div>
+              <div style={{fontSize:9,color:'rgba(255,255,255,.5)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
+                Avancement
+              </div>
+            </div>
+            <div title="Fiabilité = tâches dues terminées / tâches dues à date">
+              <div style={{fontSize:26,fontWeight:800,color:reliability.value>=85?'#4ADE80':reliability.value>=60?'#FBBF24':'#F87171',
+                fontFamily:"'DM Mono',monospace",lineHeight:1}}>{reliability.label}</div>
+              <div style={{fontSize:9,color:'rgba(255,255,255,.5)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
+                Fiabilité
+              </div>
             </div>
           </div>
         </div>
@@ -1832,6 +2033,40 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
 
         {renderStatsGrid()}
         {renderDrawer()}
+
+        <SectionCard title="Zones critiques" accent="#EA580C">
+          {(() => {
+            const criticalZones = zones.map(function(z){
+              const zivs = data.filter(function(i){ return i.zone === z.id; });
+              const late = zivs.filter(function(i){ return isTaskLate(i); }).length;
+              const bloc = zivs.filter(function(i){ return i.status === 'bloque'; }).length;
+              const wd = workingDaysUntil(z.deadline);
+              const critical = late > 0 || bloc > 0 || (z.deadline && wd <= 5 && wd >= 0);
+              return critical ? {z:z, late:late, bloc:bloc, wd:wd} : null;
+            }).filter(Boolean);
+            if (!criticalZones.length) {
+              return <div style={{fontSize:12,color:'var(--muted)',padding:'6px 0'}}>Aucune zone critique.</div>;
+            }
+            return criticalZones.map(function(item){
+              return (
+                <div key={item.z.id} onClick={function(){toggleZoneDetail(item.z.id);}}
+                  style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,
+                    padding:'9px 10px',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
+                    background:'var(--surface-2)',marginBottom:7,cursor:'pointer'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
+                    <span style={{width:8,height:8,borderRadius:'50%',background:FLOOR_COLORS[item.z.floor]||'#9CA3AF',display:'inline-block'}}></span>
+                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{item.z.name}</span>
+                  </div>
+                  <div style={{display:'flex',gap:8,alignItems:'center',fontFamily:"'DM Mono',monospace",fontSize:10,flexShrink:0}}>
+                    {item.late>0&&<span style={{color:'#EA580C',fontWeight:800}}>⏱ {item.late}</span>}
+                    {item.bloc>0&&<span style={{color:'#DC2626',fontWeight:800}}>⚠ {item.bloc}</span>}
+                    {item.z.deadline&&<span style={{color:item.wd<=5?'#DC2626':'var(--muted)',fontWeight:800}}>J-{item.wd<0?'▲':item.wd}</span>}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </SectionCard>
 
         {/* Zone progress */}
         <SectionCard title="Avancement par zone">
@@ -2384,68 +2619,126 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
 /* ════════════════════════════════════════════════════════════
    LIST SCREEN
 ═══════════════════════════════════════════════════════════ */
-function ListScreen({ data, zones, trades, weekOffset, filter, onOpenDetail }) {
+function ListScreen({ data, zones, trades, companies, weekOffset, filter, session, onOpenDetail, onStatusChange, canChangeStatus = true }) {
+  const isAdmin = session?.role === 'admin';
+  const myName = session?.company?.name || '';
+  const baseData = isAdmin ? data : data.filter(function(i){ return i.company === myName; });
+  const shownData = filter === 'all' ? baseData : baseData.filter(function(i){ return i.trade === filter; });
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = dateStr(today);
   const days = weekDays(weekOffset);
-  const filtered = (filter==='all'?data:data.filter(i=>i.trade===filter))
-    .filter(i=>days.some(d=>inDay(i,d)))
-    .sort((a,b)=>a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3));
-
-  if (!filtered.length) return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-      height:'100%',color:'var(--muted)',gap:8}}>
-      <div style={{fontSize:36,opacity:.3}}>📋</div>
-      <div style={{fontSize:15,fontWeight:600}}>Aucune intervention cette semaine</div>
-      <div style={{fontSize:13}}>Changez la semaine ou le filtre</div>
-    </div>
-  );
-
-  // Group by date
-  const grouped = {};
-  filtered.forEach(iv => {
-    if (!grouped[iv.start]) grouped[iv.start] = [];
-    grouped[iv.start].push(iv);
+  const weekItems = shownData.filter(function(i){ return days.some(function(d){ return inDay(i,d); }); });
+  const todayItems = shownData.filter(function(i){ return inDay(i,today) && !(i.off_days||[]).includes(todayStr); });
+  const urgentItems = shownData.filter(function(i){ return isTaskLate(i) || i.status === 'bloque' || (i.prereq && i.prereq.trim()); });
+  const allOrdered = [...shownData].sort(function(a,b){
+    var rank = function(iv){ if (iv.status==='bloque') return 0; if (isTaskLate(iv)) return 1; if (iv.status==='encours') return 2; if (iv.status==='arealis') return 3; if (iv.status==='termine') return 5; return 9; };
+    var ra=rank(a), rb=rank(b); if (ra!==rb) return ra-rb;
+    return (a.start||'').localeCompare(b.start||'');
   });
+
+  function pctDone(items) { return items.length ? Math.round(items.filter(function(i){return i.status==='termine';}).length / items.length * 100) : 0; }
+
+  if (isAdmin) {
+    const filtered = shownData
+      .filter(i=>days.some(d=>inDay(i,d)))
+      .sort((a,b)=>a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3));
+    if (!filtered.length) return (
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--muted)',gap:8}}>
+        <div style={{fontSize:36,opacity:.3}}>📋</div>
+        <div style={{fontSize:15,fontWeight:600}}>Aucune intervention cette semaine</div>
+        <div style={{fontSize:13}}>Changez la semaine ou le filtre</div>
+      </div>
+    );
+    const grouped = {};
+    filtered.forEach(iv => { if (!grouped[iv.start]) grouped[iv.start] = []; grouped[iv.start].push(iv); });
+    return (
+      <div style={{overflowY:'auto',height:'100%',padding:'12px 12px 100px'}}>
+        {Object.entries(grouped).map(([date, ivs]) => (
+          <div key={date} style={{marginBottom:18}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.06em',textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8,paddingBottom:5,borderBottom:'1px solid var(--border)'}}>
+              {fmtDate(date)} — {new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long'})}
+            </div>
+            {ivs.map(iv=><TaskRowAdmin key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const mainTrade = getCompanyMainTrade(myName, data, companies, trades);
+  const accent = getTC(mainTrade ? mainTrade.color : 'blue');
+  const total = baseData.length;
+  const done = baseData.filter(function(i){ return i.status === 'termine'; }).length;
+  const enc = baseData.filter(function(i){ return i.status === 'encours'; }).length;
+  const bloc = baseData.filter(function(i){ return i.status === 'bloque'; }).length;
+  const late = baseData.filter(function(i){ return isTaskLate(i); }).length;
+  const progress = pctDone(baseData);
+  const reliability = calcReliability(baseData);
+
+  function MiniStat({label,value,color}) {
+    return <div style={{flex:'1 1 72px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'9px 8px',textAlign:'center'}}>
+      <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:color,lineHeight:1}}>{value}</div>
+      <div style={{fontSize:10,color:'var(--muted)',fontWeight:700,marginTop:3}}>{label}</div>
+    </div>;
+  }
+  function TaskSection({title,subtitle,items,empty,accentColor}) {
+    return <SectionCard title={title} accent={accentColor}>
+      {subtitle && <div style={{fontSize:12,color:'var(--muted)',marginBottom:10,lineHeight:1.4}}>{subtitle}</div>}
+      {items.length ? items.map(function(iv){ return <EnterpriseTaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} onStatusChange={onStatusChange} canChangeStatus={canChangeStatus} />; }) :
+        <div style={{padding:'12px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>{empty || 'Aucune tâche.'}</div>}
+    </SectionCard>;
+  }
 
   return (
     <div style={{overflowY:'auto',height:'100%',padding:'12px 12px 100px'}}>
-      {Object.entries(grouped).map(([date, ivs]) => (
-        <div key={date} style={{marginBottom:18}}>
-          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.06em',
-            textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8,
-            paddingBottom:5,borderBottom:'1px solid var(--border)'}}>
-            {fmtDate(date)} — {new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long'})}
+      <div style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'14px 16px',marginBottom:12,color:'#fff',boxShadow:'var(--shadow-md)',borderLeft:`5px solid ${accent.b}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',marginBottom:10}}>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:10,fontFamily:"'DM Mono',monospace",letterSpacing:'.08em',textTransform:'uppercase',opacity:.65,marginBottom:3}}>Mon espace entreprise</div>
+            <div style={{fontSize:19,fontWeight:900,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{myName}</div>
+            <div style={{fontSize:11,opacity:.7,fontFamily:"'DM Mono',monospace",marginTop:2}}>{total} tâche{total!==1?'s':''} · {weekItems.length} cette semaine</div>
+            <div style={{fontSize:10,opacity:.5,fontFamily:"'DM Mono',monospace",marginTop:4}}>Fiabilité = tâches dues terminées / tâches dues à date</div>
           </div>
-          {ivs.map(iv=>{
-            const z=zones.find(x=>x.id===iv.zone);
-            const tr=trades.find(t=>t.id===iv.trade);
-            const c=getTC(tr?.color||'blue');
-            return (
-              <div key={iv.id} onClick={()=>onOpenDetail(iv.id)}
-                style={{background:'var(--surface)',border:'1px solid var(--border)',
-                  borderLeft:`3px solid ${c.b}`,borderRadius:'var(--r-sm)',padding:'11px 13px',
-                  marginBottom:7,cursor:'pointer',boxShadow:'var(--shadow)',transition:'all .15s'}}
-                onMouseEnter={e=>{e.currentTarget.style.transform='translateX(2px)';e.currentTarget.style.borderColor=c.b;}}
-                onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.borderColor='var(--border)';}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
-                  <div>
-                    <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{iv.company}</div>
-                    {iv.task_number&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:1}}>{iv.task_number}</div>}
-                  </div>
-                  <StatusBadge status={iv.status} size="sm" />
-                </div>
-                <div style={{fontSize:12,color:'var(--muted)',marginBottom:4,lineHeight:1.4}}>{iv.task}</div>
-                <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                  {z&&<span style={{fontSize:11,color:'var(--xmuted)'}}>{z.name}</span>}
-                  <TradeBadge tradeId={iv.trade} trades={trades} />
-                  {iv.end&&iv.end!==iv.start&&<span style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace"}}>→ {fmtDate(iv.end)}</span>}
-                </div>
-                {iv.prereq&&<div style={{marginTop:6,fontSize:11,color:'#DC2626',background:'rgba(220,38,38,.08)',
-                  borderLeft:'2px solid #DC2626',padding:'4px 7px',borderRadius:'0 4px 4px 0'}}>⚠ {iv.prereq}</div>}
-              </div>
-            );
-          })}
+          <div style={{display:'flex',gap:14,alignItems:'flex-start',flexShrink:0,textAlign:'right'}}>
+            <div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:900,lineHeight:1,color:progress===100?'#4ADE80':'#fff'}}>{progress}%</div>
+              <div style={{fontSize:9,opacity:.55,fontFamily:"'DM Mono',monospace"}}>Avancement</div>
+            </div>
+            <div title="Fiabilité = tâches dues terminées / tâches dues à date">
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:900,lineHeight:1,color:reliability.value>=85?'#4ADE80':reliability.value>=60?'#FBBF24':'#F87171'}}>{reliability.label}</div>
+              <div style={{fontSize:9,opacity:.55,fontFamily:"'DM Mono',monospace"}}>Fiabilité</div>
+            </div>
+          </div>
         </div>
-      ))}
+        <div style={{height:6,background:'rgba(255,255,255,.18)',borderRadius:4,overflow:'hidden'}}>
+          <div style={{height:'100%',width:`${progress}%`,background:'#60A5FA',borderRadius:4}}></div>
+        </div>
+      </div>
+
+      <div style={{display:'flex',gap:7,flexWrap:'wrap',marginBottom:12}}>
+        <MiniStat label="Terminées" value={`${done}/${total}`} color="#16A34A" />
+        <MiniStat label="En cours" value={enc} color="#2563EB" />
+        <MiniStat label="Bloquées" value={bloc} color="#DC2626" />
+        <MiniStat label="Retard" value={late} color="#EA580C" />
+      </div>
+
+      <TaskSection title={`Aujourd’hui — ${todayItems.length}`} accentColor={accent.b}
+        subtitle="Les tâches à traiter maintenant, avec actions rapides."
+        items={todayItems.sort(function(a,b){ return (a.priority||3)-(b.priority||3); })}
+        empty="Aucune tâche prévue aujourd’hui." />
+
+      <TaskSection title={`Mes urgences — ${urgentItems.length}`} accentColor="#EA580C"
+        subtitle="Retards, blocages et prérequis à lever."
+        items={urgentItems}
+        empty="Aucune urgence identifiée." />
+
+      <TaskSection title={`Cette semaine — ${weekItems.length}`} accentColor="#2563EB"
+        items={weekItems.sort(function(a,b){ return (a.start||'').localeCompare(b.start||''); })}
+        empty="Aucune tâche planifiée cette semaine." />
+
+      <TaskSection title={`Toutes mes tâches — ${allOrdered.length}`} accentColor="var(--muted)"
+        items={allOrdered}
+        empty="Aucune tâche affectée." />
     </div>
   );
 }
@@ -2763,7 +3056,7 @@ function StatusWithNote({ iv, session, onStatusChange }) {
       setSaved(true);
       setTimeout(function(){ setSaved(false); setPendingStatus(null); setNoteText(''); }, 1600);
     } catch(e) {
-      setError(e&&e.message?e.message:'Erreur de sauvegarde. Synchronisez puis réessayez.');
+      setError(e&&e.message?e.message:'Erreur de sauvegarde. Actualisez puis réessayez.');
     } finally {
       setSaving(false);
     }
@@ -2913,6 +3206,10 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#991B1B'}}>
         <b>⚠ Prérequis</b><br/>{iv.prereq}
       </div>}
+      {iv.impact&&<div style={{background:'rgba(202,138,4,.10)',borderLeft:'3px solid #CA8A04',
+        borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#92400E'}}>
+        <b>↪ Impact / dépendance</b><br/>{iv.impact}
+      </div>}
       {iv.notes&&<div style={{background:'rgba(22,163,74,.08)',borderLeft:'3px solid #16A34A',
         borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'var(--text)'}}>
         <b>Notes</b><br/>{iv.notes}
@@ -3054,13 +3351,13 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
       setForm(existing ? {
         zone: existing.zone||'', start: existing.start||'', end: existing.end||'',
         trade: existing.trade||'', company: existing.company||'', task: existing.task||'',
-        priority: existing.priority||3, prereq: existing.prereq||'', notes: existing.notes||'',
+        priority: existing.priority||3, prereq: existing.prereq||'', impact: existing.impact||'', notes: existing.notes||'',
         predecessor_id: existing.predecessor_id||'', status: existing.status||'arealis',
         _expected_updated_at: existing.updated_at||'',
       } : {
         zone: preZone||'', start: preDate||dateStr(new Date()),
         end: preDate||dateStr(new Date()), trade:'', company:'', task:'',
-        priority:3, prereq:'', notes:'', predecessor_id:'', status:'arealis',
+        priority:3, prereq:'', impact:'', notes:'', predecessor_id:'', status:'arealis',
       });
       setAttachments(existing?.attachments||[]);
     }
@@ -3082,7 +3379,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         off_days: form.off_days||[],
       });
     } catch(e) {
-      alert((e&&e.message)||'Erreur de sauvegarde. Synchronisez puis réessayez.');
+      alert((e&&e.message)||'Erreur de sauvegarde. Actualisez puis réessayez.');
     } finally {
       setSaving(false);
     }
@@ -3129,6 +3426,10 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
           <Textarea value={form.prereq||''} onChange={e=>set('prereq',e.target.value)}
             placeholder="ex : Zone libérée avant intervention…" rows={2} />
         </Field>
+        <Field label="Impact / tâche ou entreprise bloquée" hint="optionnel">
+          <Textarea value={form.impact||''} onChange={e=>set('impact',e.target.value)}
+            placeholder="ex : Bloque ELPHITEC pour pose appareillage…" rows={2} />
+        </Field>
         <Field label="Notes / Consignes">
           <Textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)}
             placeholder="Informations complémentaires…" rows={2} />
@@ -3145,7 +3446,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         <button onClick={onClose} style={{...btnSecStyle,width:'100%',marginTop:8}}>Annuler</button>
       </SheetModal>
       <ConfirmDialog open={confirmDel} message="Supprimer définitivement cette intervention ?"
-        onConfirm={async()=>{setConfirmDel(false);setSaving(true);try{await onDelete(editId, existing?.updated_at);}catch(e){alert((e&&e.message)||'Erreur de suppression. Synchronisez puis réessayez.');}finally{setSaving(false);}}}
+        onConfirm={async()=>{setConfirmDel(false);setSaving(true);try{await onDelete(editId, existing?.updated_at);}catch(e){alert((e&&e.message)||'Erreur de suppression. Actualisez puis réessayez.');}finally{setSaving(false);}}}
         onCancel={()=>setConfirmDel(false)} />
     </>
   );
@@ -3559,6 +3860,7 @@ function PlanifyApp() {
     return Object.assign({}, r, {
       start: r.start_date,
       end: r.end_date,
+      impact: r.impact || '',
       attachments: [],
       off_days: r.off_days || []
     });
@@ -3613,6 +3915,7 @@ function PlanifyApp() {
       {key:'status', label:'Statut'},
       {key:'priority', label:'Priorité'},
       {key:'prereq', label:'Prérequis / point bloquant'},
+      {key:'impact', label:'Impact / dépendance'},
       {key:'notes', label:'Note'},
       {key:'off_days', label:'Jours gelés'},
     ];
@@ -3718,15 +4021,19 @@ function PlanifyApp() {
       }));
       if(iData&&iData.length) setData(iData.map(normalizeInterventionRow));
       return results;
-    }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); notify('Erreur de synchronisation','error'); throw e; });
+    }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); notify('Erreur de mise à jour','error'); throw e; });
   }
 
   function handleLogin(s) {
     setSession(s);
+    // Vue d'ouverture :
+    // - entreprise : Liste / Mes tâches / Aujourd'hui
+    // - admin : Tableau de pilotage
+    setScreen(s && s.role === 'company' ? 'list' : 'dashboard');
     setBusyKey('sync', true);
     Promise.all([loadFromSupabase(s), loadPlanningMeta(), loadHistory()])
-      .then(function(){ notify('Synchronisé ✓','success'); })
-      .catch(function(){ notify('Erreur de synchronisation','error'); })
+      .then(function(){ notify('↻ Données à jour ✓','success'); })
+      .catch(function(){ notify('Erreur de mise à jour','error'); })
       .finally(function(){ setBusyKey('sync', false); });
   }
   function handleLogout() { setSession(null); setUserMenu(false); setHistoryOpen(false); }
@@ -3734,14 +4041,14 @@ function PlanifyApp() {
   function syncAll(showMessage = true) {
     if (!session) return Promise.resolve();
     setBusyKey('sync', true);
-    if (showMessage) notify('Synchronisation en cours…','info',1200);
+    if (showMessage) notify('Mise à jour en cours…','info',1200);
     return Promise.all([loadFromSupabase(session), loadPlanningMeta(), loadHistory()])
-      .then(function(){ if (showMessage) notify('Synchronisé ✓','success'); })
-      .catch(function(e){ if (showMessage) notify('Erreur de synchronisation','error'); throw e; })
+      .then(function(){ if (showMessage) notify('↻ Données à jour ✓','success'); })
+      .catch(function(e){ if (showMessage) notify('Erreur de mise à jour','error'); throw e; })
       .finally(function(){ setBusyKey('sync', false); });
   }
 
-  function scheduleRealtimeSync() {
+  function scheduleRealtimeActualiser() {
     if (!session) return;
     clearTimeout(realtimeTimerRef.current);
     realtimeTimerRef.current = setTimeout(function(){ syncAll(false).catch(function(){}); }, 550);
@@ -3751,12 +4058,12 @@ function PlanifyApp() {
     if (!session || !window.supabase || !window.supabase.createClient) return;
     var client = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     var channel = client.channel('planify-live-'+Date.now())
-      .on('postgres_changes', {event:'*', schema:'public', table:'interventions'}, scheduleRealtimeSync)
-      .on('postgres_changes', {event:'*', schema:'public', table:'planning_versions'}, scheduleRealtimeSync)
-      .on('postgres_changes', {event:'*', schema:'public', table:'planning_events'}, scheduleRealtimeSync)
-      .on('postgres_changes', {event:'*', schema:'public', table:'companies'}, scheduleRealtimeSync)
-      .on('postgres_changes', {event:'*', schema:'public', table:'zones'}, scheduleRealtimeSync)
-      .on('postgres_changes', {event:'*', schema:'public', table:'trades'}, scheduleRealtimeSync)
+      .on('postgres_changes', {event:'*', schema:'public', table:'interventions'}, scheduleRealtimeActualiser)
+      .on('postgres_changes', {event:'*', schema:'public', table:'planning_versions'}, scheduleRealtimeActualiser)
+      .on('postgres_changes', {event:'*', schema:'public', table:'planning_events'}, scheduleRealtimeActualiser)
+      .on('postgres_changes', {event:'*', schema:'public', table:'companies'}, scheduleRealtimeActualiser)
+      .on('postgres_changes', {event:'*', schema:'public', table:'zones'}, scheduleRealtimeActualiser)
+      .on('postgres_changes', {event:'*', schema:'public', table:'trades'}, scheduleRealtimeActualiser)
       .subscribe(function(status){ console.log('[Planify realtime]', status); });
     realtimeRef.current = {client:client, channel:channel};
     return function(){
@@ -3794,7 +4101,7 @@ function PlanifyApp() {
       throw new Error('Planning validé.');
     }
     var iv = data.find(function(i){return i.id===id;});
-    if (!iv) throw new Error('Tâche introuvable. Synchronisez puis réessayez.');
+    if (!iv) throw new Error('Tâche introuvable. Actualisez puis réessayez.');
     var oldStatus = iv.status || '';
     var oldMeta = STATUS_META[oldStatus] || {label:oldStatus || '—'};
     var newMeta = STATUS_META[status] || {label:status || '—'};
@@ -3809,7 +4116,7 @@ function PlanifyApp() {
       }, conflictQuery(id, iv.updated_at));
       if (iv.updated_at && (!rows || !rows.length)) {
         await syncAll(false).catch(function(){});
-        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Synchronisez avant de réessayer.');
+        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Actualisez avant de réessayer.');
       }
       var saved = rows && rows[0] ? normalizeInterventionRow(rows[0]) : Object.assign({}, iv, {status:status, updated_at:newUpdatedAt});
       setData(function(prev){ return prev.map(function(i){ return i.id===id?saved:i; }); });
@@ -3865,7 +4172,7 @@ function PlanifyApp() {
       id:cleanIv.id, trade:cleanIv.trade, company:cleanIv.company, task:cleanIv.task,
       zone:cleanIv.zone, start_date:cleanIv.start, end_date:cleanIv.end||cleanIv.start,
       status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
-      prereq:cleanIv.prereq||'', notes:cleanIv.notes||'',
+      prereq:cleanIv.prereq||'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
       task_number:cleanIv.task_number||null, predecessor_id:null,
       off_days:cleanIv.off_days||[], updated_at:newUpdatedAt
     };
@@ -3877,7 +4184,7 @@ function PlanifyApp() {
         : await sbFetchRows('POST','interventions',row);
       if (existing && expectedUpdatedAt && (!rows || !rows.length)) {
         await syncAll(false).catch(function(){});
-        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Synchronisez avant d’enregistrer.');
+        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Actualisez avant d’enregistrer.');
       }
       var saved = rows && rows[0] ? normalizeInterventionRow(rows[0]) : Object.assign({}, cleanIv, {updated_at:newUpdatedAt});
       setData(function(prev){
@@ -3916,13 +4223,13 @@ function PlanifyApp() {
       alert(msg); throw new Error(msg);
     }
     var iv = data.find(function(i){return i.id===id;});
-    if (!iv) throw new Error('Tâche introuvable. Synchronisez puis réessayez.');
+    if (!iv) throw new Error('Tâche introuvable. Actualisez puis réessayez.');
     setBusyKey('task_delete', true);
     try {
       var rows = await sbFetchRows('DELETE','interventions',null,conflictQuery(id, expectedUpdatedAt || iv.updated_at));
       if ((expectedUpdatedAt || iv.updated_at) && (!rows || !rows.length)) {
         await syncAll(false).catch(function(){});
-        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Synchronisez avant de supprimer.');
+        throw new Error('Cette tâche a été modifiée par un autre utilisateur. Actualisez avant de supprimer.');
       }
       setData(function(prev){ return prev.filter(function(i){return i.id!==id;}); });
       closeModal();
@@ -4084,8 +4391,9 @@ function PlanifyApp() {
       case 'planning':  return <PlanningScreen  data={data} zones={zones} setZones={setZones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
         onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} />;
-      case 'list':      return <ListScreen      data={data} zones={zones} trades={trades}
-        weekOffset={weekOffset} filter={filter} onOpenDetail={openDetail} />;
+      case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
+        weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
+        onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
       case 'settings':  return <SettingsScreen  zones={zones} trades={trades} companies={companies}
         setZones={setZones} setTrades={setTrades} setCompanies={setCompanies} />;
       default:          return null;
@@ -4137,6 +4445,7 @@ function PlanifyApp() {
         start: fmtDate(iv.start),
         end: fmtDate(iv.end || iv.start),
         prereq: iv.prereq || '',
+        impact: iv.impact || '',
         notes: iv.notes || '',
         offDays: (iv.off_days || []).map(fmtDate).join(', '),
       };
@@ -4150,10 +4459,10 @@ function PlanifyApp() {
     var period = dateStr(pack.first).replaceAll('-','') + '_' + dateStr(pack.last).replaceAll('-','');
     var label = mode.toUpperCase();
     var fileBase = 'planify_hsf_planning_' + label + '_' + period;
-    var headers = ['Zone','Étage','Entreprise','Lot','N° tâche','Tâche','Statut','Début','Fin','Prérequis / blocage','Notes','Jours gelés'];
+    var headers = ['Zone','Étage','Entreprise','Lot','N° tâche','Tâche','Statut','Début','Fin','Prérequis / blocage','Impact','Notes','Jours gelés'];
     var body = rows.map(function(r){ return [
       r.zone, r.floor, r.company, r.trade, r.taskNumber, r.task, r.status,
-      r.start, r.end, r.prereq, r.notes, r.offDays
+      r.start, r.end, r.prereq, r.impact || '', r.notes, r.offDays
     ]; });
 
     if (!rows.length) {
@@ -4175,7 +4484,7 @@ function PlanifyApp() {
       var ws = XLSX.utils.aoa_to_sheet(aoa);
       ws['!cols'] = [
         {wch:26},{wch:8},{wch:18},{wch:16},{wch:12},{wch:52},
-        {wch:14},{wch:12},{wch:12},{wch:32},{wch:32},{wch:20}
+        {wch:14},{wch:12},{wch:12},{wch:32},{wch:32},{wch:32},{wch:20}
       ];
       var wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Planning '+label);
@@ -4437,6 +4746,10 @@ function PlanifyApp() {
                 doc.setTextColor(185,28,28);
                 doc.setFontSize(4.2);
                 drawWrapped(doc, '⚠ ' + iv.prereq, cardX + 4, cardY + cardH - 3, cardW - 8, 1, 4.5);
+              } else if (!compact && iv.impact && cardH >= 16) {
+                doc.setTextColor(146,64,14);
+                doc.setFontSize(4.2);
+                drawWrapped(doc, '↪ ' + iv.impact, cardX + 4, cardY + cardH - 3, cardW - 8, 1, 4.5);
               }
 
               cardY += cardH + gap;
