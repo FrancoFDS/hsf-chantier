@@ -1674,7 +1674,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
             borderBottom:'2px solid var(--border)',position:'sticky',top:0,zIndex:10}}>
 
             {/* Zone filter cell */}
-            <div ref={dropRef} style={{padding:'5px 3px',borderRight:'1px solid var(--border)',
+            <div ref={dropRef} style={{padding:'5px 3px',borderRight:'3px solid var(--border-s)',
               display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
               <button onClick={() => setDropOpen(o => !o)}
                 style={{width:'100%',padding:'4px 2px',borderRadius:'var(--r-xs)',
@@ -1720,7 +1720,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
               const isFirstOfWeek = i % 5 === 0 && i > 0;
               const holiday = isHoliday(d);
               return (
-                <div key={i} style={{padding:'6px 2px',textAlign:'center',
+                <div key={i} style={{padding:isMulti?'3px 0':'6px 2px',textAlign:'center',overflow:'hidden',
                   borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                   background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'transparent'}}>
                   {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
@@ -1796,7 +1796,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const cellBg = holiday?'#D1D5DB':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                   return (
                     <div key={di} onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
-                      style={{padding:isMulti?1:2,minHeight:isMulti?40:56,
+                      style={{padding:isMulti?0:2,minHeight:isMulti?40:56,
                         borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                         background:cellBg,
                         cursor:isAdmin&&!holiday?'pointer':'default',transition:'background .1s'}}
@@ -2228,6 +2228,27 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
           </div>
         ))}
       </div>
+      {iv.off_days&&iv.off_days.length>0&&(
+        <div style={{background:'rgba(220,38,38,.06)',border:'1px solid rgba(220,38,38,.2)',
+          borderRadius:'var(--r-sm)',padding:'9px 12px',marginBottom:10}}>
+          <div style={{fontSize:10,fontWeight:700,color:'var(--danger)',fontFamily:"'DM Mono',monospace",
+            marginBottom:6,letterSpacing:'.04em',textTransform:'uppercase'}}>Jours gelés</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+            {iv.off_days.map(function(ds){
+              var d=new Date(ds+'T00:00:00');
+              var DAY=['Di','Lu','Ma','Me','Je','Ve','Sa'];
+              var MON=['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+              return (
+                <span key={ds} style={{padding:'3px 8px',borderRadius:20,fontSize:11,fontWeight:600,
+                  background:'rgba(220,38,38,.1)',color:'var(--danger)',
+                  fontFamily:"'DM Mono',monospace",border:'1px solid rgba(220,38,38,.2)'}}>
+                  {DAY[d.getDay()]} {d.getDate()} {MON[d.getMonth()]}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {pred&&<div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',borderRadius:'0 6px 6px 0',
         padding:'8px 12px',marginBottom:10,fontSize:12}}>
