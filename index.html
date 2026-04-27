@@ -1219,6 +1219,20 @@ Object.assign(window, {
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
+// ── Global Supabase write helper (available to all components) ──────────
+var _SUPA_URL = 'https://xrfqlbhaxhraneflrfez.supabase.co';
+var _SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
+function supaWrite(method, table, body, query) {
+  var url = _SUPA_URL+'/rest/v1/'+table+(query?'?'+query:'');
+  var hdrs = {'apikey':_SUPA_KEY,'Authorization':'Bearer '+_SUPA_KEY,
+    'Content-Type':'application/json',
+    'Prefer':method==='POST'?'return=representation':'return=minimal'};
+  fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
+    .then(function(r){if(!r.ok)console.error('[Planify] '+table+' '+method+' '+r.status);})
+    .catch(function(e){console.error('[Planify]',e);});
+}
+
+
 // ── Self-contained helpers (Babel scope) ──────────────────────
 const _HOLIDAYS = new Set(['2026-01-01','2026-04-06','2026-05-01','2026-05-08',
   '2026-05-14','2026-05-25','2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25']);
@@ -1908,10 +1922,12 @@ function SettingsScreen({ zones, trades, setZones, setTrades }) {
   function saveZone(z) {
     setZones(prev => prev.map(x => x.id===z.id ? z : x));
     setEditingZone(null);
+    supaWrite('PATCH','zones',{name:z.name,short:z.short,floor:z.floor,deadline:z.deadline||null},'id=eq.'+z.id);
   }
   function saveTrade(t) {
     setTrades(prev => prev.map(x => x.id===t.id ? t : x));
     setEditingTrade(null);
+    supaWrite('PATCH','trades',{name:t.name,short:t.short,color:t.color},'id=eq.'+t.id);
   }
   function addZone() {
     if (!newZone?.name||!newZone?.short) return;
@@ -2459,28 +2475,108 @@ function PlanifyApp() {
     document.documentElement.setAttribute('data-theme', tweaks.theme);
   }, [tweaks.theme]);
 
-  function handleLogin(s)  { setSession(s); }
-  function handleLogout()  { setSession(null); setUserMenu(false); }
+  const SUPA = window.PLANIFY_SUPA || null;
+  const SUPA_URL = 'https://xrfqlbhaxhraneflrfez.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
 
-  function openDetail(id)          { setModal({type:'detail', id}); }
-  function openAdd(zone='',date='') { setModal({type:'add', zone, date}); }
-  function openEdit(id)            { setModal({type:'edit', id}); }
-  function closeModal()            { setModal(null); }
-
-  function handleStatusChange(id, status) {
-    setData(prev => prev.map(i => i.id===id ? {...i, status} : i));
+  // ── Core fetch helper ────────────────────────────────────────────────
+  function sbFetch(method, table, body, query) {
+    var url = SUPA_URL+'/rest/v1/'+table+(query?'?'+query:'');
+    var hdrs = {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer '+SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method==='POST'?'return=representation':'return=minimal'
+    };
+    return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
+      .then(function(r){ if(!r.ok) throw new Error(table+' '+method+' failed: '+r.status); return r; })
+      .catch(function(e){ console.error('[Planify] Supabase error:',e); });
   }
+
+  // ── Load all data from Supabase ──────────────────────────────────────
+  function loadFromSupabase(sess) {
+    var company = sess&&sess.role==='admin'?'Admin':(sess&&sess.company?sess.company.name:'');
+    var hdrs = {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
+    Promise.all([
+      fetch(SUPA_URL+'/rest/v1/zones?order=display_order',{headers:hdrs}),
+      fetch(SUPA_URL+'/rest/v1/trades?order=display_order',{headers:hdrs}),
+      fetch(SUPA_URL+'/rest/v1/interventions?order=start_date',{headers:hdrs}),
+    ]).then(function(rs){ return Promise.all(rs.map(function(r){return r.ok?r.json():[];})); })
+    .then(function(results){
+      var zData=results[0], tData=results[1], iData=results[2];
+      if(zData&&zData.length) setZones(zData);
+      if(tData&&tData.length) setTrades(tData.map(function(t){
+        var loc=TRADES.find(function(lt){return lt.id===t.id;});
+        return loc?Object.assign({},t,{color:loc.color}):t;
+      }));
+      if(iData&&iData.length) setData(iData.map(function(r){
+        return Object.assign({},r,{
+          start:r.start_date, end:r.end_date,
+          attachments:[], off_days:r.off_days||[]
+        });
+      }));
+    }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); });
+  }
+
+  function handleLogin(s) {
+    setSession(s);
+    loadFromSupabase(s);
+  }
+  function handleLogout() { setSession(null); setUserMenu(false); }
+
+  function openDetail(id)           { setModal({type:'detail', id}); }
+  function openAdd(zone,date)       { setModal({type:'add', zone:zone||'', date:date||''}); }
+  function openEdit(id)             { setModal({type:'edit', id}); }
+  function closeModal()             { setModal(null); }
+
+  // ── Status change → save to Supabase ────────────────────────────────
+  function handleStatusChange(id, status, noteText) {
+    setData(function(prev){ return prev.map(function(i){ return i.id===id?Object.assign({},i,{status:status}):i; }); });
+    sbFetch('PATCH','interventions',{status:status,updated_at:new Date().toISOString()},'id=eq.'+id);
+    // Save note if provided
+    if(noteText&&noteText.trim()) {
+      var iv = data.find(function(i){return i.id===id;});
+      var author = session&&session.role==='admin'?'Admin':(session&&session.company?session.company.name:'');
+      var logRow = {task_id:id,company:author,author:author,type:status,
+        message:noteText.trim(),photo_url:null,mentioned:['Admin']};
+      sbFetch('POST','task_logs',logRow)
+        .then(function(){
+          var taskRef = iv?iv.task_number||iv.task.slice(0,30):'';
+          var msg = author+' · '+status+' · '+taskRef;
+          sbFetch('POST','notifications',[{company:'Admin',task_id:id,message:msg,read:false}]);
+        });
+    }
+  }
+
+  // ── Save new/edited task → Supabase ─────────────────────────────────
   function handleSave(iv) {
-    setData(prev => {
-      const idx = prev.findIndex(i=>i.id===iv.id);
-      if (idx>=0) { const n=[...prev]; n[idx]=iv; return n; }
-      return [...prev, iv];
+    setData(function(prev){
+      var idx = prev.findIndex(function(i){return i.id===iv.id;});
+      if(idx>=0){ var n=[].concat(prev); n[idx]=iv; return n; }
+      return prev.concat([iv]);
     });
     closeModal();
+    var row = {
+      id:iv.id, trade:iv.trade, company:iv.company, task:iv.task,
+      zone:iv.zone, start_date:iv.start, end_date:iv.end||iv.start,
+      status:iv.status||'arealis', priority:iv.priority||3,
+      prereq:iv.prereq||'', notes:iv.notes||'',
+      task_number:iv.task_number||null, predecessor_id:null,
+      off_days:iv.off_days||[], updated_at:new Date().toISOString()
+    };
+    var existing = data.find(function(i){return i.id===iv.id;});
+    if(existing) {
+      sbFetch('PATCH','interventions',row,'id=eq.'+iv.id);
+    } else {
+      sbFetch('POST','interventions',row);
+    }
   }
+
+  // ── Delete task → Supabase ───────────────────────────────────────────
   function handleDelete(id) {
-    setData(prev => prev.filter(i=>i.id!==id));
+    setData(function(prev){ return prev.filter(function(i){return i.id!==id;}); });
     closeModal();
+    sbFetch('DELETE','interventions',null,'id=eq.'+id);
   }
 
   const isAdmin = session?.role === 'admin';
@@ -2525,20 +2621,7 @@ function PlanifyApp() {
           viewMode={viewMode} onViewMode={setViewMode}
           onToday={()=>setWeekOffset(0)}
           onRefresh={()=>{
-            if(window.PLANIFY_SUPA){
-              var company=session&&session.role==='admin'?'Admin':(session&&session.company?session.company.name:'');
-              window.PLANIFY_SUPA.load(company).then(function(res){
-                if(!res) return;
-                if(res.zones&&res.zones.length) setZones(res.zones);
-                if(res.trades&&res.trades.length) setTrades(res.trades.map(function(t){
-                  var loc=TRADES.find(function(lt){return lt.id===t.id;});
-                  return loc?Object.assign({},t,{color:loc.color}):t;
-                }));
-                if(res.interventions&&res.interventions.length) setData(res.interventions.map(function(r){
-                  return Object.assign({},r,{start:r.start_date,end:r.end_date,attachments:[],off_days:r.off_days||[]});
-                }));
-              });
-            }
+            loadFromSupabase(session);
           }} />
         <div style={{flex:1,overflow:'hidden',position:'relative'}}>
           {mainContent()}
