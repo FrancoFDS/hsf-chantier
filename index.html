@@ -1234,16 +1234,24 @@ function supaWrite(method, table, body, query) {
 
 
 // ── Self-contained helpers (Babel scope) ──────────────────────
-const _HOLIDAYS = new Set(['2026-01-01','2026-04-06','2026-05-01','2026-05-08',
-  '2026-05-14','2026-05-25','2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25']);
-function isHoliday(d) { return _HOLIDAYS.has(d.toISOString().split('T')[0]); }
+const _HOLIDAYS = new Set([
+  '2026-01-01', // Jour de l an
+  '2026-05-01', // Fete du Travail
+  '2026-05-08', // Victoire 1945
+  '2026-05-14', // Ascension
+  '2026-05-25', // Lundi de Pentecote
+  '2026-07-14', // Fete Nationale
+  '2026-08-15','2026-11-01','2026-11-11','2026-12-25'
+]);
+function _ds(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function isHoliday(d) { return _HOLIDAYS.has(_ds(d)); }
 function workingDaysUntil(ds) {
   if (!ds) return 9999;
   const target = new Date(ds+'T00:00:00'), now = new Date(); now.setHours(0,0,0,0);
   let count = 0, dir = target >= now ? 1 : -1, cur = new Date(now);
   while (cur.toDateString() !== target.toDateString()) {
     cur.setDate(cur.getDate() + dir);
-    const dow = cur.getDay(), s = cur.toISOString().split('T')[0];
+    const dow = cur.getDay(), s = _ds(cur);
     if (dow !== 0 && dow !== 6 && !_HOLIDAYS.has(s)) count += dir;
   }
   return count;
@@ -1620,8 +1628,9 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
   const isAdmin = session?.role === 'admin';
   const isMulti = weeks > 1;
+  const is3s = weeks === 3;
   const zoneColW = isMulti ? '40px' : '58px';
-  const deadlineColW = isMulti ? '30px' : '50px';
+  const deadlineColW = isMulti ? '28px' : '50px';
   const dayColW = '1fr';
   const gridCols = `${zoneColW} repeat(${days.length}, ${dayColW}) ${deadlineColW}`;
 
@@ -1657,8 +1666,8 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
         margin:isMulti?0:'0 8px',
         borderRadius:isMulti?0:'var(--r)',
         boxShadow:isMulti?'none':'var(--shadow)',
-        overflowX:'hidden'}}>
-        <div style={{width:'100%'}}>
+        overflowX:'hidden',width:'100%',boxSizing:'border-box'}}>
+        <div style={{width:'100%',tableLayout:'fixed'}}>
 
           {/* Header row */}
           <div style={{display:'grid',gridTemplateColumns:gridCols,background:'var(--surface-2)',
@@ -1713,15 +1722,17 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
               return (
                 <div key={i} style={{padding:'6px 2px',textAlign:'center',
                   borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                  background:holiday?'rgba(156,163,175,.18)':isToday(d)?'var(--primary-l)':'transparent'}}>
-                  <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
-                    color:holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)'}}>
+                  background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'transparent'}}>
+                  {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
+                    color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)'}}>
                     {DAYS_FR[d.getDay()-1]}
+                  </div>}
+                  <div style={{fontSize:isMulti?8:10,fontWeight:isMulti?600:400,
+                    fontFamily:"'DM Mono',monospace",
+                    color:holiday?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)'}}>
+                    {isMulti ? d.getDate() : `${d.getDate()}/${d.getMonth()+1}`}
                   </div>
-                  <div style={{fontSize:10,color:holiday?'var(--xmuted)':isToday(d)?'var(--primary)':'var(--muted)'}}>
-                    {d.getDate()}/{d.getMonth()+1}
-                  </div>
-                  {holiday && <div style={{fontSize:7,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
+                  {holiday && <div style={{fontSize:7,fontWeight:700,color:'#4B5563',fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
                   {weeks>1&&i%5===0&&!holiday&&<div style={{fontSize:8,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>
                     S{Math.ceil(d.getDate()/7)}
                   </div>}
@@ -1768,10 +1779,21 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   const isFirstOfWeek = di%5===0 && di>0;
                   const holiday = isHoliday(day);
                   const isDeadline = ds === zone.deadline;
-                  const cards = filtered.filter(i=>i.zone===zone.id&&inDay(i,day))
-                    .sort((a,b)=>(a.priority||3)-(b.priority||3));
+                  const cards = (()=>{
+                    if(holiday) return [];
+                    return filtered.filter(function(iv){
+                      if(iv.zone!==zone.id) return false;
+                      if(!inDay(iv,day)) return false;
+                      var offs=iv.off_days||[];
+                      if(offs.length){
+                        var ds2=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
+                        if(offs.includes(ds2)) return false;
+                      }
+                      return true;
+                    }).sort(function(a,b){return (a.priority||3)-(b.priority||3);});
+                  })();
                   const shown = cards;
-                  const cellBg = holiday?'rgba(156,163,175,.1)':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
+                  const cellBg = holiday?'#D1D5DB':isDeadline?'rgba(220,38,38,.07)':isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                   return (
                     <div key={di} onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
                       style={{padding:isMulti?1:2,minHeight:isMulti?40:56,
