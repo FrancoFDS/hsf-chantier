@@ -946,7 +946,7 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onExport }) {
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil }) {
   const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const days  = multiWeekDays(weekOffset, weeks);
   const start = days[0], end = days[days.length - 1];
@@ -977,6 +977,9 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
     {key:'3s', label:'3S'},
     {key:'tout', label:'Tout'},
   ];
+  const statusLabel = planningValidated
+    ? 'Validé' + (planningValidUntil ? ' jusqu’au ' + fmtDate(planningValidUntil) : '')
+    : planningLocked ? 'Verrouillé' : '';
 
   return (
     <header style={{background:'var(--hdr)',color:'var(--hdr-text)',padding:'10px 14px 0',flexShrink:0,
@@ -1020,6 +1023,39 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
           <button onClick={onRefresh} title="Rafraichir"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:13}}>↻</button>
+          <button onClick={onHistory} title="Historique détaillé"
+            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
+              border:'1px solid rgba(255,255,255,.14)',borderRadius:6,minWidth:40,height:26,
+              fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Hist.</button>
+          {session?.role==='admin' && !planningValidated && (
+            <button onClick={onToggleLock} title={planningLocked?'Déverrouiller le planning':'Verrouiller le planning'}
+              style={{...hdrBtnStyle,background:planningLocked?'rgba(220,38,38,.22)':'rgba(255,255,255,.08)',
+                border:'1px solid '+(planningLocked?'rgba(248,113,113,.45)':'rgba(255,255,255,.14)'),
+                borderRadius:6,minWidth:34,height:26,fontSize:12}}>
+              {planningLocked?'🔒':'🔓'}
+            </button>
+          )}
+          {session?.role==='admin' && !planningValidated && (
+            <button onClick={onValidatePlanning} title="Valider le planning"
+              style={{...hdrBtnStyle,background:'rgba(22,163,74,.22)',
+                border:'1px solid rgba(74,222,128,.45)',borderRadius:6,minWidth:48,height:26,
+                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Valider</button>
+          )}
+          {session?.role==='admin' && planningValidated && (
+            <button onClick={onReindexPlanning} title="Réindexer une nouvelle version"
+              style={{...hdrBtnStyle,background:'rgba(249,115,22,.22)',
+                border:'1px solid rgba(251,146,60,.55)',borderRadius:6,minWidth:60,height:26,
+                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Réindexer</button>
+          )}
+          {statusLabel && (
+            <span title={statusLabel} style={{height:26,display:'inline-flex',alignItems:'center',
+              padding:'0 8px',borderRadius:6,background:'rgba(255,255,255,.08)',
+              border:'1px solid rgba(255,255,255,.14)',fontSize:9,fontWeight:800,
+              fontFamily:"'DM Mono',monospace",color:planningValidated?'#86EFAC':'#FCA5A5',
+              whiteSpace:'nowrap',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis'}}>
+              {statusLabel}
+            </span>
+          )}
           <div ref={exportRef} style={{position:'relative'}}>
             <button onClick={()=>setExportOpen(o=>!o)} title="Télécharger le planning"
               style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
@@ -1069,7 +1105,7 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
 }
 
 /* ── BOTTOM NAV ───────────────────────────────────────────── */
-function BottomNav({ screen, onNav, onAdd, isAdmin }) {
+function BottomNav({ screen, onNav, onAdd, isAdmin, canAdd = true }) {
   const items = [
     {id:'dashboard', icon: <DashIcon />, label:'Tableau'},
     {id:'planning',  icon: <PlanIcon />, label:'Planning'},
@@ -1090,13 +1126,15 @@ function BottomNav({ screen, onNav, onAdd, isAdmin }) {
       boxShadow:'0 -1px 0 var(--border)'}}>
       {navItems.map((item, idx) => {
         if (item === null) return (
-          <button key="fab" onClick={onAdd} style={{width:46,height:46,borderRadius:'50%',
-            background:'var(--primary)',color:'#fff',border:'none',fontSize:22,cursor:'pointer',
-            display:'flex',alignItems:'center',justifyContent:'center',marginTop:-18,
-            boxShadow:'0 4px 16px color-mix(in srgb, var(--primary) 45%, transparent)',
-            transition:'transform .15s'}}
-            onMouseEnter={e=>e.currentTarget.style.transform='scale(1.08)'}
-            onMouseLeave={e=>e.currentTarget.style.transform=''}>
+          <button key="fab" onClick={canAdd ? onAdd : undefined} disabled={!canAdd}
+            title={canAdd?'Ajouter une intervention':'Planning verrouillé ou validé'}
+            style={{width:46,height:46,borderRadius:'50%',
+            background:canAdd?'var(--primary)':'var(--border-s)',color:'#fff',border:'none',fontSize:22,
+            cursor:canAdd?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',marginTop:-18,
+            boxShadow:canAdd?'0 4px 16px color-mix(in srgb, var(--primary) 45%, transparent)':'none',
+            opacity:canAdd?1:.65,transition:'transform .15s'}}
+            onMouseEnter={e=>{if(canAdd)e.currentTarget.style.transform='scale(1.08)';}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='';}}>
             +
           </button>
         );
@@ -2654,7 +2692,7 @@ function StatusWithNote({ iv, session, onStatusChange }) {
 }
 
 
-function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit }) {
+function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, canEditPlanning = true, canChangeStatus = true }) {
   const iv = data.find(x=>x.id===ivId);
   if (!iv) return null;
   const z  = zones.find(x=>x.id===iv.zone);
@@ -2752,12 +2790,28 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
       )}
 
       {/* Status update + optional note — only owner or admin */}
-      {(session?.role==='admin' || iv.company===session?.company?.name) && (
+      {canChangeStatus && (session?.role==='admin' || iv.company===session?.company?.name) && (
         <StatusWithNote iv={iv} session={session} onStatusChange={onStatusChange} />
       )}
 
-      {session?.role==='admin'&&(
+      {!canChangeStatus && (
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',
+          borderRadius:'var(--r-sm)',padding:'10px 12px',marginBottom:12,
+          fontSize:12,color:'var(--muted)',lineHeight:1.45}}>
+          Planning validé : les statuts ne peuvent plus être modifiés sur cette version.
+        </div>
+      )}
+
+      {session?.role==='admin'&&canEditPlanning&&(
         <button onClick={()=>onEdit(iv.id)} style={{...btnPrimaryStyle,marginBottom:8}}>Modifier intervention</button>
+      )}
+
+      {session?.role==='admin'&&!canEditPlanning&&(
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',
+          borderRadius:'var(--r-sm)',padding:'10px 12px',marginBottom:12,
+          fontSize:12,color:'var(--muted)',lineHeight:1.45}}>
+          Ajout / modification désactivés : planning verrouillé ou validé.
+        </div>
       )}
       <button onClick={onClose} style={btnSecStyle}>Fermer</button>
     </SheetModal>
@@ -3052,6 +3106,145 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+
+/* ════════════════════════════════════════════════════════════
+   HISTORY + PLANNING VALIDATION MODALS
+════════════════════════════════════════════════════════════ */
+function HistoryModal({ open, history, onClose, onRefresh }) {
+  function eventLabel(t) {
+    return {
+      status_change:'Changement de statut',
+      task_created:'Tâche ajoutée',
+      task_updated:'Tâche modifiée',
+      task_deleted:'Tâche supprimée',
+      planning_locked:'Planning verrouillé',
+      planning_unlocked:'Planning déverrouillé',
+      planning_validated:'Planning validé',
+      planning_reindexed:'Planning réindexé'
+    }[t] || t || 'Événement';
+  }
+  function eventColor(t) {
+    if (t === 'status_change') return '#2563EB';
+    if (t === 'planning_validated') return '#16A34A';
+    if (t === 'planning_locked') return '#DC2626';
+    if (t === 'planning_reindexed') return '#EA580C';
+    return 'var(--muted)';
+  }
+  function fmtDT(s) {
+    if (!s) return '';
+    try {
+      return new Date(s).toLocaleString('fr-FR', {
+        day:'2-digit', month:'2-digit', year:'numeric',
+        hour:'2-digit', minute:'2-digit'
+      });
+    } catch(e) { return s; }
+  }
+
+  return (
+    <SheetModal open={open} onClose={onClose} maxH="92vh">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>Historique détaillé</div>
+          <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>
+            Visible par tous les utilisateurs
+          </div>
+        </div>
+        <button onClick={onRefresh} style={{...miniBtn,fontWeight:700}}>Rafraîchir</button>
+      </div>
+
+      {(!history || history.length === 0) ? (
+        <div style={{padding:'20px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>
+          Aucun événement enregistré pour le moment.
+        </div>
+      ) : (
+        <div>
+          {history.map(function(ev){
+            var c = eventColor(ev.event_type);
+            return (
+              <div key={ev.id || ev.created_at + ev.message}
+                style={{background:'var(--surface)',border:'1px solid var(--border)',
+                  borderLeft:'4px solid '+c,borderRadius:'var(--r-sm)',
+                  padding:'11px 12px',marginBottom:8,boxShadow:'var(--shadow)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start',marginBottom:5}}>
+                  <div style={{fontSize:13,fontWeight:800,color:'var(--text)'}}>
+                    {eventLabel(ev.event_type)}
+                  </div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)',whiteSpace:'nowrap'}}>
+                    {fmtDT(ev.created_at)}
+                  </div>
+                </div>
+                <div style={{fontSize:12,color:'var(--muted)',marginBottom:5,lineHeight:1.4}}>
+                  <b>{ev.actor_name || ev.actor_company || 'Utilisateur'}</b>
+                  {ev.actor_role ? ' · '+ev.actor_role : ''}
+                  {ev.actor_company && ev.actor_company !== ev.actor_name ? ' · '+ev.actor_company : ''}
+                </div>
+                {ev.task_number || ev.task_title ? (
+                  <div style={{fontSize:12,color:'var(--text)',lineHeight:1.45,marginBottom:5}}>
+                    {ev.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,
+                      color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 5px',
+                      borderRadius:3,border:'1px solid var(--border)',marginRight:6}}>{ev.task_number}</span>}
+                    {ev.task_company && <b>{ev.task_company} — </b>}
+                    {ev.task_title}
+                  </div>
+                ) : null}
+                {(ev.old_status || ev.new_status) && (
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:5,fontFamily:"'DM Mono',monospace"}}>
+                    {ev.old_status || '—'} → <span style={{color:c,fontWeight:800}}>{ev.new_status || '—'}</span>
+                  </div>
+                )}
+                {ev.note && (
+                  <div style={{fontSize:12,color:'var(--text)',background:'var(--surface-2)',
+                    border:'1px solid var(--border)',borderRadius:6,padding:'7px 9px',
+                    marginTop:6,lineHeight:1.45}}>
+                    <b>Note :</b> {ev.note}
+                  </div>
+                )}
+                {ev.message && (
+                  <div style={{fontSize:12,color:'var(--muted)',marginTop:6,lineHeight:1.45}}>
+                    {ev.message}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <button onClick={onClose} style={{...btnSecStyle,width:'100%',marginTop:8}}>Fermer</button>
+    </SheetModal>
+  );
+}
+
+function ValidatePlanningModal({ open, onClose, onConfirm }) {
+  var today = dateStr(new Date());
+  var [validUntil, setValidUntil] = React.useState(today);
+
+  React.useEffect(function(){
+    if (open) setValidUntil(today);
+  }, [open]);
+
+  return (
+    <SheetModal open={open} onClose={onClose} maxH="72vh">
+      <div style={{fontSize:18,fontWeight:800,color:'var(--text)',marginBottom:8}}>
+        Valider le planning
+      </div>
+      <div style={{fontSize:13,color:'var(--muted)',lineHeight:1.5,marginBottom:16}}>
+        Une fois validé, le planning devient figé. Aucune tâche ne pourra être ajoutée,
+        modifiée ou supprimée, et les statuts ne pourront plus être modifiés.
+        La seule action disponible sera la réindexation vers une nouvelle version.
+      </div>
+      <Field label="Planning validé jusqu’au">
+        <Input type="date" value={validUntil} onChange={function(e){setValidUntil(e.target.value);}} />
+      </Field>
+      <button onClick={function(){onConfirm(validUntil);}} style={btnPrimaryStyle}>
+        Valider le planning
+      </button>
+      <button onClick={onClose} style={{...btnSecStyle,width:'100%',marginTop:8}}>Annuler</button>
+    </SheetModal>
+  );
+}
+
+
 /* ════════════════════════════════════════════════════════════
    ROOT APP
 ═══════════════════════════════════════════════════════════ */
@@ -3071,6 +3264,12 @@ function PlanifyApp() {
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [planningVersion, setPlanningVersion] = useState(null);
+  const [planningLocked, setPlanningLocked] = useState(false);
+  const [planningValidated, setPlanningValidated] = useState(false);
+  const [validateModal, setValidateModal] = useState(false);
 
   // Apply theme
   useEffect(() => {
@@ -3093,6 +3292,75 @@ function PlanifyApp() {
     return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
       .then(function(r){ if(!r.ok) throw new Error(table+' '+method+' failed: '+r.status); return r; })
       .catch(function(e){ console.error('[Planify] Supabase error:',e); });
+  }
+
+  function supaHeaders() {
+    return {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
+  }
+  function actorName() {
+    return session&&session.role==='admin'?'Admin':(session&&session.company?session.company.name:'Utilisateur');
+  }
+  function actorRole() {
+    return session&&session.role==='admin'?'admin':'company';
+  }
+  function currentSnapshot(extra) {
+    return Object.assign({
+      project:'HSF — Av. Marceau',
+      created_at:new Date().toISOString(),
+      zones:zones,
+      trades:trades,
+      interventions:data
+    }, extra || {});
+  }
+  function applyPlanningVersion(v) {
+    if (!v) {
+      setPlanningVersion(null);
+      setPlanningLocked(false);
+      setPlanningValidated(false);
+      return;
+    }
+    setPlanningVersion(v);
+    setPlanningLocked(!!v.locked);
+    setPlanningValidated(v.status === 'validated');
+  }
+  function loadPlanningMeta() {
+    return fetch(SUPA_URL+'/rest/v1/planning_versions?is_active=eq.true&order=created_at.desc&limit=1', {
+      headers:supaHeaders()
+    }).then(function(r){ if(!r || !r.ok) throw new Error('planning_versions unavailable'); return r.json(); })
+    .then(function(rows){
+      if (rows && rows.length) {
+        applyPlanningVersion(rows[0]);
+      } else {
+        var initial = {
+          version_number:1,status:'draft',is_active:true,locked:false,
+          created_by:actorName(),snapshot:currentSnapshot({type:'initial'})
+        };
+        return sbFetch('POST','planning_versions',initial).then(function(){ return loadPlanningMeta(); });
+      }
+    }).catch(function(e){
+      console.warn('[Planify] planning_versions unavailable:', e);
+      applyPlanningVersion({status:'draft',locked:false,version_number:1});
+    });
+  }
+  function loadHistory() {
+    return fetch(SUPA_URL+'/rest/v1/planning_events?order=created_at.desc&limit=300', {
+      headers:supaHeaders()
+    }).then(function(r){ return r && r.ok ? r.json() : []; })
+    .then(function(rows){ setHistory(rows || []); return rows || []; })
+    .catch(function(e){ console.warn('[Planify] history unavailable:', e); setHistory([]); return []; });
+  }
+  function addPlanningEvent(row) {
+    var payload = Object.assign({
+      event_type:row.event_type,
+      actor_name:row.actor_name || actorName(),
+      actor_role:row.actor_role || actorRole(),
+      actor_company:session&&session.company?session.company.name:(session&&session.role==='admin'?'Admin':''),
+      planning_version_id:planningVersion&&planningVersion.id?planningVersion.id:null,
+      payload:row.payload || {}
+    }, row);
+    return sbFetch('POST','planning_events',payload)
+      .then(function(){ if(historyOpen) loadHistory(); })
+      .catch(function(e){ console.warn('[Planify] event not saved:', e); });
   }
 
   // ── Load all data from Supabase ──────────────────────────────────────
@@ -3123,22 +3391,67 @@ function PlanifyApp() {
   function handleLogin(s) {
     setSession(s);
     loadFromSupabase(s);
+    setTimeout(function(){
+      loadPlanningMeta();
+      loadHistory();
+    }, 0);
   }
-  function handleLogout() { setSession(null); setUserMenu(false); }
+  function handleLogout() { setSession(null); setUserMenu(false); setHistoryOpen(false); }
+
+  const isAdmin = session?.role === 'admin';
+  const canEditPlanning = isAdmin && !planningLocked && !planningValidated;
+  const canChangeStatus = !planningValidated;
 
   function openDetail(id)           { setModal({type:'detail', id}); }
-  function openAdd(zone,date)       { setModal({type:'add', zone:zone||'', date:date||''}); }
-  function openEdit(id)             { setModal({type:'edit', id}); }
+  function openAdd(zone,date) {
+    if (!canEditPlanning) {
+      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour modifier les tâches.' : 'Planning verrouillé : seules les modifications de statut sont autorisées.');
+      return;
+    }
+    setModal({type:'add', zone:zone||'', date:date||''});
+  }
+  function openEdit(id) {
+    if (!canEditPlanning) {
+      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour modifier les tâches.' : 'Planning verrouillé : seules les modifications de statut sont autorisées.');
+      return;
+    }
+    setModal({type:'edit', id});
+  }
   function closeModal()             { setModal(null); }
 
   // ── Status change → save to Supabase ────────────────────────────────
   function handleStatusChange(id, status, noteText) {
+    if (!canChangeStatus) {
+      alert('Planning validé : les statuts ne peuvent plus être modifiés sur cette version.');
+      return;
+    }
+    var iv = data.find(function(i){return i.id===id;});
+    var oldStatus = iv ? iv.status : '';
+    var oldMeta = STATUS_META[oldStatus] || {label:oldStatus || '—'};
+    var newMeta = STATUS_META[status] || {label:status || '—'};
+    var z = iv ? zones.find(function(x){return x.id===iv.zone;}) : null;
+
     setData(function(prev){ return prev.map(function(i){ return i.id===id?Object.assign({},i,{status:status}):i; }); });
     sbFetch('PATCH','interventions',{status:status,updated_at:new Date().toISOString()},'id=eq.'+id);
-    // Save note if provided
+
+    var author = actorName();
+    addPlanningEvent({
+      event_type:'status_change',
+      task_id:id,
+      task_number:iv?iv.task_number:'',
+      task_title:iv?iv.task:'',
+      task_company:iv?iv.company:'',
+      zone_id:iv?iv.zone:'',
+      zone_name:z?z.name:'',
+      old_status:oldMeta.label,
+      new_status:newMeta.label,
+      note:noteText&&noteText.trim()?noteText.trim():'',
+      message:author+' a modifié le statut de '+(iv?(iv.task_number||iv.task):id)+' : '+oldMeta.label+' → '+newMeta.label,
+      payload:{old_status:oldStatus,new_status:status}
+    });
+
+    // Save note if provided in the legacy task log table
     if(noteText&&noteText.trim()) {
-      var iv = data.find(function(i){return i.id===id;});
-      var author = session&&session.role==='admin'?'Admin':(session&&session.company?session.company.name:'');
       var logRow = {task_id:id,company:author,author:author,type:status,
         message:noteText.trim(),photo_url:null,mentioned:['Admin']};
       sbFetch('POST','task_logs',logRow)
@@ -3152,6 +3465,11 @@ function PlanifyApp() {
 
   // ── Save new/edited task → Supabase ─────────────────────────────────
   function handleSave(iv) {
+    if (!canEditPlanning) {
+      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour modifier les tâches.' : 'Planning verrouillé : seules les modifications de statut sont autorisées.');
+      return;
+    }
+    var existing = data.find(function(i){return i.id===iv.id;});
     setData(function(prev){
       var idx = prev.findIndex(function(i){return i.id===iv.id;});
       if(idx>=0){ var n=[].concat(prev); n[idx]=iv; return n; }
@@ -3166,22 +3484,148 @@ function PlanifyApp() {
       task_number:iv.task_number||null, predecessor_id:null,
       off_days:iv.off_days||[], updated_at:new Date().toISOString()
     };
-    var existing = data.find(function(i){return i.id===iv.id;});
     if(existing) {
       sbFetch('PATCH','interventions',row,'id=eq.'+iv.id);
     } else {
       sbFetch('POST','interventions',row);
     }
+
+    var z = zones.find(function(x){return x.id===iv.zone;});
+    addPlanningEvent({
+      event_type:existing?'task_updated':'task_created',
+      task_id:iv.id,
+      task_number:iv.task_number||'',
+      task_title:iv.task||'',
+      task_company:iv.company||'',
+      zone_id:iv.zone||'',
+      zone_name:z?z.name:'',
+      message:(existing?'Tâche modifiée : ':'Tâche ajoutée : ')+(iv.task_number||iv.task),
+      payload:{intervention:iv}
+    });
   }
 
   // ── Delete task → Supabase ───────────────────────────────────────────
   function handleDelete(id) {
+    if (!canEditPlanning) {
+      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour supprimer une tâche.' : 'Planning verrouillé : suppression désactivée.');
+      return;
+    }
+    var iv = data.find(function(i){return i.id===id;});
     setData(function(prev){ return prev.filter(function(i){return i.id!==id;}); });
     closeModal();
     sbFetch('DELETE','interventions',null,'id=eq.'+id);
+    if (iv) {
+      addPlanningEvent({
+        event_type:'task_deleted',
+        task_id:id,
+        task_number:iv.task_number||'',
+        task_title:iv.task||'',
+        task_company:iv.company||'',
+        message:'Tâche supprimée : '+(iv.task_number||iv.task),
+        payload:{intervention:iv}
+      });
+    }
   }
 
-  const isAdmin = session?.role === 'admin';
+  function openHistory() {
+    setHistoryOpen(true);
+    loadHistory();
+  }
+
+  function handleToggleLock() {
+    if (!isAdmin) return;
+    if (planningValidated) {
+      alert('Planning validé : réindexez une nouvelle version pour le déverrouiller.');
+      return;
+    }
+    var next = !planningLocked;
+    setPlanningLocked(next);
+    if (planningVersion&&planningVersion.id) {
+      sbFetch('PATCH','planning_versions',{
+        locked:next,
+        updated_at:new Date().toISOString()
+      },'id=eq.'+planningVersion.id);
+    }
+    addPlanningEvent({
+      event_type:next?'planning_locked':'planning_unlocked',
+      message:next?'Planning verrouillé : seules les modifications de statut restent possibles.':'Planning déverrouillé : ajouts et modifications réactivés.',
+      payload:{locked:next}
+    });
+  }
+
+  function handleValidatePlanning(validUntil) {
+    if (!isAdmin) return;
+    if (!validUntil) { alert('Indiquez une date de validation.'); return; }
+    var snap = currentSnapshot({type:'validation',valid_until:validUntil});
+    setValidateModal(false);
+    setPlanningLocked(true);
+    setPlanningValidated(true);
+
+    if (planningVersion&&planningVersion.id) {
+      sbFetch('PATCH','planning_versions',{
+        status:'validated',
+        locked:true,
+        valid_until:validUntil,
+        validated_by:actorName(),
+        validated_at:new Date().toISOString(),
+        updated_at:new Date().toISOString(),
+        snapshot:snap
+      },'id=eq.'+planningVersion.id).then(loadPlanningMeta);
+    }
+
+    addPlanningEvent({
+      event_type:'planning_validated',
+      message:'Planning validé jusqu’au '+fmtDate(validUntil)+'. Cette version est figée.',
+      payload:{valid_until:validUntil,snapshot:snap}
+    });
+  }
+
+  function handleReindexPlanning() {
+    if (!isAdmin) return;
+    if (!planningValidated) return;
+    if (!confirm('Créer une nouvelle version du planning à partir de la version validée/caduque ?')) return;
+
+    var oldVersion = planningVersion || {};
+    var nextVersionNumber = (oldVersion.version_number || 1) + 1;
+    var snap = currentSnapshot({type:'reindex',source_version_id:oldVersion.id||null});
+
+    function createNewVersion() {
+      return sbFetch('POST','planning_versions',{
+        version_number:nextVersionNumber,
+        status:'draft',
+        is_active:true,
+        locked:false,
+        valid_until:null,
+        source_version_id:oldVersion.id||null,
+        created_by:actorName(),
+        snapshot:snap
+      }).then(function(){
+        setPlanningLocked(false);
+        setPlanningValidated(false);
+        loadPlanningMeta();
+      });
+    }
+
+    if (oldVersion.id) {
+      sbFetch('PATCH','planning_versions',{
+        is_active:false,
+        status:'caduc',
+        locked:true,
+        reindexed_by:actorName(),
+        reindexed_at:new Date().toISOString(),
+        updated_at:new Date().toISOString()
+      },'id=eq.'+oldVersion.id).then(createNewVersion);
+    } else {
+      createNewVersion();
+    }
+
+    addPlanningEvent({
+      event_type:'planning_reindexed',
+      message:'Nouvelle version V'+nextVersionNumber+' créée à partir du planning validé/caduque.',
+      payload:{source_version_id:oldVersion.id||null,new_version_number:nextVersionNumber,snapshot:snap}
+    });
+  }
+
   const navScreens = ['dashboard','planning','list',...(isAdmin?['settings']:[])];
 
   if (!session) return (
@@ -3354,16 +3798,16 @@ function PlanifyApp() {
       var doc = new JSPDF({orientation:'landscape', unit:'pt', format:'a4'});
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
-      var margin = 22;
-      var headerH = 54;
-      var top = 72;
-      var bottom = 22;
+      var margin = 14;
+      var headerH = 42;
+      var top = 58;
+      var bottom = 12;
       var tableW = pageW - margin * 2;
-      var zoneW = 72;
-      var finW = 48;
+      var zoneW = 58;
+      var finW = 38;
       var dayW = (tableW - zoneW - finW) / 5;
-      var th = 28;
-      var rowH = Math.max(46, Math.min(62, Math.floor((pageH - top - bottom - th) / Math.max(1, zones.length))));
+      var th = 22;
+      var rowH = Math.max(50, Math.floor((pageH - top - bottom - th) / Math.max(1, zones.length)));
       var dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
       var exported = 0;
 
@@ -3379,16 +3823,16 @@ function PlanifyApp() {
         doc.setFillColor(244,242,238);
         doc.rect(0, 0, pageW, pageH, 'F');
         doc.setFillColor(26,26,26);
-        doc.roundedRect(margin, 14, tableW, headerH, 8, 8, 'F');
+        doc.roundedRect(margin, 10, tableW, headerH, 7, 7, 'F');
         doc.setTextColor(255,255,255);
         doc.setFont('helvetica','bold');
-        doc.setFontSize(15);
-        doc.text('Planify — HSF 66 Av. Marceau', margin + 14, 34);
+        doc.setFontSize(13);
+        doc.text('Planify — HSF 66 Av. Marceau', margin + 12, 27);
         doc.setFont('helvetica','normal');
-        doc.setFontSize(8.5);
+        doc.setFontSize(7.5);
         doc.setTextColor(215,215,215);
-        doc.text('Planning ' + label + ' · Semaine ' + (wi + 1) + '/' + totalWeeks + ' · ' + periodLabel, margin + 14, 50);
-        doc.text(tasksForWeek.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR'), pageW - margin - 160, 50);
+        doc.text('Planning ' + label + ' · Semaine ' + (wi + 1) + '/' + totalWeeks + ' · ' + periodLabel, margin + 12, 43);
+        doc.text(tasksForWeek.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR'), pageW - margin - 140, 43);
 
         var x0 = margin;
         var y0 = top;
@@ -3483,13 +3927,20 @@ function PlanifyApp() {
               return iv.zone === zone.id && visibleInDay(iv, day);
             }).sort(function(a,b){ return (a.priority||3)-(b.priority||3); });
 
-            var cardX = x + 3;
-            var cardY = y + 4;
-            var cardW = dayW - 6;
-            var cardH = rowH >= 58 ? 22 : 19;
-            var maxCards = Math.max(1, Math.floor((rowH - 8) / (cardH + 2)));
+            var cardX = x + 2;
+            var cardY = y + 3;
+            var cardW = dayW - 4;
+            var gap = cards.length > 4 ? 0.8 : 1.4;
+            var availableH = Math.max(10, rowH - 6);
+            var cardH = cards.length ? Math.min(18, (availableH - Math.max(0, cards.length - 1) * gap) / cards.length) : 0;
+            cardH = Math.max(7.5, cardH);
+            var compact = cardH < 12;
+            var ultraCompact = cardH < 9.5;
+            var titleFs = ultraCompact ? 3.8 : compact ? 4.5 : 5.4;
+            var taskFs = ultraCompact ? 3.4 : compact ? 4.0 : 4.9;
+            var lh = ultraCompact ? 3.8 : compact ? 4.6 : 5.6;
 
-            cards.slice(0, maxCards).forEach(function(iv) {
+            cards.forEach(function(iv) {
               var tr = trades.find(function(t){ return t.id === iv.trade; });
               var col = getTC(tr ? tr.color : 'blue');
               var rgb = hexToRgb(col.b);
@@ -3499,38 +3950,36 @@ function PlanifyApp() {
 
               doc.setFillColor(fill[0], fill[1], fill[2]);
               doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-              doc.setLineWidth(0.7);
-              doc.roundedRect(cardX, cardY, cardW, cardH, 3, 3, 'FD');
+              doc.setLineWidth(0.45);
+              doc.roundedRect(cardX, cardY, cardW, cardH, 2, 2, 'FD');
               doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-              doc.rect(cardX, cardY, 3, cardH, 'F');
+              doc.rect(cardX, cardY, 2, cardH, 'F');
 
               doc.setTextColor(rgb[0], rgb[1], rgb[2]);
               doc.setFont('helvetica','bold');
-              doc.setFontSize(5.7);
-              drawWrapped(doc, (iv.company || '') + (iv.task_number ? ' · ' + iv.task_number : ''), cardX + 6, cardY + 7, cardW - 24, 1, 6);
+              doc.setFontSize(titleFs);
+              var title = (iv.company || '') + (iv.task_number ? ' · ' + iv.task_number : '');
+              drawWrapped(doc, title, cardX + 4, cardY + (ultraCompact ? 4.4 : 5.8), cardW - 16, 1, lh);
               doc.setFillColor(stRgb[0], stRgb[1], stRgb[2]);
-              doc.circle(cardX + cardW - 8, cardY + 6, 2, 'F');
+              doc.circle(cardX + cardW - 5, cardY + (ultraCompact ? 3.8 : 5.2), ultraCompact ? 1.2 : 1.7, 'F');
 
               doc.setTextColor(45,45,45);
               doc.setFont('helvetica','normal');
-              doc.setFontSize(5.1);
-              drawWrapped(doc, iv.task || '', cardX + 6, cardY + 14, cardW - 10, 1, 6);
-
-              if (iv.prereq && rowH >= 58) {
-                doc.setTextColor(185,28,28);
-                doc.setFontSize(4.7);
-                drawWrapped(doc, '⚠ ' + iv.prereq, cardX + 6, cardY + 20, cardW - 10, 1, 5);
+              doc.setFontSize(taskFs);
+              if (ultraCompact) {
+                drawWrapped(doc, iv.task || '', cardX + 4, cardY + cardH - 2.2, cardW - 8, 1, lh);
+              } else {
+                drawWrapped(doc, iv.task || '', cardX + 4, cardY + 11.2, cardW - 8, compact ? 1 : 2, lh);
               }
 
-              cardY += cardH + 2;
-            });
+              if (!compact && iv.prereq && cardH >= 16) {
+                doc.setTextColor(185,28,28);
+                doc.setFontSize(4.2);
+                drawWrapped(doc, '⚠ ' + iv.prereq, cardX + 4, cardY + cardH - 3, cardW - 8, 1, 4.5);
+              }
 
-            if (cards.length > maxCards) {
-              doc.setTextColor(90,90,90);
-              doc.setFont('helvetica','bold');
-              doc.setFontSize(5.5);
-              doc.text('+' + (cards.length - maxCards) + ' autre(s)', cardX + 5, y + rowH - 5);
-            }
+              cardY += cardH + gap;
+            });
           });
 
           // Jalon
@@ -3585,20 +4034,30 @@ function PlanifyApp() {
           viewMode={viewMode} onViewMode={setViewMode}
           onToday={()=>setWeekOffset(0)}
           onExport={exportPlanning}
+          onHistory={openHistory}
+          onToggleLock={handleToggleLock}
+          onValidatePlanning={()=>setValidateModal(true)}
+          onReindexPlanning={handleReindexPlanning}
+          planningLocked={planningLocked}
+          planningValidated={planningValidated}
+          planningValidUntil={planningVersion?.valid_until}
           onRefresh={()=>{
             loadFromSupabase(session);
+            loadPlanningMeta();
+            loadHistory();
           }} />
         <div style={{flex:1,overflow:'hidden',position:'relative'}}>
           {mainContent()}
         </div>
         <BottomNav screen={screen} onNav={setScreen}
-          onAdd={()=>openAdd()} isAdmin={isAdmin} />
+          onAdd={()=>openAdd()} isAdmin={isAdmin} canAdd={canEditPlanning} />
       </div>
 
       {/* Modals */}
       <DetailModal open={modal?.type==='detail'} ivId={modal?.id}
         data={data} zones={zones} trades={trades} session={session}
-        onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit} />
+        onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit}
+        canEditPlanning={canEditPlanning} canChangeStatus={canChangeStatus} />
       <AddEditModal open={modal?.type==='add'||modal?.type==='edit'}
         editId={modal?.type==='edit'?modal?.id:null}
         preZone={modal?.zone} preDate={modal?.date}
@@ -3606,6 +4065,10 @@ function PlanifyApp() {
         onClose={closeModal} onSave={handleSave} onDelete={handleDelete} />
       <UserMenuModal open={userMenu} session={session}
         onClose={()=>setUserMenu(false)} onLogout={handleLogout} />
+      <HistoryModal open={historyOpen} history={history}
+        onClose={()=>setHistoryOpen(false)} onRefresh={loadHistory} />
+      <ValidatePlanningModal open={validateModal}
+        onClose={()=>setValidateModal(false)} onConfirm={handleValidatePlanning} />
 
       <TweaksPanel>
         <TweakSection label="Apparence" />
