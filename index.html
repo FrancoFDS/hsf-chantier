@@ -23,10 +23,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
-<div id="root"><div style="padding:40px;text-align:center;font-family:sans-serif;color:#666;">Chargement...</div></div>
+<div id="root"></div>
+<script>
+window.onerror=function(m,s,l,c,e){document.getElementById('root').innerHTML='<pre style="color:red;padding:20px;font-size:11px">'+m+'\n'+s+':'+l+'</pre>';};
+</script>
 <script>
 // planify-data.js — Data layer, constants & utilities
 
@@ -367,7 +370,7 @@ Object.assign(window, {
 })();
 
 </script>
-<script type="text/babel">
+<script type="text/babel" data-presets="env,react">
 
 // tweaks-panel.jsx
 // Reusable Tweaks shell + form-control helpers.
@@ -507,7 +510,7 @@ const __TWEAKS_STYLE = `
 // Single source of truth for tweak values. setTweak persists via the host
 // (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
 function useTweaks(defaults) {
-  const [values, setValues] = React.useState(defaults);
+  const [values, setValues] = React.React.useState(defaults);
   // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
   // useState-style call doesn't write a "[object Object]" key into the persisted
   // JSON block.
@@ -528,9 +531,9 @@ function useTweaks(defaults) {
 // flips off in lockstep; the host echoes __deactivate_edit_mode back which
 // is what actually hides the panel.
 function TweaksPanel({ title = 'Tweaks', children }) {
-  const [open, setOpen] = React.useState(false);
-  const dragRef = React.useRef(null);
-  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const [open, setOpen] = React.React.useState(false);
+  const dragRef = React.React.useRef(null);
+  const offsetRef = React.React.useRef({ x: 16, y: 16 });
   const PAD = 16;
 
   const clampToViewport = React.useCallback(() => {
@@ -547,7 +550,7 @@ function TweaksPanel({ title = 'Tweaks', children }) {
     panel.style.bottom = offsetRef.current.y + 'px';
   }, []);
 
-  React.useEffect(() => {
+  React.React.useEffect(() => {
     if (!open) return;
     clampToViewport();
     if (typeof ResizeObserver === 'undefined') {
@@ -559,7 +562,7 @@ function TweaksPanel({ title = 'Tweaks', children }) {
     return () => ro.disconnect();
   }, [open, clampToViewport]);
 
-  React.useEffect(() => {
+  React.React.useEffect(() => {
     const onMsg = (e) => {
       const t = e?.data?.type;
       if (t === '__activate_edit_mode') setOpen(true);
@@ -661,15 +664,15 @@ function TweakToggle({ label, value, onChange }) {
 }
 
 function TweakRadio({ label, value, options, onChange }) {
-  const trackRef = React.useRef(null);
-  const [dragging, setDragging] = React.useState(false);
+  const trackRef = React.React.useRef(null);
+  const [dragging, setDragging] = React.React.useState(false);
   const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
   const idx = Math.max(0, opts.findIndex((o) => o.value === value));
   const n = opts.length;
 
   // The active value is read by pointer-move handlers attached for the lifetime
   // of a drag — ref it so a stale closure doesn't fire onChange for every move.
-  const valueRef = React.useRef(value);
+  const valueRef = React.React.useRef(value);
   valueRef.current = value;
 
   const segAt = (clientX) => {
@@ -743,7 +746,7 @@ function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) 
     if (max != null && n > max) return max;
     return n;
   };
-  const startRef = React.useRef({ x: 0, val: 0 });
+  const startRef = React.React.useRef({ x: 0, val: 0 });
   const onScrubStart = (e) => {
     e.preventDefault();
     startRef.current = { x: e.clientX, val: value };
@@ -795,7 +798,7 @@ Object.assign(window, {
 });
 
 </script>
-<script type="text/babel">
+<script type="text/babel" data-presets="env,react">
 // planify-components.jsx — Shared UI components
 // Exports all to window.*
 
@@ -836,7 +839,7 @@ function TradeBadge({ tradeId, trades, size = 'sm' }) {
 
 /* ── SHEET MODAL ──────────────────────────────────────────── */
 function SheetModal({ open, onClose, children, maxH = '92vh' }) {
-  useEffect(() => {
+  React.useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [open]);
@@ -1141,8 +1144,8 @@ function Textarea({ value, onChange, placeholder, rows=3 }) {
 
 /* ── ATTACHMENT DROPZONE ──────────────────────────────────── */
 function AttachmentZone({ files, setFiles }) {
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef();
+  const [dragging, setDragging] = React.useState(false);
+  const inputRef = React.useRef();
   const accept = (fileList) => {
     const valid = [...fileList].filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
     setFiles(prev => [...prev, ...valid.map(f => ({id:genId(), file:f, name:f.name,
@@ -1215,7 +1218,7 @@ Object.assign(window, {
 });
 
 </script>
-<script type="text/babel">
+<script type="text/babel" data-presets="env,react">
 // planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
 
@@ -3202,14 +3205,9 @@ function PlanifyApp() {
 }
 
 </script>
-<script type="text/babel">
-  try {
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<PlanifyApp />);
-  } catch(e) {
-    document.getElementById('root').innerHTML = '<div style="padding:20px;font-family:monospace;color:red;font-size:12px;white-space:pre-wrap;">ERROR: ' + e.message + '\n\n' + e.stack + '</div>';
-    console.error('Planify mount error:', e);
-  }
+<script type="text/babel" data-presets="env,react">
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<PlanifyApp />);
 </script>
 </body>
 </html>
