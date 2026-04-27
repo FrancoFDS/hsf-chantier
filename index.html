@@ -30,8 +30,7 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <script>
 window.onerror=function(m,s,l,c,e){document.getElementById('root').innerHTML='<pre style="color:red;padding:20px;font-size:11px">'+m+'\n'+s+':'+l+'</pre>';};
 </script>
-<script>
-// planify-data.js — Data layer, constants & utilities
+<script>// planify-data.js — Data layer, constants & utilities
 
 const TRADE_COLORS = {
   crimson: {b:'#B91C1C',bg:'#FEF2F2',bgD:'rgba(185,28,28,.18)',t:'#7F1D1D'},
@@ -281,10 +280,8 @@ Object.assign(window, {
   getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay,
   genId, genTaskNum, daysUntil, deadlineColor,
 });
-
 </script>
 <script>
-
 /* ── SUPABASE INTEGRATION ADDON ─────────────────────────── */
 (function() {
   var SUPA_URL = 'https://xrfqlbhaxhraneflrfez.supabase.co';
@@ -368,10 +365,8 @@ Object.assign(window, {
 
   console.log('[Planify] Supabase addon loaded');
 })();
-
 </script>
 <script type="text/babel" data-presets="env,react">
-
 // tweaks-panel.jsx
 // Reusable Tweaks shell + form-control helpers.
 //
@@ -796,10 +791,8 @@ Object.assign(window, {
   TweakSlider, TweakToggle, TweakRadio, TweakSelect,
   TweakText, TweakNumber, TweakColor, TweakButton,
 });
-
 </script>
-<script type="text/babel" data-presets="env,react">
-// planify-components.jsx — Shared UI components
+<script type="text/babel" data-presets="env,react">// planify-components.jsx — Shared UI components
 // Exports all to window.*
 
 // hooks via screens script
@@ -1216,10 +1209,8 @@ Object.assign(window, {
   DashIcon, PlanIcon, ListIcon, SettIcon, AttachIcon,
   hdrBtnStyle, btnPrimaryStyle, btnSecStyle, btnDangerStyle,
 });
-
 </script>
-<script type="text/babel" data-presets="env,react">
-// planify-screens.jsx — All screens, modals, and root App
+<script type="text/babel" data-presets="env,react">// planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
@@ -1470,8 +1461,8 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   const pct     = total ? Math.round(termine.length / total * 100) : 0;
 
   // Drawer: which stat is open
-  const [drawer, setDrawer] = useState(null); // 'encours' | 'bloque'
-  function toggle(k) { setDrawer(d => d === k ? null : k); }
+  const [drawer, setDrawer] = React.useState(null);
+  function toggle(k) { setDrawer(function(d){ return d===k?null:k; }); }
 
   // (no inline TaskRow in DashboardScreen - use TaskRowAdmin below)
 
@@ -1780,6 +1771,54 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
 /* ════════════════════════════════════════════════════════════
    PLANNING SCREEN (weekly grid)
 ═══════════════════════════════════════════════════════════ */
+function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
+  var dc = deadlineColor(zone.deadline);
+  var wd = workingDaysUntil(zone.deadline);
+  var lbl = wd < 0 ? '▲' : 'J-' + wd;
+  var ds2 = zone.deadline ? zone.deadline.slice(5,10).replace('-','/') : '';
+  var [editing, setEditing] = React.useState(false);
+
+  if (editing) return (
+    <td style={{borderLeft:'2px solid var(--border-s)',verticalAlign:'middle',
+      textAlign:'center',height:isMulti?'40px':'56px',
+      padding:isMulti?'2px 1px':'4px 3px',background:dc+'18'}}>
+      <input type="date" defaultValue={zone.deadline||''} autoFocus
+        onBlur={function(e){
+          var val=e.target.value;
+          if(val&&val!==zone.deadline){
+            setZones(function(prev){return prev.map(function(z){
+              return z.id===zone.id?Object.assign({},z,{deadline:val}):z;
+            });});
+            supaWrite('PATCH','zones',{deadline:val},'id=eq.'+zone.id);
+          }
+          setEditing(false);
+        }}
+        onKeyDown={function(e){if(e.key==='Escape')setEditing(false);}}
+        style={{width:'100%',border:'none',background:'transparent',
+          fontSize:7,fontFamily:"'DM Mono',monospace",
+          color:dc,textAlign:'center',outline:'none'}} />
+    </td>
+  );
+
+  return (
+    <td onClick={isAdmin?function(){setEditing(true);}:undefined}
+      style={{borderLeft:'2px solid var(--border-s)',verticalAlign:'middle',
+        textAlign:'center',height:isMulti?'40px':'56px',
+        padding:isMulti?'2px 1px':'4px 3px',background:dc+'12',
+        cursor:isAdmin?'pointer':'default'}}>
+      <div style={{fontSize:isMulti?7:8.5,fontWeight:800,color:dc,
+        fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.15,whiteSpace:'nowrap'}}>
+        {zone.deadline?lbl:'—'}
+      </div>
+      <div style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",
+        marginTop:2,textAlign:'center',lineHeight:1,whiteSpace:'nowrap'}}>
+        {ds2}
+      </div>
+    </td>
+  );
+}
+
+
 function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode }) {
   // 'tout' = show all weeks from today to the furthest deadline
   var maxWeeks = 1;
@@ -2042,48 +2081,7 @@ function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOp
                   })}
 
                   {/* FIN cell */}
-                  <td style={{borderLeft:'2px solid var(--border-s)',
-                    verticalAlign:'middle',textAlign:'center',
-                    height:isMulti?'40px':'56px',
-                    padding:isMulti?'2px 1px':'4px 3px',
-                    background:`${dc}12`}}>
-                    {(()=>{
-                      const wd=workingDaysUntil(zone.deadline);
-                      const lbl=wd<0?'▲':`J-${wd}`;
-                      const ds2=zone.deadline?zone.deadline.slice(5,10).replace('-','/') : '';
-                      const [editing,setEditing]=React.useState(false);
-                      return editing?(
-                        <div>
-                          <input type="date" defaultValue={zone.deadline||''} autoFocus
-                            onBlur={function(e){
-                              var val=e.target.value;
-                              if(val&&val!==zone.deadline){
-                                setZones(function(prev){return prev.map(function(z){return z.id===zone.id?Object.assign({},z,{deadline:val}):z;});});
-                                supaWrite('PATCH','zones',{deadline:val},'id=eq.'+zone.id);
-                              }
-                              setEditing(false);
-                            }}
-                            onKeyDown={function(e){if(e.key==='Escape')setEditing(false);}}
-                            style={{width:'100%',border:'none',background:'transparent',
-                              fontSize:7,fontFamily:"'DM Mono',monospace",
-                              color:dc,textAlign:'center',outline:'none'}} />
-                        </div>
-                      ):(
-                        <div onClick={isAdmin?function(){setEditing(true);}:undefined}
-                          style={{cursor:isAdmin?'pointer':'default'}}>
-                          <div style={{fontSize:isMulti?7:8.5,fontWeight:800,color:dc,
-                            fontFamily:"'DM Mono',monospace",textAlign:'center',lineHeight:1.15,
-                            whiteSpace:'nowrap'}}>
-                            {zone.deadline?lbl:'—'}
-                          </div>
-                          <div style={{fontSize:6.5,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",
-                            marginTop:2,textAlign:'center',lineHeight:1,whiteSpace:'nowrap'}}>
-                            {ds2||''}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </td>
+                  <DeadlineCell zone={zone} isMulti={isMulti} isAdmin={isAdmin} setZones={setZones} />
                 </tr>
               );
             })}
@@ -2872,7 +2870,8 @@ function PlanifyApp() {
 
   const mainContent = () => {
     switch (screen) {
-      case 'dashboard': return <DashboardScreen data={data} zones={zones} trades={trades}
+      case 'dashboard': return <DashboardScreen key={session?.role+'-'+(session?.company?.name||'')}
+        data={data} zones={zones} trades={trades}
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
       case 'planning':  return <PlanningScreen  data={data} zones={zones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
@@ -3169,7 +3168,6 @@ function PlanifyApp() {
     </>
   );
 }
-
 </script>
 <script type="text/babel" data-presets="env,react">
   const root = ReactDOM.createRoot(document.getElementById('root'));
