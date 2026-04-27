@@ -1452,6 +1452,7 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
   );
 }
 
+
 function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetail }) {
   const isAdmin = session?.role === 'admin';
   const myName  = session?.company?.name || '';
@@ -1471,7 +1472,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   function toggle(k) { setDrawer(d => d === k ? null : k); }
 
   // Task row
-  function TaskRow({ iv }) {
+) {
     const z  = zones.find(x => x.id === iv.zone);
     const tr = trades.find(x => x.id === iv.trade);
     const c  = getTC(tr?.color || 'blue');
