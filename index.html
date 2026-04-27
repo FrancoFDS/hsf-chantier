@@ -25,7 +25,6 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -3310,25 +3309,266 @@ function PlanifyApp() {
         alert('La librairie PDF n’est pas chargée. Vérifiez la connexion internet puis rechargez la page.');
         return;
       }
+
+      function hexToRgb(hex) {
+        var h = String(hex || '#999999').replace('#','');
+        if (h.length === 3) h = h.split('').map(function(x){ return x + x; }).join('');
+        var n = parseInt(h, 16);
+        return Number.isNaN(n) ? [153,153,153] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      }
+      function mixWhite(rgb, ratio) {
+        return rgb.map(function(v){ return Math.round(v + (255 - v) * ratio); });
+      }
+      function clean(v) {
+        return String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+      }
+      function drawWrapped(doc, text, x, y, w, maxLines, lh) {
+        var raw = clean(text);
+        if (!raw) return y;
+        var lines = doc.splitTextToSize(raw, w);
+        if (lines.length > maxLines) {
+          lines = lines.slice(0, maxLines);
+          lines[lines.length - 1] = lines[lines.length - 1].replace(/\s+$/,'') + '…';
+        }
+        lines.forEach(function(line, idx){ doc.text(line, x, y + idx * lh); });
+        return y + lines.length * lh;
+      }
+      function visibleInDay(iv, day) {
+        if (!inDay(iv, day)) return false;
+        var ds = dateStr(day);
+        if ((iv.off_days || []).includes(ds)) return false;
+        if (isHoliday(day)) return false;
+        return true;
+      }
+      function weekTasks(days) {
+        var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+        return source.filter(function(iv){ return days.some(function(d){ return visibleInDay(iv, d); }); });
+      }
+      function deadlineTxt(zone) {
+        if (!zone.deadline) return ['—',''];
+        var wd = workingDaysUntil(zone.deadline);
+        return [wd < 0 ? '▲' : 'J-' + wd, fmtDate(zone.deadline).slice(0,5)];
+      }
+
+      var totalWeeks = getExportWeeks(mode);
       var doc = new JSPDF({orientation:'landscape', unit:'pt', format:'a4'});
-      doc.setFontSize(14);
-      doc.text('Planify — HSF 66 Av. Marceau', 32, 30);
-      doc.setFontSize(9);
-      doc.text('Planning '+label+' · '+fmtDate(dateStr(pack.first))+' au '+fmtDate(dateStr(pack.last))+' · '+rows.length+' tâche(s)', 32, 47);
-      doc.autoTable({
-        head: [headers],
-        body: body,
-        startY: 62,
-        theme: 'grid',
-        styles: {fontSize: 6.5, cellPadding: 3, overflow: 'linebreak', valign: 'top'},
-        headStyles: {fillColor: [26,26,26], textColor: 255, fontStyle: 'bold'},
-        columnStyles: {
-          0:{cellWidth:90}, 1:{cellWidth:32}, 2:{cellWidth:62}, 3:{cellWidth:52},
-          4:{cellWidth:42}, 5:{cellWidth:150}, 6:{cellWidth:42}, 7:{cellWidth:38},
-          8:{cellWidth:38}, 9:{cellWidth:90}, 10:{cellWidth:90}, 11:{cellWidth:54}
-        },
-        margin: {left: 24, right: 24}
-      });
+      var pageW = doc.internal.pageSize.getWidth();
+      var pageH = doc.internal.pageSize.getHeight();
+      var margin = 22;
+      var headerH = 54;
+      var top = 72;
+      var bottom = 22;
+      var tableW = pageW - margin * 2;
+      var zoneW = 72;
+      var finW = 48;
+      var dayW = (tableW - zoneW - finW) / 5;
+      var th = 28;
+      var rowH = Math.max(46, Math.min(62, Math.floor((pageH - top - bottom - th) / Math.max(1, zones.length))));
+      var dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+      var exported = 0;
+
+      for (var wi = 0; wi < totalWeeks; wi++) {
+        if (wi > 0) doc.addPage('a4', 'landscape');
+
+        var days = weekDays(weekOffset + wi);
+        var tasksForWeek = weekTasks(days);
+        exported += tasksForWeek.length;
+        var periodLabel = fmtDate(dateStr(days[0])) + ' au ' + fmtDate(dateStr(days[days.length - 1]));
+
+        // Fond + header sombre type application
+        doc.setFillColor(244,242,238);
+        doc.rect(0, 0, pageW, pageH, 'F');
+        doc.setFillColor(26,26,26);
+        doc.roundedRect(margin, 14, tableW, headerH, 8, 8, 'F');
+        doc.setTextColor(255,255,255);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(15);
+        doc.text('Planify — HSF 66 Av. Marceau', margin + 14, 34);
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(215,215,215);
+        doc.text('Planning ' + label + ' · Semaine ' + (wi + 1) + '/' + totalWeeks + ' · ' + periodLabel, margin + 14, 50);
+        doc.text(tasksForWeek.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR'), pageW - margin - 160, 50);
+
+        var x0 = margin;
+        var y0 = top;
+
+        // Cadre global
+        doc.setFillColor(255,255,255);
+        doc.setDrawColor(200,196,188);
+        doc.roundedRect(x0, y0, tableW, th + rowH * zones.length, 6, 6, 'FD');
+
+        // En-tête tableau
+        doc.setFillColor(249,248,245);
+        doc.rect(x0, y0, zoneW, th, 'F');
+        doc.rect(x0 + zoneW + 5 * dayW, y0, finW, th, 'F');
+        doc.setTextColor(90,90,90);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(7.5);
+        doc.text('ZONE', x0 + 8, y0 + 18);
+        doc.text('FIN', x0 + zoneW + 5 * dayW + 13, y0 + 18);
+
+        days.forEach(function(day, di) {
+          var x = x0 + zoneW + di * dayW;
+          var holiday = isHoliday(day);
+          var today = isToday(day);
+          if (holiday) doc.setFillColor(209,213,219);
+          else if (today) doc.setFillColor(238,242,252);
+          else doc.setFillColor(249,248,245);
+          doc.rect(x, y0, dayW, th, 'F');
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(7.5);
+          doc.setTextColor(today ? 33 : 90, today ? 82 : 90, today ? 200 : 90);
+          doc.text(dayNames[day.getDay()].toUpperCase(), x + 8, y0 + 12);
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(7);
+          doc.text(String(day.getDate()).padStart(2,'0') + '/' + String(day.getMonth()+1).padStart(2,'0'), x + 8, y0 + 23);
+          if (holiday) {
+            doc.setFont('helvetica','bold');
+            doc.setTextColor(70,70,70);
+            doc.text('JF', x + dayW - 18, y0 + 18);
+          }
+        });
+
+        // Lignes zones + cellules
+        zones.forEach(function(zone, zi) {
+          var y = y0 + th + zi * rowH;
+          var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
+          var fcRgb = hexToRgb(fc);
+          var rowBg = mixWhite(fcRgb, 0.95);
+          doc.setFillColor(rowBg[0], rowBg[1], rowBg[2]);
+          doc.rect(x0, y, tableW, rowH, 'F');
+          doc.setDrawColor(228,224,216);
+          doc.setLineWidth(0.5);
+          doc.line(x0, y, x0 + tableW, y);
+
+          // Zone
+          var zoneBg = mixWhite(fcRgb, 0.88);
+          doc.setFillColor(zoneBg[0], zoneBg[1], zoneBg[2]);
+          doc.rect(x0, y, zoneW, rowH, 'F');
+          doc.setDrawColor(fcRgb[0], fcRgb[1], fcRgb[2]);
+          doc.setLineWidth(2);
+          doc.line(x0 + zoneW - 2, y, x0 + zoneW - 2, y + rowH);
+          doc.setTextColor(fcRgb[0], fcRgb[1], fcRgb[2]);
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(7);
+          drawWrapped(doc, zone.short || zone.name, x0 + 6, y + 15, zoneW - 12, 2, 8);
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(6);
+          doc.setTextColor(90,90,90);
+          drawWrapped(doc, zone.floor || '', x0 + 6, y + rowH - 9, zoneW - 12, 1, 7);
+
+          days.forEach(function(day, di) {
+            var x = x0 + zoneW + di * dayW;
+            var ds = dateStr(day);
+            var holiday = isHoliday(day);
+            var isDeadline = zone.deadline && ds === zone.deadline;
+            var isPast = zone.deadline && ds > zone.deadline;
+            if (holiday) {
+              doc.setFillColor(209,213,219);
+              doc.rect(x, y, dayW, rowH, 'F');
+            } else if (isDeadline) {
+              doc.setFillColor(254,226,226);
+              doc.rect(x, y, dayW, rowH, 'F');
+            } else if (isPast) {
+              doc.setFillColor(254,242,242);
+              doc.rect(x, y, dayW, rowH, 'F');
+            }
+            doc.setDrawColor(228,224,216);
+            doc.setLineWidth(0.4);
+            doc.line(x, y, x, y + rowH);
+
+            var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+            var cards = holiday ? [] : source.filter(function(iv){
+              return iv.zone === zone.id && visibleInDay(iv, day);
+            }).sort(function(a,b){ return (a.priority||3)-(b.priority||3); });
+
+            var cardX = x + 3;
+            var cardY = y + 4;
+            var cardW = dayW - 6;
+            var cardH = rowH >= 58 ? 22 : 19;
+            var maxCards = Math.max(1, Math.floor((rowH - 8) / (cardH + 2)));
+
+            cards.slice(0, maxCards).forEach(function(iv) {
+              var tr = trades.find(function(t){ return t.id === iv.trade; });
+              var col = getTC(tr ? tr.color : 'blue');
+              var rgb = hexToRgb(col.b);
+              var fill = mixWhite(rgb, 0.90);
+              var st = STATUS_META[iv.status] || STATUS_META.arealis;
+              var stRgb = hexToRgb(st.dot);
+
+              doc.setFillColor(fill[0], fill[1], fill[2]);
+              doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+              doc.setLineWidth(0.7);
+              doc.roundedRect(cardX, cardY, cardW, cardH, 3, 3, 'FD');
+              doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+              doc.rect(cardX, cardY, 3, cardH, 'F');
+
+              doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+              doc.setFont('helvetica','bold');
+              doc.setFontSize(5.7);
+              drawWrapped(doc, (iv.company || '') + (iv.task_number ? ' · ' + iv.task_number : ''), cardX + 6, cardY + 7, cardW - 24, 1, 6);
+              doc.setFillColor(stRgb[0], stRgb[1], stRgb[2]);
+              doc.circle(cardX + cardW - 8, cardY + 6, 2, 'F');
+
+              doc.setTextColor(45,45,45);
+              doc.setFont('helvetica','normal');
+              doc.setFontSize(5.1);
+              drawWrapped(doc, iv.task || '', cardX + 6, cardY + 14, cardW - 10, 1, 6);
+
+              if (iv.prereq && rowH >= 58) {
+                doc.setTextColor(185,28,28);
+                doc.setFontSize(4.7);
+                drawWrapped(doc, '⚠ ' + iv.prereq, cardX + 6, cardY + 20, cardW - 10, 1, 5);
+              }
+
+              cardY += cardH + 2;
+            });
+
+            if (cards.length > maxCards) {
+              doc.setTextColor(90,90,90);
+              doc.setFont('helvetica','bold');
+              doc.setFontSize(5.5);
+              doc.text('+' + (cards.length - maxCards) + ' autre(s)', cardX + 5, y + rowH - 5);
+            }
+          });
+
+          // Jalon
+          var dx = x0 + zoneW + 5 * dayW;
+          var dc = hexToRgb(deadlineColor(zone.deadline));
+          var dlBg = mixWhite(dc, 0.90);
+          doc.setFillColor(dlBg[0], dlBg[1], dlBg[2]);
+          doc.rect(dx, y, finW, rowH, 'F');
+          doc.setTextColor(dc[0], dc[1], dc[2]);
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(7);
+          var dl = deadlineTxt(zone);
+          doc.text(dl[0], dx + 8, y + 18);
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(6);
+          if (dl[1]) doc.text(dl[1], dx + 8, y + 29);
+        });
+
+        // Bordures principales et footer
+        doc.setDrawColor(200,196,188);
+        doc.setLineWidth(0.7);
+        doc.line(x0 + zoneW, y0, x0 + zoneW, y0 + th + rowH * zones.length);
+        for (var gi = 1; gi <= 5; gi++) {
+          var gx = x0 + zoneW + gi * dayW;
+          doc.line(gx, y0, gx, y0 + th + rowH * zones.length);
+        }
+
+        doc.setTextColor(90,90,90);
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(6.5);
+        doc.text('1 page = 1 semaine · cartes colorées = entreprises/lots · point couleur = statut · JF = jour férié · rouge clair = dépassement du jalon.', margin, pageH - 12);
+        doc.text('Page ' + (wi + 1) + '/' + totalWeeks, pageW - margin - 48, pageH - 12);
+      }
+
+      if (!exported) {
+        alert('Aucune tâche à exporter sur cette période.');
+        return;
+      }
       doc.save(fileBase + '.pdf');
     }
   }
