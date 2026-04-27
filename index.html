@@ -28,7 +28,27 @@ button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
 <body>
 <div id="root"></div>
 <script>
-window.onerror=function(m,s,l,c,e){document.getElementById('root').innerHTML='<pre style="color:red;padding:20px;font-size:11px">'+m+'\n'+s+':'+l+'</pre>';};
+window.onerror = function(m, s, l, c, e) {
+  console.error('[Planify runtime error]', m, s, l, c, e);
+
+  var box = document.getElementById('runtime-error-box');
+
+  if (!box) {
+    box = document.createElement('pre');
+    box.id = 'runtime-error-box';
+    document.body.appendChild(box);
+  }
+
+  box.style.cssText =
+    'position:fixed;left:12px;right:12px;bottom:12px;z-index:999999;' +
+    'max-height:40vh;overflow:auto;background:#111;color:#ff6b6b;' +
+    'padding:12px;border-radius:8px;font-size:11px;white-space:pre-wrap;' +
+    'box-shadow:0 8px 30px rgba(0,0,0,.35);';
+
+  box.textContent =
+    String(m) + '\n' +
+    String(s) + ':' + String(l) + ':' + String(c);
+};
 </script>
 <script>// planify-data.js — Data layer, constants & utilities
 
@@ -1446,6 +1466,39 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
 }
 
 
+
+function SectionCard({ title, children, accent }) {
+  return (
+    <section style={{
+      background:'var(--surface)',
+      border:'1px solid var(--border)',
+      borderRadius:'var(--r)',
+      padding:'12px',
+      marginBottom:12,
+      boxShadow:'var(--shadow)',
+      borderLeft:accent ? `4px solid ${accent}` : '1px solid var(--border)'
+    }}>
+      <div style={{
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'space-between',
+        gap:8,
+        marginBottom:10
+      }}>
+        <h2 style={{
+          fontSize:13,
+          fontWeight:700,
+          color:'var(--text)',
+          letterSpacing:'-.01em',
+          margin:0
+        }}>{title}</h2>
+      </div>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+
 function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetail }) {
   const isAdmin = session?.role === 'admin';
   const myName  = session?.company?.name || '';
@@ -1596,56 +1649,6 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   var myZoneIds = [...new Set(myData.map(function(i){return i.zone;}))];
   var myZones = zones.filter(function(z){return myZoneIds.includes(z.id);});
 
- {
-    const z  = zones.find(function(x){return x.id===iv.zone;});
-    const tr = trades.find(function(x){return x.id===iv.trade;});
-    const c  = getTC(tr?tr.color:'blue');
-    const m  = STATUS_META[iv.status]||STATUS_META.arealis;
-    return (
-      <div onClick={function(){onOpenDetail(iv.id);}}
-        style={{padding:'11px 12px',marginBottom:8,borderRadius:'var(--r-sm)',cursor:'pointer',
-          background:'var(--surface)',border:'1px solid var(--border)',
-          borderLeft:'4px solid '+c.b,boxShadow:'var(--shadow)',transition:'box-shadow .15s'}}
-        onMouseEnter={function(e){e.currentTarget.style.boxShadow='var(--shadow-md)';}}
-        onMouseLeave={function(e){e.currentTarget.style.boxShadow='var(--shadow)';}}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:4}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,flex:1,minWidth:0,flexWrap:'wrap'}}>
-            {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,
-              color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 5px',
-              borderRadius:3,border:'1px solid var(--border)',flexShrink:0}}>{iv.task_number}</span>}
-            {z&&<span style={{fontSize:10,color:c.b,background:c.bg,padding:'1px 6px',
-              borderRadius:10,fontWeight:600,flexShrink:0}}>{z.short}</span>}
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,marginLeft:6}}>
-            <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
-            <span style={{fontSize:11,fontWeight:600,color:m.dot}}>{m.label}</span>
-          </div>
-        </div>
-        <div style={{fontSize:13,fontWeight:600,color:'var(--text)',lineHeight:1.45,marginBottom:5}}>{iv.task}</div>
-        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:iv.prereq||iv.notes?5:0}}>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
-            {fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}
-          </span>
-          {iv.off_days&&iv.off_days.length>0&&(
-            <span style={{fontSize:9,color:'var(--danger)',fontFamily:"'DM Mono',monospace"}}>
-              {iv.off_days.length} jour{iv.off_days.length>1?'s':''} gelé{iv.off_days.length>1?'s':''}
-            </span>
-          )}
-        </div>
-        {iv.prereq&&iv.prereq.trim()&&(
-          <div style={{fontSize:11,color:'#DC2626',background:'#FEF2F2',padding:'4px 8px',
-            borderRadius:3,borderLeft:'3px solid #DC2626',marginBottom:4}}>
-            ⚠ Prérequis : {iv.prereq}
-          </div>
-        )}
-        {iv.notes&&iv.notes.trim()&&!iv.notes.startsWith('Etage')&&!iv.notes.startsWith('Étage')&&(
-          <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',marginTop:2}}>
-            {iv.notes}
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div style={{padding:'12px 12px 100px',overflowY:'auto',height:'100%'}}>
@@ -1819,7 +1822,7 @@ function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
 }
 
 
-function PlanningScreen({ data, zones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode }) {
+function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode }) {
   // 'tout' = show all weeks from today to the furthest deadline
   var maxWeeks = 1;
   if (viewMode === 'tout') {
@@ -2873,7 +2876,7 @@ function PlanifyApp() {
       case 'dashboard': return <DashboardScreen key={session?.role+'-'+(session?.company?.name||'')}
         data={data} zones={zones} trades={trades}
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
-      case 'planning':  return <PlanningScreen  data={data} zones={zones} trades={trades}
+      case 'planning':  return <PlanningScreen  data={data} zones={zones} setZones={setZones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
         onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades}
