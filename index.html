@@ -944,7 +944,7 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode }) {
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh }) {
   const weeks = viewMode === '3w' ? 3 : 1;
   const days  = multiWeekDays(weekOffset, weeks);
   const start = days[0], end = days[days.length - 1];
@@ -995,6 +995,12 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             </span>
             <button onClick={()=>onWeekChange(1)} style={hdrBtnStyle}>›</button>
           </div>
+          <button onClick={onToday} title="Aujourd'hui"
+            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
+              border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:11}}>◎</button>
+          <button onClick={onRefresh} title="Rafraichir"
+            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
+              border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:13}}>↻</button>
           {session?.role==='admin'&&
             <button onClick={onSettings} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:28,height:28,fontSize:14}}>⚙</button>}
@@ -2232,6 +2238,78 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
   );
 }
 
+function FrozenDaysField({ form, set }) {
+  // Build list of all dates in the intervention range (excluding weekends)
+  var start = form.start, end = form.end||form.start;
+  if (!start) return (
+    <div style={{fontSize:11,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",padding:'8px 0'}}>
+      Saisissez d’abord une date de début
+    </div>
+  );
+
+  var dates = [];
+  var cur = new Date(start+'T00:00:00');
+  var endD = new Date((end||start)+'T00:00:00');
+  var safety = 0;
+  while (cur <= endD && safety < 60) {
+    var dow = cur.getDay();
+    if (dow !== 0 && dow !== 6) { // exclude weekends
+      var ds = cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
+      dates.push(ds);
+    }
+    cur.setDate(cur.getDate()+1);
+    safety++;
+  }
+
+  if (!dates.length) return null;
+
+  var offs = form.off_days || [];
+  var DAY_SHORT = ['Di','Lu','Ma','Me','Je','Ve','Sa'];
+  var MONTHS_SHORT = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+
+  function toggle(ds) {
+    set('off_days', offs.includes(ds) ? offs.filter(function(x){return x!==ds;}) : [...offs, ds]);
+  }
+
+  return (
+    <div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:6}}>
+        {dates.map(function(ds) {
+          var d = new Date(ds+'T00:00:00');
+          var active = offs.includes(ds);
+          return (
+            <button key={ds} type="button" onClick={function(){toggle(ds);}}
+              style={{display:'flex',flexDirection:'column',alignItems:'center',
+                padding:'6px 8px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',
+                border:'1.5px solid '+(active?'var(--danger)':'var(--border)'),
+                background:active?'var(--danger-l)':'var(--surface)',
+                color:active?'var(--danger)':'var(--muted)',
+                minWidth:36,fontFamily:"'DM Sans',sans-serif",transition:'all .15s'}}>
+              <span style={{fontSize:9,opacity:.7,fontFamily:"'DM Mono',monospace"}}>{DAY_SHORT[d.getDay()]}</span>
+              <span>{d.getDate()}</span>
+              <span style={{fontSize:9,opacity:.7,fontFamily:"'DM Mono',monospace"}}>{MONTHS_SHORT[d.getMonth()]}</span>
+            </button>
+          );
+        })}
+      </div>
+      {offs.length > 0 && (
+        <div style={{fontSize:10,color:'var(--danger)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
+          {offs.length} jour{offs.length>1?'s':''} gelé{offs.length>1?'s':''}
+          {' — '}
+          <span style={{cursor:'pointer',textDecoration:'underline'}}
+            onClick={function(){set('off_days',[]);}}>tout effacer</span>
+        </div>
+      )}
+      {offs.length === 0 && (
+        <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace"}}>
+          Cliquez les jours à exclure du planning
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 /* ════════════════════════════════════════════════════════════
    ADD / EDIT MODAL
 ═══════════════════════════════════════════════════════════ */
@@ -2291,29 +2369,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, onC
           <Field label="Date debut *"><Input type="date" value={form.start||''} onChange={e=>set('start',e.target.value)} /></Field>
           <Field label="Date fin"><Input type="date" value={form.end||''} onChange={e=>set('end',e.target.value)} /></Field>
         </div>
-        <Field label="Jours off (gelés)">
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            {[['Lun',1],['Mar',2],['Mer',3],['Jeu',4],['Ven',5]].map(function(d){
-              var label=d[0], num=d[1];
-              var offs=form.off_days||[];
-              var active=offs.includes(num);
-              return (
-                <button key={num} type="button"
-                  onClick={function(){ set('off_days', active?offs.filter(function(x){return x!==num;}):[...offs,num]); }}
-                  style={{padding:'6px 12px',borderRadius:20,fontSize:12,fontWeight:600,cursor:'pointer',
-                    border:'1.5px solid '+(active?'var(--danger)':'var(--border)'),
-                    background:active?'var(--danger-l)':'var(--surface)',
-                    color:active?'var(--danger)':'var(--muted)',
-                    fontFamily:"'DM Sans',sans-serif",transition:'all .15s'}}>
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{fontSize:10,color:'var(--xmuted)',marginTop:5,fontFamily:"'DM Mono',monospace"}}>
-            La tache ne s’affiche pas ces jours dans le planning
-          </div>
-        </Field>
+        <FrozenDaysField form={form} set={set} />
         <Field label="Corps de métier *">
           <Select value={form.trade||''} onChange={e=>set('trade',e.target.value)}>
             <option value="">Sélectionner…</option>
@@ -2466,7 +2522,24 @@ function PlanifyApp() {
           onUserMenu={()=>setUserMenu(true)}
           filter={filter} trades={trades} onFilter={setFilter}
           zones={zones} data={data}
-          viewMode={viewMode} onViewMode={setViewMode} />
+          viewMode={viewMode} onViewMode={setViewMode}
+          onToday={()=>setWeekOffset(0)}
+          onRefresh={()=>{
+            if(window.PLANIFY_SUPA){
+              var company=session&&session.role==='admin'?'Admin':(session&&session.company?session.company.name:'');
+              window.PLANIFY_SUPA.load(company).then(function(res){
+                if(!res) return;
+                if(res.zones&&res.zones.length) setZones(res.zones);
+                if(res.trades&&res.trades.length) setTrades(res.trades.map(function(t){
+                  var loc=TRADES.find(function(lt){return lt.id===t.id;});
+                  return loc?Object.assign({},t,{color:loc.color}):t;
+                }));
+                if(res.interventions&&res.interventions.length) setData(res.interventions.map(function(r){
+                  return Object.assign({},r,{start:r.start_date,end:r.end_date,attachments:[],off_days:r.off_days||[]});
+                }));
+              });
+            }
+          }} />
         <div style={{flex:1,overflow:'hidden',position:'relative'}}>
           {mainContent()}
         </div>
