@@ -239,12 +239,13 @@ function getMonday(offset = 0) {
   const m = new Date(t); m.setDate(t.getDate() + diff + offset * 7); m.setHours(0,0,0,0);
   return m;
 }
-function weekDays(offset = 0) {
+function weekDays(offset = 0, includeWeekends = false) {
   const m = getMonday(offset);
-  return Array.from({length:5}, (_,i) => { const d = new Date(m); d.setDate(m.getDate()+i); return d; });
+  const length = includeWeekends ? 7 : 5;
+  return Array.from({length:length}, (_,i) => { const d = new Date(m); d.setDate(m.getDate()+i); return d; });
 }
-function multiWeekDays(offset = 0, weeks = 1) {
-  return Array.from({length: weeks}, (_, w) => weekDays(offset + w)).flat();
+function multiWeekDays(offset = 0, weeks = 1, includeWeekends = false) {
+  return Array.from({length: weeks}, (_, w) => weekDays(offset + w, includeWeekends)).flat();
 }
 function dateStr(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function dateFR(d)    { return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
@@ -950,9 +951,29 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil, syncing, busyActions = {} }) {
-  const weeks = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
-  const days  = multiWeekDays(weekOffset, weeks);
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil, syncing, busyActions = {}, showWeekends = false, onToggleWeekends }) {
+  var maxWeeks = 1;
+  if (viewMode === 'tout') {
+    var nowHdr = new Date(); nowHdr.setHours(0,0,0,0);
+    zones.forEach(function(z){
+      if(z.deadline){
+        var d = new Date(z.deadline+'T00:00:00');
+        var w = Math.ceil((d - nowHdr)/(7*24*3600*1000)) + 1;
+        if(w > maxWeeks) maxWeeks = w;
+      }
+    });
+    maxWeeks = Math.max(1, Math.min(maxWeeks, 16));
+  }
+  const weeks = viewMode === 'tout' ? maxWeeks : viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
+  const fullDaysForWeekend = multiWeekDays(weekOffset, weeks, true);
+  const weekendTaskVisible = (data||[]).some(function(iv){
+    return fullDaysForWeekend.some(function(d){
+      var dow = d.getDay();
+      return (dow === 0 || dow === 6) && inDay(iv,d) && !(iv.off_days||[]).includes(dateStr(d));
+    });
+  });
+  const headerIncludeWeekends = !!showWeekends || weekendTaskVisible;
+  const days  = multiWeekDays(weekOffset, weeks, headerIncludeWeekends);
   const start = days[0], end = days[days.length - 1];
 
   // Dominant trade per zone (most interventions)
@@ -1024,11 +1045,20 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
           <button onClick={onToday} title="Aujourd'hui"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:26,height:26,fontSize:11}}>◎</button>
+          {session?.role==='admin' && (
+            <button onClick={onToggleWeekends} title={showWeekends?'Masquer les samedis / dimanches':'Afficher les samedis / dimanches'}
+              style={{...hdrBtnStyle,background:showWeekends?'rgba(96,165,250,.22)':'rgba(255,255,255,.08)',
+                border:'1px solid '+(showWeekends?'rgba(147,197,253,.55)':'rgba(255,255,255,.14)'),
+                borderRadius:6,minWidth:34,height:26,fontSize:10,fontWeight:800,
+                fontFamily:"'DM Mono',monospace",color:showWeekends?'#BFDBFE':'rgba(255,255,255,.7)'}}>
+              {showWeekends?'7J':'5J'}
+            </button>
+          )}
           <button onClick={onRefresh} disabled={!!syncing} title="Rafraîchir les données"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,minWidth:42,height:26,
               fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:syncing ? .65 : 1}}>
-            {syncing?'…':'Actualiser'}
+            {syncing?'…':'↻'}
           </button>
           <button onClick={onHistory} title="Historique détaillé"
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
@@ -1372,8 +1402,8 @@ function workingDaysUntil(ds) {
   }
   return count;
 }
-function multiWeekDays(offset = 0, weeks = 1) {
-  return Array.from({length: weeks}, (_, w) => weekDays(offset + w)).flat();
+function multiWeekDays(offset = 0, weeks = 1, includeWeekends = false) {
+  return Array.from({length: weeks}, (_, w) => weekDays(offset + w, includeWeekends)).flat();
 }
 // ─────────────────────────────────────────────────────────────
 
@@ -2192,7 +2222,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   }
 
   // ── COMPANY VIEW ───────────────────────────────────────────
-  const days = weekDays(weekOffset);
+  const days = weekDays(weekOffset, true);
   const weekIvs = myData.filter(function(i){ return days.some(function(d){ return inDay(i,d); }); });
   const soon = myData.filter(function(i){
     if(i.status==='termine') return false;
@@ -2359,7 +2389,7 @@ function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
 }
 
 
-function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode }) {
+function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false }) {
   // 'tout' = show all weeks from today to the furthest deadline
   var maxWeeks = 1;
   if (viewMode === 'tout') {
@@ -2374,10 +2404,19 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     maxWeeks = Math.max(1, Math.min(maxWeeks, 16)); // cap at 16 weeks
   }
   const weeks = viewMode === 'tout' ? maxWeeks : viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
-  const days = multiWeekDays(weekOffset, weeks);
   const isDark = document.documentElement.getAttribute('data-theme') === 'nuit';
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
   const isAdmin = session?.role === 'admin';
+  const fullWeekDays = multiWeekDays(weekOffset, weeks, true);
+  const weekendTaskVisible = filtered.some(function(iv){
+    return fullWeekDays.some(function(d){
+      var dow = d.getDay();
+      return (dow === 0 || dow === 6) && inDay(iv,d) && !(iv.off_days||[]).includes(dateStr(d));
+    });
+  });
+  const includeWeekends = (isAdmin && !!showWeekends) || weekendTaskVisible;
+  const days = multiWeekDays(weekOffset, weeks, includeWeekends);
+  const daysPerWeek = includeWeekends ? 7 : 5;
   const isMulti = weeks > 1;
   const is3s = weeks === 3;
   const zoneColW = isMulti ? '40px' : '58px';
@@ -2483,7 +2522,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
 
               {/* Day headers */}
               {days.map((d,i) => {
-                const isFirstOfWeek = i % 5 === 0 && i > 0;
+                const isFirstOfWeek = i % daysPerWeek === 0 && i > 0;
                 const holiday = isHoliday(d);
                 const workedHoliday = isWorkedHoliday(d);
                 return (
@@ -2496,14 +2535,18 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'var(--surface-2)',
                     fontWeight:'normal',
                     verticalAlign:'middle'}}>
-                    {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
-                      color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)'}}>
-                      {DAYS_FR[d.getDay()-1]}
-                    </div>}
-                    <div style={{fontSize:isMulti?8:10,fontWeight:isMulti?600:400,
+                    <div style={{fontSize:isMulti?(weeks>3?5.5:weeks===3?6:7):9,
+                      fontWeight:700,fontFamily:"'DM Mono',monospace",
+                      color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)',
+                      lineHeight:1.05,whiteSpace:'nowrap'}}>
+                      {['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}
+                    </div>
+                    <div style={{fontSize:isMulti?(weeks>3?6:weeks===3?7:8):10,
+                      fontWeight:isMulti?700:400,
                       fontFamily:"'DM Mono',monospace",
-                      color:holiday?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)'}}>
-                      {isMulti ? d.getDate() : `${d.getDate()}/${d.getMonth()+1}`}
+                      color:holiday?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)',
+                      lineHeight:1.05,whiteSpace:'nowrap',marginTop:isMulti?1:0}}>
+                      {`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`}
                     </div>
                     {holiday && <div style={{fontSize:7,fontWeight:700,color:'#4B5563',
                       fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
@@ -2561,7 +2604,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     const ds = dateStr(day);
                     const holiday = isHoliday(day);
                     const workedHoliday = isWorkedHoliday(day);
-                    const isFirstOfWeek = di % 5 === 0 && di > 0;
+                    const isFirstOfWeek = di % daysPerWeek === 0 && di > 0;
                     const isDeadline = zone.deadline && ds === zone.deadline;
                     const isPast = zone.deadline && ds > zone.deadline;
                     const cellBg = holiday?'#D1D5DB': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
@@ -2599,7 +2642,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                             var _c=getTC(_tr?_tr.color:'blue');
                             var _m=STATUS_META[iv.status]||STATUS_META.arealis;
                             return (
-                              <div key={iv.id} onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}}
+                              <div key={iv.id}
+                                title={'Entreprise : '+iv.company+'\nTâche : '+iv.task+'\nStatut : '+_m.label+'\nZone : '+zone.name+'\nDates : '+fmtDate(iv.start)+(iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):'')+(iv.prereq?'\nPrérequis : '+iv.prereq:'')+(iv.notes?'\nNotes : '+iv.notes:'')}
+                                onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}}
                                 style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
                                   background:_c.bg,borderLeft:'2px solid '+_c.b,overflow:'hidden'}}>
                                 <div style={{display:'flex',alignItems:'center',gap:2}}>
@@ -2646,7 +2691,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const shownData = filter === 'all' ? baseData : baseData.filter(function(i){ return i.trade === filter; });
   const today = new Date(); today.setHours(0,0,0,0);
   const todayStr = dateStr(today);
-  const days = weekDays(weekOffset);
+  const days = weekDays(weekOffset, true);
   const weekItems = shownData.filter(function(i){ return days.some(function(d){ return inDay(i,d); }); });
   const todayItems = shownData.filter(function(i){ return inDay(i,today) && !(i.off_days||[]).includes(todayStr); });
   const urgentItems = shownData.filter(function(i){ return isTaskLate(i) || i.status === 'bloque' || (i.prereq && i.prereq.trim()); });
@@ -3937,6 +3982,7 @@ function PlanifyApp() {
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
+  const [showWeekends, setShowWeekends] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [planningVersion, setPlanningVersion] = useState(null);
@@ -4568,7 +4614,7 @@ function PlanifyApp() {
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
       case 'planning':  return <PlanningScreen  data={data} zones={zones} setZones={setZones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
-        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} />;
+        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
@@ -4986,6 +5032,8 @@ function PlanifyApp() {
           zones={zones} data={data}
           viewMode={viewMode} onViewMode={setViewMode}
           onToday={()=>setWeekOffset(0)}
+          showWeekends={showWeekends}
+          onToggleWeekends={()=>setShowWeekends(v=>!v)}
           onExport={exportPlanning}
           onHistory={openHistory}
           onToggleLock={handleToggleLock}
