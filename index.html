@@ -252,6 +252,32 @@ function dateFR(d)    { return d.toLocaleDateString('fr-FR',{day:'numeric',month
 function fmtDate(s)   { if(!s) return ''; const p=s.split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s; }
 function isToday(d)   { return d.toDateString() === new Date().toDateString(); }
 function inDay(iv,day){ const s=new Date(iv.start+'T00:00:00'),e=new Date((iv.end||iv.start)+'T00:00:00'),dd=new Date(day); dd.setHours(0,0,0,0); return dd>=s&&dd<=e; }
+function isTaskFrozenOn(iv, day) {
+  if (!iv) return false;
+  const ds = typeof day === 'string' ? day : dateStr(day);
+  const explicitStart = iv.start === ds;
+  const explicitEnd = (iv.end || iv.start) === ds;
+
+  // Un jour gelé exclut la tâche uniquement si la tâche n'est pas explicitement affectée ce jour-là.
+  // Exemple :
+  // - tâche vendredi → lundi : samedi/dimanche gelés = exclus
+  // - tâche créée directement samedi : samedi = visible
+  // - tâche qui finit dimanche : dimanche = visible
+  if (explicitStart || explicitEnd) return false;
+
+  return Array.isArray(iv.off_days) && iv.off_days.includes(ds);
+}
+function isTaskActiveOn(iv, day) {
+  return inDay(iv, day) && !isTaskFrozenOn(iv, day);
+}
+function isTaskFrozenToday(iv) {
+  const t = new Date(); t.setHours(0,0,0,0);
+  return inDay(iv, t) && isTaskFrozenOn(iv, t);
+}
+function isTaskActiveToday(iv) {
+  const t = new Date(); t.setHours(0,0,0,0);
+  return isTaskActiveOn(iv, t);
+}
 function genId()      { return 'u_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6); }
 function genTaskNum(interventions, company) {
   const prefix = (company||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
@@ -289,7 +315,7 @@ function workingDaysUntil(ds) {
 Object.assign(window, {
   ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, FLOOR_COLORS, DAYS_FR,
   HOLIDAYS_2026, isHoliday, workingDaysUntil,
-  getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay,
+  getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
   genId, genTaskNum, daysUntil, deadlineColor,
 });
 </script>
@@ -1706,7 +1732,9 @@ function ZoneTaskList({ items, zones, trades, onOpenDetail, isAdmin, title, empt
   });
 
   const counts = ordered.reduce(function(acc, iv) {
-    acc[iv.status] = (acc[iv.status] || 0) + 1;
+    if (!(iv.status === 'encours' && isTaskFrozenToday(iv))) {
+      acc[iv.status] = (acc[iv.status] || 0) + 1;
+    }
     if (isTaskLate(iv)) acc.retard += 1;
     acc.total += 1;
     return acc;
@@ -1802,20 +1830,73 @@ function SectionCard({ title, children, accent }) {
 
 
 
+function taskActiveDatesInRange(iv) {
+  if (!iv || !iv.start) return [];
+  var start = new Date(iv.start + 'T00:00:00');
+  var end = new Date((iv.end || iv.start) + 'T00:00:00');
+  if (end < start) return [];
+  var out = [];
+  var cur = new Date(start);
+  var safety = 0;
+  while (cur <= end && safety < 180) {
+    if (isTaskActiveOn(iv, cur)) out.push(dateStr(cur));
+    cur.setDate(cur.getDate() + 1);
+    safety++;
+  }
+  return out;
+}
+
+function effectiveDueDate(iv) {
+  var activeDates = taskActiveDatesInRange(iv);
+  if (activeDates.length) return activeDates[activeDates.length - 1];
+  return iv && (iv.end || iv.start) ? (iv.end || iv.start) : '';
+}
+
 function calcReliability(items) {
-  var now = new Date();
-  now.setHours(0,0,0,0);
-  var due = (items || []).filter(function(iv){
-    var ds = iv.end || iv.start;
-    if (!ds) return false;
-    var d = new Date(ds + 'T00:00:00');
-    d.setHours(0,0,0,0);
-    return d <= now;
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var todayStr = dateStr(today);
+
+  var enriched = (items || []).map(function(iv){
+    return Object.assign({}, iv, {
+      _effective_due_date: effectiveDueDate(iv),
+      _active_dates_count: taskActiveDatesInRange(iv).length
+    });
   });
-  if (!due.length) return { value: 100, label: '100%', done: 0, total: 0 };
-  var kept = due.filter(function(iv){ return iv.status === 'termine'; }).length;
-  var value = Math.round(kept / due.length * 100);
-  return { value: value, label: value + '%', done: kept, total: due.length };
+
+  var due = enriched.filter(function(iv){
+    return iv._effective_due_date && iv._effective_due_date <= todayStr;
+  });
+
+  var notDue = enriched.filter(function(iv){
+    return iv._effective_due_date && iv._effective_due_date > todayStr;
+  });
+
+  var doneItems = due.filter(function(iv){ return iv.status === 'termine'; });
+  var missedItems = due.filter(function(iv){ return iv.status !== 'termine'; });
+  var kept = doneItems.length;
+  var value = due.length ? Math.round(kept / due.length * 100) : 100;
+
+  var byStatus = due.reduce(function(acc, iv){
+    var k = iv.status || 'arealis';
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    value: value,
+    label: value + '%',
+    done: kept,
+    total: due.length,
+    lostPoints: due.length ? 100 - value : 0,
+    missed: missedItems.length,
+    notDue: notDue.length,
+    dueItems: due,
+    doneItems: doneItems,
+    missedItems: missedItems,
+    notDueItems: notDue,
+    byStatus: byStatus
+  };
 }
 
 function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetail }) {
@@ -1826,7 +1907,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   const myData  = isAdmin ? data : data.filter(i => i.company === myName);
 
   // Key stats
-  const encours = myData.filter(i => i.status === 'encours');
+  const encours = myData.filter(i => i.status === 'encours' && !isTaskFrozenToday(i));
   const blocked = myData.filter(i => i.status === 'bloque');
   const termine = myData.filter(i => i.status === 'termine');
   const overdue = myData.filter(i => isTaskLate(i));
@@ -1892,7 +1973,87 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
     return null;
   }
 
+  function renderReliabilityDrawer() {
+    var missed = reliability.missedItems || [];
+    var dueDone = reliability.doneItems || [];
+    var notDue = reliability.notDueItems || [];
+    var dueTotal = reliability.total || 0;
+    var dueDoneCount = reliability.done || 0;
+
+    return (
+      <SectionCard title={`Détail fiabilité — ${reliability.label}`} accent={reliability.value>=85?'#16A34A':reliability.value>=60?'#F59E0B':'#DC2626'}>
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',
+          borderRadius:'var(--r-sm)',padding:'12px',marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:6}}>
+            Calcul de la fiabilité
+          </div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:'var(--muted)',lineHeight:1.55}}>
+            {dueTotal > 0
+              ? <>{dueDoneCount} tâche{dueDoneCount>1?'s':''} due{dueDoneCount>1?'s':''} terminée{dueDoneCount>1?'s':''} / {dueTotal} tâche{dueTotal>1?'s':''} due{dueTotal>1?'s':''} à date = <b style={{color:'var(--text)'}}>{reliability.label}</b></>
+              : <>Aucune tâche due à date. La fiabilité est donc affichée à <b style={{color:'var(--text)'}}>100%</b>.</>
+            }
+          </div>
+          {dueTotal > 0 && (
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:reliability.lostPoints?'#EA580C':'#16A34A',marginTop:6,fontWeight:800}}>
+              {reliability.lostPoints
+                ? `Points manquants : -${reliability.lostPoints} pt${reliability.lostPoints>1?'s':''}. Les tâches ci-dessous expliquent l'écart.`
+                : 'Aucun point perdu : toutes les tâches dues sont terminées.'}
+            </div>
+          )}
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:8,marginBottom:12}}>
+          <div style={{background:'var(--success-l)',border:'1px solid rgba(22,163,74,.25)',borderRadius:'var(--r-sm)',padding:'9px 10px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:'#16A34A'}}>{dueDone.length}</div>
+            <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>Dues terminées</div>
+          </div>
+          <div style={{background:'rgba(234,88,12,.08)',border:'1px solid rgba(234,88,12,.25)',borderRadius:'var(--r-sm)',padding:'9px 10px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:'#EA580C'}}>{missed.length}</div>
+            <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>Dues non terminées</div>
+          </div>
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'9px 10px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:'var(--muted)'}}>{notDue.length}</div>
+            <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>Pas encore dues</div>
+          </div>
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'9px 10px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:reliability.lostPoints?'#EA580C':'#16A34A'}}>
+              -{reliability.lostPoints}
+            </div>
+            <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>Points perdus</div>
+          </div>
+        </div>
+
+        {missed.length > 0 && (
+          <ZoneTaskList
+            items={missed}
+            zones={zones}
+            trades={trades}
+            onOpenDetail={onOpenDetail}
+            isAdmin={isAdmin}
+            title={`Tâches qui font baisser la fiabilité (${missed.length})`}
+            emptyLabel="Aucune tâche ne fait baisser la fiabilité."
+          />
+        )}
+
+        {missed.length === 0 && (
+          <div style={{fontSize:12,color:'var(--success)',background:'var(--success-l)',
+            border:'1px solid rgba(22,163,74,.25)',borderRadius:'var(--r-sm)',padding:'10px 12px',
+            fontWeight:700}}>
+            Toutes les tâches dues à date sont terminées.
+          </div>
+        )}
+
+        {dueTotal > 0 && (
+          <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:10,lineHeight:1.45}}>
+            Note : une tâche est considérée “due” à sa dernière date active. Les jours gelés dans la tâche ne sont pas comptés comme jours travaillés.
+          </div>
+        )}
+      </SectionCard>
+    );
+  }
+
   function renderDrawer() {
+    if (drawer === 'fiabilite') return renderReliabilityDrawer();
     const cfg = getDrawerConfig();
     if (!cfg) return null;
     return (
@@ -1977,7 +2138,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
                 fontFamily:"'DM Mono',monospace",
                 marginTop:4
               }}>
-                Fiabilité = tâches dues terminées / tâches dues à date
+                Fiabilité = tâches dues terminées / tâches dues à date · Cliquer sur le % pour le détail
               </div>
               <div style={{
                 fontSize:10,
@@ -2005,7 +2166,10 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
                 </div>
               </div>
 
-              <div title="Fiabilité = tâches dues terminées / tâches dues à date">
+              <div title="Cliquer pour voir le détail de la fiabilité"
+                onClick={function(e){e.stopPropagation();toggle('fiabilite');}}
+                style={{cursor:'pointer',padding:'2px 4px',borderRadius:6,
+                  outline:drawer==='fiabilite'?'1px solid rgba(255,255,255,.35)':'1px solid transparent'}}>
                 <div style={{
                   fontFamily:"'DM Mono',monospace",
                   fontSize:26,
@@ -2051,7 +2215,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
               {subtitle}
             </div>
             <div style={{fontSize:10,color:'rgba(255,255,255,.45)',fontFamily:"'DM Mono',monospace",marginTop:4}}>
-              Cliquer pour voir toutes les tâches
+              Cliquer pour voir toutes les tâches · cliquer sur fiabilité pour le détail
             </div>
           </div>
           <div style={{display:'flex',gap:14,alignItems:'flex-start',flexShrink:0,textAlign:'right'}}>
@@ -2062,7 +2226,10 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
                 Avancement
               </div>
             </div>
-            <div title="Fiabilité = tâches dues terminées / tâches dues à date">
+            <div title="Cliquer pour voir le détail de la fiabilité"
+              onClick={function(e){e.stopPropagation();toggle('fiabilite');}}
+              style={{cursor:'pointer',padding:'2px 4px',borderRadius:6,
+                outline:drawer==='fiabilite'?'1px solid rgba(255,255,255,.35)':'1px solid transparent'}}>
               <div style={{fontSize:26,fontWeight:800,color:reliability.value>=85?'#4ADE80':reliability.value>=60?'#FBBF24':'#F87171',
                 fontFamily:"'DM Mono',monospace",lineHeight:1}}>{reliability.label}</div>
               <div style={{fontSize:9,color:'rgba(255,255,255,.5)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
@@ -2085,7 +2252,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
     const companyStats = companies.map(co => ({
       name:    co,
       total:   data.filter(i => i.company===co).length,
-      encours: data.filter(i => i.company===co&&i.status==='encours').length,
+      encours: data.filter(i => i.company===co&&i.status==='encours'&&!isTaskFrozenToday(i)).length,
       bloque:  data.filter(i => i.company===co&&i.status==='bloque').length,
       retard:  data.filter(i => i.company===co&&isTaskLate(i)).length,
       termine: data.filter(i => i.company===co&&i.status==='termine').length,
@@ -2141,7 +2308,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
             const zivs=data.filter(i=>i.zone===z.id);
             const done=zivs.filter(i=>i.status==='termine').length;
             const bloc=zivs.filter(i=>i.status==='bloque').length;
-            const enc=zivs.filter(i=>i.status==='encours').length;
+            const enc=zivs.filter(i=>i.status==='encours'&&!isTaskFrozenToday(i)).length;
             const late=zivs.filter(i=>isTaskLate(i)).length;
             const p=zivs.length?Math.round(done/zivs.length*100):0;
             const wd=workingDaysUntil(z.deadline);
@@ -2244,7 +2411,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
 
   // ── COMPANY VIEW ───────────────────────────────────────────
   const days = weekDays(weekOffset, true);
-  const weekIvs = myData.filter(function(i){ return days.some(function(d){ return inDay(i,d); }); });
+  const weekIvs = myData.filter(function(i){ return days.some(function(d){ return isTaskActiveOn(i,d); }); });
   const soon = myData.filter(function(i){
     if(i.status==='termine') return false;
     var st=new Date(i.start+'T00:00:00'), now2=new Date(); now2.setHours(0,0,0,0);
@@ -2273,7 +2440,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
             var zivs=myData.filter(function(i){return i.zone===z.id;});
             var done=zivs.filter(function(i){return i.status==='termine';}).length;
             var bloc=zivs.filter(function(i){return i.status==='bloque';}).length;
-            var enc=zivs.filter(function(i){return i.status==='encours';}).length;
+            var enc=zivs.filter(function(i){return i.status==='encours'&&!isTaskFrozenToday(i);}).length;
             var late=zivs.filter(function(i){return isTaskLate(i);}).length;
             var p=zivs.length?Math.round(done/zivs.length*100):0;
             var wdv=workingDaysUntil(z.deadline);
@@ -2345,7 +2512,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
         {key:'arealis', label:'À réaliser', color:'var(--muted)'},
         {key:'termine', label:'Terminées', color:'#16A34A'},
       ].map(function(st){
-        var items=myData.filter(function(i){return i.status===st.key;});
+        var items=myData.filter(function(i){return i.status===st.key && !(st.key==='encours' && isTaskFrozenToday(i));});
         if(!items.length) return null;
         return (
           <SectionCard key={st.key} title={`${st.label} (${items.length})`} accent={st.color}>
@@ -2780,8 +2947,8 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const today = new Date(); today.setHours(0,0,0,0);
   const todayStr = dateStr(today);
   const days = weekDays(weekOffset, true);
-  const weekItems = shownData.filter(function(i){ return days.some(function(d){ return inDay(i,d); }); });
-  const todayItems = shownData.filter(function(i){ return inDay(i,today) && !(i.off_days||[]).includes(todayStr); });
+  const weekItems = shownData.filter(function(i){ return days.some(function(d){ return isTaskActiveOn(i,d); }); });
+  const todayItems = shownData.filter(function(i){ return isTaskActiveOn(i,today); });
   const urgentItems = shownData.filter(function(i){ return isTaskLate(i) || i.status === 'bloque' || (i.prereq && i.prereq.trim()); });
   const allOrdered = [...shownData].sort(function(a,b){
     var rank = function(iv){ if (iv.status==='bloque') return 0; if (isTaskLate(iv)) return 1; if (iv.status==='encours') return 2; if (iv.status==='arealis') return 3; if (iv.status==='termine') return 5; return 9; };
@@ -2793,7 +2960,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
 
   if (isAdmin) {
     const filtered = shownData
-      .filter(i=>days.some(d=>inDay(i,d)))
+      .filter(i=>days.some(d=>isTaskActiveOn(i,d)))
       .sort((a,b)=>a.start!==b.start?a.start.localeCompare(b.start):(a.priority||3)-(b.priority||3));
     if (!filtered.length) return (
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--muted)',gap:8}}>
@@ -2822,7 +2989,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const accent = getTC(mainTrade ? mainTrade.color : 'blue');
   const total = baseData.length;
   const done = baseData.filter(function(i){ return i.status === 'termine'; }).length;
-  const enc = baseData.filter(function(i){ return i.status === 'encours'; }).length;
+  const enc = baseData.filter(function(i){ return i.status === 'encours' && !isTaskFrozenToday(i); }).length;
   const bloc = baseData.filter(function(i){ return i.status === 'bloque'; }).length;
   const late = baseData.filter(function(i){ return isTaskLate(i); }).length;
   const progress = pctDone(baseData);
@@ -4770,7 +4937,7 @@ function PlanifyApp() {
     var last = days[days.length - 1];
     var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
     var rows = source.filter(function(iv){
-      return days.some(function(d){ return inDay(iv, d); });
+      return days.some(function(d){ return isTaskActiveOn(iv, d); });
     }).sort(function(a,b){
       return (a.start||'').localeCompare(b.start||'') ||
              (a.zone||'').localeCompare(b.zone||'') ||
