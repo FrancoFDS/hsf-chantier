@@ -1343,8 +1343,24 @@ const _HOLIDAYS = new Set([
   '2026-07-14', // Fete Nationale
   '2026-08-15','2026-11-01','2026-11-11','2026-12-25'
 ]);
+const _HOLIDAY_LABELS = {
+  '2026-01-01':'Jour de l’an',
+  '2026-05-01':'Fête du Travail',
+  '2026-05-08':'Victoire 1945',
+  '2026-05-14':'Ascension',
+  '2026-05-25':'Lundi de Pentecôte',
+  '2026-07-14':'Fête nationale',
+  '2026-08-15':'Assomption',
+  '2026-11-01':'Toussaint',
+  '2026-11-11':'Armistice',
+  '2026-12-25':'Noël'
+};
+window.PLANIFY_WORKED_HOLIDAYS = window.PLANIFY_WORKED_HOLIDAYS || new Set();
 function _ds(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function isHoliday(d) { return _HOLIDAYS.has(_ds(d)); }
+function isBaseHoliday(d) { return _HOLIDAYS.has(_ds(d)); }
+function isWorkedHoliday(d) { return !!(window.PLANIFY_WORKED_HOLIDAYS && window.PLANIFY_WORKED_HOLIDAYS.has(_ds(d))); }
+function isHoliday(d) { return isBaseHoliday(d) && !isWorkedHoliday(d); }
+function holidayLabel(d) { return _HOLIDAY_LABELS[_ds(d)] || 'Jour férié'; }
 function workingDaysUntil(ds) {
   if (!ds) return 9999;
   const target = new Date(ds+'T00:00:00'), now = new Date(); now.setHours(0,0,0,0);
@@ -1352,7 +1368,7 @@ function workingDaysUntil(ds) {
   while (cur.toDateString() !== target.toDateString()) {
     cur.setDate(cur.getDate() + dir);
     const dow = cur.getDay(), s = _ds(cur);
-    if (dow !== 0 && dow !== 6 && !_HOLIDAYS.has(s)) count += dir;
+    if (dow !== 0 && dow !== 6 && !isHoliday(cur)) count += dir;
   }
   return count;
 }
@@ -2469,6 +2485,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
               {days.map((d,i) => {
                 const isFirstOfWeek = i % 5 === 0 && i > 0;
                 const holiday = isHoliday(d);
+                const workedHoliday = isWorkedHoliday(d);
                 return (
                   <th key={i} style={{
                     padding:isMulti?'3px 0':'6px 2px',
@@ -2476,7 +2493,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     overflow:'hidden',
                     position:'sticky',top:0,zIndex:11,
                     borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                    background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'var(--surface-2)',
+                    background:holiday?'#D1D5DB':workedHoliday?'rgba(22,163,74,.10)':isToday(d)?'var(--primary-l)':'var(--surface-2)',
                     fontWeight:'normal',
                     verticalAlign:'middle'}}>
                     {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
@@ -2490,6 +2507,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     </div>
                     {holiday && <div style={{fontSize:7,fontWeight:700,color:'#4B5563',
                       fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
+                    {workedHoliday && <div style={{fontSize:6.5,fontWeight:700,color:'#16A34A',
+                      fontFamily:"'DM Mono',monospace",marginTop:1}}>ouvré</div>}
                   </th>
                 );
               })}
@@ -2541,10 +2560,11 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                   {days.map((day, di) => {
                     const ds = dateStr(day);
                     const holiday = isHoliday(day);
+                    const workedHoliday = isWorkedHoliday(day);
                     const isFirstOfWeek = di % 5 === 0 && di > 0;
                     const isDeadline = zone.deadline && ds === zone.deadline;
                     const isPast = zone.deadline && ds > zone.deadline;
-                    const cellBg = holiday?'#D1D5DB': isPast&&!isDeadline?'rgba(220,38,38,.07)': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
+                    const cellBg = holiday?'#D1D5DB': workedHoliday?'rgba(22,163,74,.07)': isPast&&!isDeadline?'rgba(220,38,38,.07)': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                     const cards = (()=>{
                       if(holiday) return [];
                       return filtered.filter(function(iv){
@@ -2746,7 +2766,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
 /* ════════════════════════════════════════════════════════════
    SETTINGS SCREEN
 ═══════════════════════════════════════════════════════════ */
-function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies }) {
+function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies, calendarOverrides, onSetHolidayWorked }) {
   const [tab, setTab] = useState('zones');
   const [editingZone, setEditingZone] = useState(null);
   const [editingTrade, setEditingTrade] = useState(null);
@@ -2755,6 +2775,14 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
   const [newTrade, setNewTrade] = useState(null);
   const [newCompany, setNewCompany] = useState(null);
   const PALETTE = Object.keys(TRADE_COLORS);
+  const holidayDates = Array.from(_HOLIDAYS).sort();
+  function overrideFor(ds) {
+    return (calendarOverrides||[]).find(function(o){return o.date===ds;});
+  }
+  function holidayIsWorked(ds) {
+    var o = overrideFor(ds);
+    return !!(o && o.is_worked);
+  }
 
   function slugCompanyId(name) {
     return String(name||'entreprise')
@@ -2816,12 +2844,12 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
       <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:16}}>Configuration</div>
       {/* Tabs */}
       <div style={{display:'flex',borderBottom:'1px solid var(--border)',marginBottom:16}}>
-        {['zones','trades','companies'].map(t=>(
+        {['zones','trades','companies','calendar'].map(t=>(
           <button key={t} onClick={()=>setTab(t)}
             style={{flex:1,padding:'9px',background:'transparent',border:'none',fontSize:13,fontWeight:600,
               cursor:'pointer',color:tab===t?'var(--primary)':'var(--muted)',fontFamily:"'DM Sans',sans-serif",
               borderBottom:tab===t?'2px solid var(--primary)':'2px solid transparent',marginBottom:-1}}>
-            {t==='zones'?'Zones':t==='trades'?'Corps de métier':'Entreprises'}
+            {t==='zones'?'Zones':t==='trades'?'Corps de métier':t==='companies'?'Entreprises':'Calendrier'}
           </button>
         ))}
       </div>
@@ -3025,6 +3053,49 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
               <span style={{fontSize:18,lineHeight:1}}>+</span> Ajouter une entreprise
             </button>
           )}
+        </div>
+      )}
+
+      {tab==='calendar' && (
+        <div>
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',
+            borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,
+            color:'var(--muted)',fontSize:12,lineHeight:1.45}}>
+            <b style={{color:'var(--text)'}}>Jours fériés ouvrés</b><br/>
+            Activez “ouvré” uniquement lorsqu’un jour férié doit exceptionnellement être travaillé sur le chantier.
+            Le jour redevient alors disponible dans le planning et les tâches peuvent y être créées.
+          </div>
+
+          {holidayDates.map(function(ds){
+            var worked = holidayIsWorked(ds);
+            var parts = ds.split('-');
+            var label = _HOLIDAY_LABELS[ds] || 'Jour férié';
+            var d = new Date(ds+'T00:00:00');
+            var dateLabel = d.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short'});
+            return (
+              <div key={ds} style={{background:'var(--surface)',border:'1px solid var(--border)',
+                borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:8,boxShadow:'var(--shadow)',
+                display:'flex',alignItems:'center',gap:12}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{label}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>
+                    {dateLabel} · {parts[2]+'/'+parts[1]+'/'+parts[0]}
+                  </div>
+                  <div style={{fontSize:11,color:worked?'#16A34A':'var(--muted)',marginTop:4,fontWeight:600}}>
+                    {worked?'Ouvré exceptionnellement':'Non ouvré'}
+                  </div>
+                </div>
+                <button type="button" onClick={function(){onSetHolidayWorked(ds,label,!worked);}}
+                  style={{padding:'8px 11px',borderRadius:'var(--r-xs)',
+                    border:'1px solid '+(worked?'#16A34A':'var(--border)'),
+                    background:worked?'var(--success-l)':'var(--surface-2)',
+                    color:worked?'#16A34A':'var(--text)',fontSize:12,fontWeight:700,
+                    cursor:'pointer',fontFamily:"'DM Sans',sans-serif",minWidth:120}}>
+                  {worked?'Rendre non ouvré':'Rendre ouvré'}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -3783,6 +3854,7 @@ function PlanifyApp() {
   const [zones,      setZones]      = useState([...ZONES]);
   const [trades,     setTrades]     = useState([...TRADES]);
   const [companies,  setCompanies]  = useState([...COMPANIES]);
+  const [calendarOverrides, setCalendarOverrides] = useState([]);
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
@@ -3801,6 +3873,13 @@ function PlanifyApp() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', tweaks.theme);
   }, [tweaks.theme]);
+
+  // Calendar overrides: allow an admin to make a public holiday worked.
+  useEffect(() => {
+    window.PLANIFY_WORKED_HOLIDAYS = new Set((calendarOverrides||[])
+      .filter(function(o){return !!o.is_worked;})
+      .map(function(o){return o.date;}));
+  }, [calendarOverrides]);
 
   function notify(message, type = 'success', ms = 2600) {
     setToast({message:message,type:type});
@@ -3838,7 +3917,7 @@ function PlanifyApp() {
       'apikey': SUPA_KEY,
       'Authorization': 'Bearer '+SUPA_KEY,
       'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
+      'Prefer': method==='POST'?'resolution=merge-duplicates,return=representation':'return=representation'
     };
     return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
       .then(function(r){
@@ -4008,9 +4087,10 @@ function PlanifyApp() {
       fetch(SUPA_URL+'/rest/v1/trades?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/companies?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/interventions?order=start_date',{headers:hdrs}),
+      fetch(SUPA_URL+'/rest/v1/calendar_overrides?order=date',{headers:hdrs}),
     ]).then(function(rs){ return Promise.all(rs.map(function(r){return r.ok?r.json():[];})); })
     .then(function(results){
-      var zData=results[0], tData=results[1], cData=results[2], iData=results[3];
+      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4];
       if(zData&&zData.length) setZones(zData);
       if(tData&&tData.length) setTrades(tData.map(function(t){
         var loc=TRADES.find(function(lt){return lt.id===t.id;});
@@ -4020,6 +4100,9 @@ function PlanifyApp() {
         return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',tradeId:c.trade_id||c.tradeId||'',updated_at:c.updated_at||''};
       }));
       if(iData&&iData.length) setData(iData.map(normalizeInterventionRow));
+      setCalendarOverrides((calData||[]).map(function(r){
+        return {date:r.date,label:r.label||'',is_worked:!!r.is_worked,updated_at:r.updated_at||''};
+      }));
       return results;
     }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); notify('Erreur de mise à jour','error'); throw e; });
   }
@@ -4037,6 +4120,22 @@ function PlanifyApp() {
       .finally(function(){ setBusyKey('sync', false); });
   }
   function handleLogout() { setSession(null); setUserMenu(false); setHistoryOpen(false); }
+
+  function handleHolidayWorked(ds, label, isWorked) {
+    var row = {date:ds,label:label||'',is_worked:!!isWorked,updated_at:new Date().toISOString()};
+    setCalendarOverrides(function(prev){
+      var found = false;
+      var next = (prev||[]).map(function(o){
+        if (o.date === ds) { found = true; return Object.assign({},o,row); }
+        return o;
+      });
+      if (!found) next.push(row);
+      return next.sort(function(a,b){return a.date.localeCompare(b.date);});
+    });
+    sbFetchRows('POST','calendar_overrides',row,'on_conflict=date')
+      .then(function(){notify(isWorked?'Jour férié rendu ouvré ✓':'Jour férié remis non ouvré ✓','success');})
+      .catch(function(){notify('Erreur calendrier','error');});
+  }
 
   function syncAll(showMessage = true) {
     if (!session) return Promise.resolve();
@@ -4395,7 +4494,8 @@ function PlanifyApp() {
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
       case 'settings':  return <SettingsScreen  zones={zones} trades={trades} companies={companies}
-        setZones={setZones} setTrades={setTrades} setCompanies={setCompanies} />;
+        setZones={setZones} setTrades={setTrades} setCompanies={setCompanies}
+        calendarOverrides={calendarOverrides} onSetHolidayWorked={handleHolidayWorked} />;
       default:          return null;
     }
   };
