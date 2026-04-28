@@ -2866,8 +2866,13 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                             );
                           }
                           return (
-                            <TaskCard key={iv.id} iv={iv} trades={trades} isDark={isDark}
-                              onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}} />
+                            <div key={iv.id}
+                              onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, STATUS_META[iv.status]||STATUS_META.arealis));}}
+                              onMouseMove={function(e){setTaskHover(function(prev){return prev?Object.assign({},prev,{x:e.clientX,y:e.clientY}):compactTaskHoverPayload(e,iv,zone,STATUS_META[iv.status]||STATUS_META.arealis);});}}
+                              onMouseLeave={function(){setTaskHover(null);}}>
+                              <TaskCard iv={iv} trades={trades} isDark={isDark}
+                                onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}} />
+                            </div>
                           );
                         })}
                       </td>
