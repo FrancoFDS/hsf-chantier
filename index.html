@@ -2493,7 +2493,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     overflow:'hidden',
                     position:'sticky',top:0,zIndex:11,
                     borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                    background:holiday?'#D1D5DB':workedHoliday?'rgba(22,163,74,.10)':isToday(d)?'var(--primary-l)':'var(--surface-2)',
+                    background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'var(--surface-2)',
                     fontWeight:'normal',
                     verticalAlign:'middle'}}>
                     {!isMulti && <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",
@@ -2564,7 +2564,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     const isFirstOfWeek = di % 5 === 0 && di > 0;
                     const isDeadline = zone.deadline && ds === zone.deadline;
                     const isPast = zone.deadline && ds > zone.deadline;
-                    const cellBg = holiday?'#D1D5DB': workedHoliday?'rgba(22,163,74,.07)': isPast&&!isDeadline?'rgba(220,38,38,.07)': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
+                    const cellBg = holiday?'#D1D5DB': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                     const cards = (()=>{
                       if(holiday) return [];
                       return filtered.filter(function(iv){
@@ -2782,6 +2782,31 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
   function holidayIsWorked(ds) {
     var o = overrideFor(ds);
     return !!(o && o.is_worked);
+  }
+  const floorList = [...new Set((zones||[]).map(function(z){return z.floor;}).filter(Boolean))].sort();
+  function setFloorDeadline(floor, deadline) {
+    setZones(function(prev){
+      return prev.map(function(z){
+        return z.floor===floor ? Object.assign({}, z, {deadline:deadline}) : z;
+      });
+    });
+    (zones||[]).filter(function(z){return z.floor===floor;}).forEach(function(z){
+      supaWrite('PATCH','zones',{deadline:deadline||null},'id=eq.'+z.id);
+    });
+  }
+  function setZoneDeadline(zoneId, deadline) {
+    setZones(function(prev){
+      return prev.map(function(z){
+        return z.id===zoneId ? Object.assign({}, z, {deadline:deadline}) : z;
+      });
+    });
+    supaWrite('PATCH','zones',{deadline:deadline||null},'id=eq.'+zoneId);
+  }
+  function floorDeadlineValue(floor) {
+    var list = (zones||[]).filter(function(z){return z.floor===floor;});
+    if (!list.length) return '';
+    var first = list[0].deadline || '';
+    return list.every(function(z){return (z.deadline||'')===first;}) ? first : '';
   }
 
   function slugCompanyId(name) {
@@ -3058,6 +3083,60 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
 
       {tab==='calendar' && (
         <div>
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',
+            borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,
+            color:'var(--muted)',fontSize:12,lineHeight:1.45}}>
+            <b style={{color:'var(--text)'}}>Dates de fin chantier</b><br/>
+            Ajustez les dates de fin par niveau ou directement par zone. La date de fin reste visible dans la colonne FIN,
+            mais les jours qui suivent restent en couleur normale dans le planning.
+          </div>
+
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',
+            borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:14,boxShadow:'var(--shadow)'}}>
+            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:10}}>
+              Par niveau
+            </div>
+            {floorList.map(function(floor){
+              return (
+                <div key={floor} style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:10,
+                  alignItems:'center',marginBottom:8}}>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:800,
+                    color:FLOOR_COLORS[floor]||'var(--text)'}}>{floor}</div>
+                  <input type="date" value={floorDeadlineValue(floor)}
+                    onChange={function(e){setFloorDeadline(floor,e.target.value);}}
+                    style={{width:'100%',padding:'8px 10px',border:'1px solid var(--border)',
+                      borderRadius:'var(--r-xs)',background:'var(--surface-2)',color:'var(--text)',
+                      fontSize:12,fontFamily:"'DM Sans',sans-serif"}} />
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',
+            borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:16,boxShadow:'var(--shadow)'}}>
+            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:10}}>
+              Par zone
+            </div>
+            {(zones||[]).map(function(z){
+              return (
+                <div key={z.id} style={{display:'grid',gridTemplateColumns:'1fr 145px',gap:10,
+                  alignItems:'center',padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{z.name}</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>
+                      {z.short} · {z.floor}
+                    </div>
+                  </div>
+                  <input type="date" value={z.deadline||''}
+                    onChange={function(e){setZoneDeadline(z.id,e.target.value);}}
+                    style={{width:'100%',padding:'8px 8px',border:'1px solid var(--border)',
+                      borderRadius:'var(--r-xs)',background:'var(--surface-2)',color:'var(--text)',
+                      fontSize:12,fontFamily:"'DM Sans',sans-serif"}} />
+                </div>
+              );
+            })}
+          </div>
+
           <div style={{background:'var(--surface)',border:'1px solid var(--border)',
             borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,
             color:'var(--muted)',fontSize:12,lineHeight:1.45}}>
