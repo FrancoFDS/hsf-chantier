@@ -1402,6 +1402,27 @@ function workingDaysUntil(ds) {
   }
   return count;
 }
+
+function weekendOffDaysBetween(start, end) {
+  if (!start) return [];
+  var startD = new Date(start+'T00:00:00');
+  var endD = new Date((end||start)+'T00:00:00');
+  if (endD < startD) return [];
+  var out = [];
+  var cur = new Date(startD);
+  var safety = 0;
+  while (cur <= endD && safety < 180) {
+    var ds = _ds(cur);
+    var dow = cur.getDay();
+    // Default freeze only weekends inside the range.
+    // Example: Friday → Monday freezes Saturday and Sunday.
+    // A task placed only on Saturday remains visible and worked by default.
+    if ((dow === 0 || dow === 6) && ds !== start && ds !== (end||start)) out.push(ds);
+    cur.setDate(cur.getDate()+1);
+    safety++;
+  }
+  return out;
+}
 function multiWeekDays(offset = 0, weeks = 1, includeWeekends = false) {
   return Array.from({length: weeks}, (_, w) => weekDays(offset + w, includeWeekends)).flat();
 }
@@ -3459,7 +3480,8 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
 }
 
 function FrozenDaysField({ form, set }) {
-  // Build list of all dates in the intervention range (excluding weekends)
+  // Build list of all dates in the intervention range, including weekends.
+  // Weekends can be automatically frozen when they are inside a long task range.
   var start = form.start, end = form.end||form.start;
   if (!start) return (
     <div style={{fontSize:11,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",padding:'8px 0'}}>
@@ -3471,12 +3493,9 @@ function FrozenDaysField({ form, set }) {
   var cur = new Date(start+'T00:00:00');
   var endD = new Date((end||start)+'T00:00:00');
   var safety = 0;
-  while (cur <= endD && safety < 60) {
-    var dow = cur.getDay();
-    if (dow !== 0 && dow !== 6) { // exclude weekends
-      var ds = cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
-      dates.push(ds);
-    }
+  while (cur <= endD && safety < 180) {
+    var ds = cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
+    dates.push(ds);
     cur.setDate(cur.getDate()+1);
     safety++;
   }
@@ -3484,11 +3503,20 @@ function FrozenDaysField({ form, set }) {
   if (!dates.length) return null;
 
   var offs = form.off_days || [];
+  var autoWeekendOffs = form._auto_weekend_off_days || [];
   var DAY_SHORT = ['Di','Lu','Ma','Me','Je','Ve','Sa'];
   var MONTHS_SHORT = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
 
   function toggle(ds) {
-    set('off_days', offs.includes(ds) ? offs.filter(function(x){return x!==ds;}) : [...offs, ds]);
+    var active = offs.includes(ds);
+    if (active) {
+      set('off_days', offs.filter(function(x){return x!==ds;}));
+      if (autoWeekendOffs.includes(ds)) {
+        set('_auto_weekend_off_days', autoWeekendOffs.filter(function(x){return x!==ds;}));
+      }
+    } else {
+      set('off_days', [...offs, ds]);
+    }
   }
 
   return (
@@ -3496,18 +3524,23 @@ function FrozenDaysField({ form, set }) {
       <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:6}}>
         {dates.map(function(ds) {
           var d = new Date(ds+'T00:00:00');
+          var dow = d.getDay();
+          var weekend = dow === 0 || dow === 6;
           var active = offs.includes(ds);
+          var auto = autoWeekendOffs.includes(ds);
           return (
             <button key={ds} type="button" onClick={function(){toggle(ds);}}
+              title={auto?'Week-end gelé automatiquement par défaut':''}
               style={{display:'flex',flexDirection:'column',alignItems:'center',
                 padding:'6px 8px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',
-                border:'1.5px solid '+(active?'var(--danger)':'var(--border)'),
-                background:active?'var(--danger-l)':'var(--surface)',
-                color:active?'var(--danger)':'var(--muted)',
+                border:'1.5px solid '+(active?'var(--danger)':weekend?'rgba(245,158,11,.55)':'var(--border)'),
+                background:active?'var(--danger-l)':weekend?'rgba(245,158,11,.08)':'var(--surface)',
+                color:active?'var(--danger)':weekend?'#B45309':'var(--muted)',
                 minWidth:36,fontFamily:"'DM Sans',sans-serif",transition:'all .15s'}}>
               <span style={{fontSize:9,opacity:.7,fontFamily:"'DM Mono',monospace"}}>{DAY_SHORT[d.getDay()]}</span>
               <span>{d.getDate()}</span>
               <span style={{fontSize:9,opacity:.7,fontFamily:"'DM Mono',monospace"}}>{MONTHS_SHORT[d.getMonth()]}</span>
+              {auto&&<span style={{fontSize:7,marginTop:1,fontFamily:"'DM Mono',monospace"}}>auto</span>}
             </button>
           );
         })}
@@ -3515,14 +3548,15 @@ function FrozenDaysField({ form, set }) {
       {offs.length > 0 && (
         <div style={{fontSize:10,color:'var(--danger)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
           {offs.length} jour{offs.length>1?'s':''} gelé{offs.length>1?'s':''}
+          {autoWeekendOffs.length>0&&<span style={{color:'var(--xmuted)'}}> · week-end gelé par défaut</span>}
           {' — '}
           <span style={{cursor:'pointer',textDecoration:'underline'}}
-            onClick={function(){set('off_days',[]);}}>tout effacer</span>
+            onClick={function(){set('off_days',[]);set('_auto_weekend_off_days',[]);}}>tout effacer</span>
         </div>
       )}
       {offs.length === 0 && (
         <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace"}}>
-          Cliquez les jours à exclure du planning
+          Cliquez les jours à exclure du planning. Les week-ends traversés par une tâche longue sont gelés par défaut.
         </div>
       )}
     </div>
@@ -3559,6 +3593,24 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
   }, [open, editId, preZone, preDate]);
 
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  // New task default: if a task crosses a weekend, Saturday/Sunday are frozen automatically.
+  // Example: Friday → Monday = Saturday + Sunday are excluded from worked days.
+  useEffect(()=>{
+    if (!open || editId) return;
+    setForm(function(f){
+      if (!f.start) return f;
+      var auto = weekendOffDaysBetween(f.start, f.end||f.start);
+      var previousAuto = f._auto_weekend_off_days || [];
+      var currentOffs = f.off_days || [];
+      var manualOffs = currentOffs.filter(function(ds){return !previousAuto.includes(ds);});
+      var merged = Array.from(new Set(manualOffs.concat(auto)));
+      if (JSON.stringify(merged) === JSON.stringify(currentOffs) &&
+          JSON.stringify(auto) === JSON.stringify(previousAuto)) return f;
+      return Object.assign({}, f, {off_days:merged, _auto_weekend_off_days:auto});
+    });
+  }, [open, editId, form.start, form.end]);
+
   const PRIOS = [{v:1,l:'Urgente',c:'#DC2626'},{v:2,l:'Haute',c:'#EA580C'},{v:3,l:'Normale',c:'#CA8A04'},{v:4,l:'Basse',c:'#6B7280'},{v:5,l:'À conf.',c:'#9CA3AF'}];
 
   async function handleSave() {
@@ -3567,8 +3619,10 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
     const tn = existing?.task_number || genTaskNum(data, form.company);
     setSaving(true);
     try {
+      var cleanForm = Object.assign({}, form);
+      delete cleanForm._auto_weekend_off_days;
       await onSave({
-        id: editId||genId(), ...form,
+        id: editId||genId(), ...cleanForm,
         priority: form.priority||3, staff:1, progress:0, delay:0,
         task_number:tn, attachments,
         off_days: form.off_days||[],
