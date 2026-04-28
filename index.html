@@ -2994,6 +2994,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const late = baseData.filter(function(i){ return isTaskLate(i); }).length;
   const progress = pctDone(baseData);
   const reliability = calcReliability(baseData);
+  const [reliabilityOpen, setReliabilityOpen] = useState(false);
 
   function MiniStat({label,value,color}) {
     return <div style={{flex:'1 1 72px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'9px 8px',textAlign:'center'}}>
@@ -3009,6 +3010,80 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
     </SectionCard>;
   }
 
+  function ReliabilityDetailEntreprise() {
+    var missed = reliability.missedItems || [];
+    var doneDue = reliability.doneItems || [];
+    var notDue = reliability.notDueItems || [];
+    var accentColor = reliability.value>=85 ? '#16A34A' : reliability.value>=60 ? '#F59E0B' : '#DC2626';
+
+    return (
+      <SectionCard title={`Détail fiabilité — ${reliability.label}`} accent={accentColor}>
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',
+          borderRadius:'var(--r-sm)',padding:'12px',marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:6}}>
+            Comment est calculée ma fiabilité ?
+          </div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:'var(--muted)',lineHeight:1.55}}>
+            {reliability.total > 0
+              ? <>{reliability.done} tâche{reliability.done>1?'s':''} due{reliability.done>1?'s':''} terminée{reliability.done>1?'s':''} / {reliability.total} tâche{reliability.total>1?'s':''} due{reliability.total>1?'s':''} à date = <b style={{color:'var(--text)'}}>{reliability.label}</b></>
+              : <>Aucune tâche due à date. La fiabilité est donc affichée à <b style={{color:'var(--text)'}}>100%</b>.</>
+            }
+          </div>
+          {reliability.total > 0 && (
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:reliability.lostPoints?'#EA580C':'#16A34A',marginTop:6,fontWeight:800}}>
+              {reliability.lostPoints
+                ? `Écart à expliquer : -${reliability.lostPoints} pt${reliability.lostPoints>1?'s':''}.`
+                : 'Aucun écart : toutes les tâches dues sont terminées.'}
+            </div>
+          )}
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8,marginBottom:12}}>
+          <div style={{background:'var(--success-l)',border:'1px solid rgba(22,163,74,.25)',borderRadius:'var(--r-sm)',padding:'9px 10px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:'#16A34A'}}>{doneDue.length}</div>
+            <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>Dues terminées</div>
+          </div>
+          <div style={{background:'rgba(234,88,12,.08)',border:'1px solid rgba(234,88,12,.25)',borderRadius:'var(--r-sm)',padding:'9px 10px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:'#EA580C'}}>{missed.length}</div>
+            <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>Dues non terminées</div>
+          </div>
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'9px 10px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:'var(--muted)'}}>{notDue.length}</div>
+            <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>Pas encore dues</div>
+          </div>
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'9px 10px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:900,color:reliability.lostPoints?'#EA580C':'#16A34A'}}>
+              -{reliability.lostPoints || 0}
+            </div>
+            <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>Points perdus</div>
+          </div>
+        </div>
+
+        {missed.length > 0 ? (
+          <div>
+            <div style={{fontSize:12,fontWeight:800,color:'#EA580C',marginBottom:8}}>
+              Tâches qui font baisser ma fiabilité
+            </div>
+            {missed.map(function(iv){
+              return <EnterpriseTaskItem key={iv.id} iv={iv} zones={zones} trades={trades}
+                onOpenDetail={onOpenDetail} onStatusChange={onStatusChange} canChangeStatus={canChangeStatus} />;
+            })}
+          </div>
+        ) : (
+          <div style={{fontSize:12,color:'var(--success)',background:'var(--success-l)',
+            border:'1px solid rgba(22,163,74,.25)',borderRadius:'var(--r-sm)',padding:'10px 12px',
+            fontWeight:700}}>
+            Toutes les tâches dues à date sont terminées.
+          </div>
+        )}
+
+        <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:10,lineHeight:1.45}}>
+          Une tâche est considérée “due” à sa dernière date active. Les jours gelés dans la tâche ne sont pas comptés comme jours travaillés.
+        </div>
+      </SectionCard>
+    );
+  }
+
   return (
     <div style={{overflowY:'auto',height:'100%',padding:'12px 12px 100px'}}>
       <div style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'14px 16px',marginBottom:12,color:'#fff',boxShadow:'var(--shadow-md)',borderLeft:`5px solid ${accent.b}`}}>
@@ -3017,14 +3092,17 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
             <div style={{fontSize:10,fontFamily:"'DM Mono',monospace",letterSpacing:'.08em',textTransform:'uppercase',opacity:.65,marginBottom:3}}>Mon espace entreprise</div>
             <div style={{fontSize:19,fontWeight:900,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{myName}</div>
             <div style={{fontSize:11,opacity:.7,fontFamily:"'DM Mono',monospace",marginTop:2}}>{total} tâche{total!==1?'s':''} · {weekItems.length} cette semaine</div>
-            <div style={{fontSize:10,opacity:.5,fontFamily:"'DM Mono',monospace",marginTop:4}}>Fiabilité = tâches dues terminées / tâches dues à date</div>
+            <div style={{fontSize:10,opacity:.5,fontFamily:"'DM Mono',monospace",marginTop:4}}>Fiabilité = tâches dues terminées / tâches dues à date · cliquer sur le %</div>
           </div>
           <div style={{display:'flex',gap:14,alignItems:'flex-start',flexShrink:0,textAlign:'right'}}>
             <div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:900,lineHeight:1,color:progress===100?'#4ADE80':'#fff'}}>{progress}%</div>
               <div style={{fontSize:9,opacity:.55,fontFamily:"'DM Mono',monospace"}}>Avancement</div>
             </div>
-            <div title="Fiabilité = tâches dues terminées / tâches dues à date">
+            <div title="Cliquer pour voir le détail de ma fiabilité"
+              onClick={function(e){e.stopPropagation();setReliabilityOpen(function(v){return !v;});}}
+              style={{cursor:'pointer',padding:'2px 4px',borderRadius:6,
+                outline:reliabilityOpen?'1px solid rgba(255,255,255,.35)':'1px solid transparent'}}>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:900,lineHeight:1,color:reliability.value>=85?'#4ADE80':reliability.value>=60?'#FBBF24':'#F87171'}}>{reliability.label}</div>
               <div style={{fontSize:9,opacity:.55,fontFamily:"'DM Mono',monospace"}}>Fiabilité</div>
             </div>
@@ -3034,6 +3112,8 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
           <div style={{height:'100%',width:`${progress}%`,background:'#60A5FA',borderRadius:4}}></div>
         </div>
       </div>
+
+      {reliabilityOpen && <ReliabilityDetailEntreprise />}
 
       <div style={{display:'flex',gap:7,flexWrap:'wrap',marginBottom:12}}>
         <MiniStat label="Terminées" value={`${done}/${total}`} color="#16A34A" />
