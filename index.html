@@ -2440,6 +2440,23 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const daysPerWeek = includeWeekends ? 7 : 5;
   const isMulti = weeks > 1;
   const is3s = weeks === 3;
+  const [taskHover, setTaskHover] = useState(null);
+
+  function compactTaskHoverPayload(ev, iv, zone, statusMeta) {
+    return {
+      x: ev.clientX,
+      y: ev.clientY,
+      company: iv.company || '',
+      task: iv.task || '',
+      status: statusMeta?.label || '',
+      zone: zone?.name || '',
+      dates: fmtDate(iv.start) + (iv.end && iv.end !== iv.start ? ' → ' + fmtDate(iv.end) : ''),
+      prereq: iv.prereq || '',
+      notes: iv.notes || '',
+      taskNumber: iv.task_number || ''
+    };
+  }
+
   const zoneColW = isMulti ? '40px' : '58px';
   const deadlineColW = isMulti ? '28px' : '50px';
   const dayColW = '1fr';
@@ -2654,9 +2671,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                           borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                           background:cellBg,
                           cursor:isAdmin&&!holiday?'pointer':'default',
-                          transition:'background .1s'}}
-                        onMouseEnter={function(e){if(isAdmin&&!holiday)e.currentTarget.style.background='var(--surface-2)';}}
-                        onMouseLeave={function(e){e.currentTarget.style.background=cellBg;}}>
+                          transition:'background .1s'}}>
                         {shown.map(function(iv){
                           if(isMulti){
                             var _tr=trades.find(function(t){return t.id===iv.trade;});
@@ -2664,8 +2679,10 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                             var _m=STATUS_META[iv.status]||STATUS_META.arealis;
                             return (
                               <div key={iv.id}
-                                title={'Entreprise : '+iv.company+'\nTâche : '+iv.task+'\nStatut : '+_m.label+'\nZone : '+zone.name+'\nDates : '+fmtDate(iv.start)+(iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):'')+(iv.prereq?'\nPrérequis : '+iv.prereq:'')+(iv.notes?'\nNotes : '+iv.notes:'')}
-                                onClick={function(e){e.stopPropagation();onOpenDetail(iv.id);}}
+                                onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, _m));}}
+                                onMouseMove={function(e){setTaskHover(function(prev){return prev?Object.assign({},prev,{x:e.clientX,y:e.clientY}):compactTaskHoverPayload(e,iv,zone,_m);});}}
+                                onMouseLeave={function(){setTaskHover(null);}}
+                                onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
                                 style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
                                   background:_c.bg,borderLeft:'2px solid '+_c.b,overflow:'hidden'}}>
                                 <div style={{display:'flex',alignItems:'center',gap:2}}>
@@ -2698,6 +2715,56 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           </tbody>
         </table>
       </div>
+
+      {taskHover && (
+        <div style={{
+          position:'fixed',
+          left:Math.min(taskHover.x + 14, Math.max(12, window.innerWidth - 300)),
+          top:Math.min(taskHover.y + 14, Math.max(12, window.innerHeight - 220)),
+          zIndex:9999,
+          width:280,
+          maxWidth:'calc(100vw - 24px)',
+          background:'var(--surface)',
+          color:'var(--text)',
+          border:'1px solid var(--border-s)',
+          borderRadius:'var(--r-sm)',
+          boxShadow:'var(--shadow-lg)',
+          padding:'10px 12px',
+          pointerEvents:'none',
+          fontSize:11,
+          lineHeight:1.35
+        }}>
+          <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start',marginBottom:6}}>
+            <div style={{fontSize:12,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis'}}>
+              {taskHover.company}
+            </div>
+            {taskHover.taskNumber && (
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--xmuted)',whiteSpace:'nowrap'}}>
+                {taskHover.taskNumber}
+              </div>
+            )}
+          </div>
+          <div style={{fontSize:11,fontWeight:700,color:'var(--text)',marginBottom:6}}>
+            {taskHover.task}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'64px 1fr',gap:'3px 8px',color:'var(--muted)'}}>
+            <span>Statut</span><b style={{color:'var(--text)'}}>{taskHover.status}</b>
+            <span>Zone</span><b style={{color:'var(--text)'}}>{taskHover.zone}</b>
+            <span>Dates</span><b style={{color:'var(--text)',fontFamily:"'DM Mono',monospace"}}>{taskHover.dates}</b>
+          </div>
+          {taskHover.prereq && (
+            <div style={{marginTop:7,padding:'5px 7px',borderLeft:'3px solid var(--danger)',
+              background:'var(--danger-l)',color:'var(--danger)',borderRadius:'0 4px 4px 0'}}>
+              <b>Prérequis</b> · {taskHover.prereq}
+            </div>
+          )}
+          {taskHover.notes && !String(taskHover.notes).startsWith('Etage') && !String(taskHover.notes).startsWith('Étage') && (
+            <div style={{marginTop:7,color:'var(--muted)',fontStyle:'italic'}}>
+              {taskHover.notes}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
