@@ -4919,6 +4919,31 @@ function PlanifyApp() {
       .catch(function(e){ console.error('[Planify] Supabase error:',e); notify('Erreur de sauvegarde','error'); throw e; });
   }
 
+  // Écriture non bloquante pour historique / logs / notifications.
+  // Important : une erreur sur ces tables secondaires ne doit jamais afficher
+  // "Erreur de sauvegarde" si la tâche officielle a bien été enregistrée.
+  function sbFetchSilent(method, table, body, query) {
+    var url = SUPA_URL+'/rest/v1/'+table+(query?'?'+query:'');
+    var hdrs = {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer '+SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method==='POST'?'return=representation':'return=minimal'
+    };
+    return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
+      .then(function(r){
+        if(!r.ok) {
+          console.warn('[Planify] Écriture secondaire non enregistrée:', table, method, r.status);
+          return null;
+        }
+        return r;
+      })
+      .catch(function(e){
+        console.warn('[Planify] Écriture secondaire ignorée:', table, e);
+        return null;
+      });
+  }
+
   function sbFetchRows(method, table, body, query) {
     var url = SUPA_URL+'/rest/v1/'+table+(query?'?'+query:'');
     var hdrs = {
@@ -5098,7 +5123,7 @@ function PlanifyApp() {
       planning_version_id:planningVersion&&planningVersion.id?planningVersion.id:null,
       payload:row.payload || {}
     }, row);
-    return sbFetch('POST','planning_events',payload)
+    return sbFetchSilent('POST','planning_events',payload)
       .then(function(){ if(historyOpen) loadHistory(); })
       .catch(function(e){ console.warn('[Planify] event not saved:', e); });
   }
@@ -5267,11 +5292,11 @@ function PlanifyApp() {
       if(noteText&&noteText.trim()) {
         var logRow = {task_id:id,company:author,author:author,type:status,
           message:noteText.trim(),photo_url:null,mentioned:['Admin']};
-        sbFetch('POST','task_logs',logRow)
+        sbFetchSilent('POST','task_logs',logRow)
           .then(function(){
             var taskRef = iv?iv.task_number||iv.task.slice(0,30):'';
             var msg = author+' · '+status+' · '+taskRef;
-            sbFetch('POST','notifications',[{company:'Admin',task_id:id,message:msg,read:false}]);
+            return sbFetchSilent('POST','notifications',[{company:'Admin',task_id:id,message:msg,read:false}]);
           }).catch(function(){});
       }
       notify('Statut sauvegardé ✓','success');
@@ -5348,7 +5373,7 @@ function PlanifyApp() {
         message:'Modification demandée par '+session.company.name+' : '+(iv.task_number||iv.task),
         payload:{request:saved,changed_fields:changed.map(function(f){return f.key;})}
       });
-      await sbFetch('POST','notifications',[{
+      await sbFetchSilent('POST','notifications',[{
         company:'Admin',
         task_id:iv.id,
         message:'Modification demandée par '+session.company.name+' · '+(iv.task_number||iv.task),
@@ -5445,7 +5470,7 @@ function PlanifyApp() {
         payload:{request:savedReq,intervention:savedTask}
       });
       if (req.requested_by_company) {
-        await sbFetch('POST','notifications',[{
+        await sbFetchSilent('POST','notifications',[{
           company:req.requested_by_company,
           task_id:iv.id,
           message:(status === 'refused' ? 'Modification refusée' : status === 'adjusted_accepted' ? 'Modification ajustée et validée' : 'Modification acceptée')+' · '+(iv.task_number||iv.task),
