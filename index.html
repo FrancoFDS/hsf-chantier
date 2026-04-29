@@ -933,18 +933,26 @@ function ConfirmDialog({ open, message, onConfirm, onCancel }) {
 }
 
 /* ── TASK CARD (planning grid) ────────────────────────────── */
-function TaskCard({ iv, trades, data = [], isDark, onClick }) {
+function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null, criticalVisible = true, dimmed = false, focused = false }) {
   const tr = trades.find(t => t.id === iv.trade);
   const c  = getTC(tr?.color || 'blue');
   const m  = STATUS_META[iv.status] || STATUS_META.arealis;
   const bg = isDark ? c.bgD : c.bg;
   const bdr= isDark ? `${c.b}60` : `${c.b}35`;
+  const hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
+  const cpColor = hasCritical ? (criticalPath.color || '#EA580C') : c.b;
+  const cpBorder = hasCritical ? rgbaCss(cpColor, .38) : bdr;
+  const cpShadow = hasCritical ? ('0 0 0 1px ' + rgbaCss(cpColor, focused ? .26 : .18) + ', inset 0 0 0 1px rgba(255,255,255,.06)') : 'none';
+  const chipBg = hasCritical ? rgbaCss(cpColor, .12) : 'transparent';
+  const chipBorder = hasCritical ? ('1px solid ' + rgbaCss(cpColor, .28)) : 'none';
+  const chipText = hasCritical ? cpColor : '#9A3412';
   return (
     <div onClick={onClick} style={{borderRadius:8,padding:'5px 7px 5px 9px',marginBottom:3,cursor:'pointer',
-      background:bg,borderLeft:`3px solid ${c.b}`,border:`1px solid ${bdr}`,borderLeftWidth:3,
-      borderLeftColor:c.b,transition:'opacity .1s, transform .1s',userSelect:'none'}}
-      onMouseEnter={e=>{e.currentTarget.style.opacity='.82';e.currentTarget.style.transform='scale(1.01)';}}
-      onMouseLeave={e=>{e.currentTarget.style.opacity='1';e.currentTarget.style.transform='scale(1)';}}>
+      background:bg,borderLeft:`3px solid ${hasCritical?cpColor:c.b}`,border:`1px solid ${cpBorder}`,borderLeftWidth:3,
+      borderLeftColor:hasCritical?cpColor:c.b,boxShadow:cpShadow,transition:'opacity .1s, transform .1s, box-shadow .15s',userSelect:'none',
+      opacity: dimmed ? .34 : 1,filter:dimmed?'saturate(.65)':'none'}}
+      onMouseEnter={e=>{e.currentTarget.style.opacity=dimmed?'.5':'.82';e.currentTarget.style.transform='scale(1.01)';}}
+      onMouseLeave={e=>{e.currentTarget.style.opacity=dimmed?'.34':'1';e.currentTarget.style.transform='scale(1)';}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
         <span style={{fontFamily:"'DM Mono',monospace",fontSize:'8.5px',color:c.t,opacity:.7,fontWeight:600}}>
           {iv.task_number}
@@ -954,7 +962,7 @@ function TaskCard({ iv, trades, data = [], isDark, onClick }) {
       <div style={{fontSize:11,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.2}}>{iv.company}</div>
       <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',
         display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
-      <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}><TaskDependencyBadges iv={iv} data={data} compact /></div>
+      <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}><TaskDependencyBadges iv={iv} data={data} compact />{hasCritical?<span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'1px 5px',borderRadius:20,background:chipBg,color:chipText,border:chipBorder,fontSize:8.5,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CP'}{criticalPath.source&&criticalPath.target?' · Critique':criticalPath.source?' · → Succ.':criticalPath.target?' · ← Préd.':' · Critique'}</span>:null}</div>
       {iv.prereq && <div style={{fontSize:'8.5px',marginTop:2,color:'#DC2626',opacity:.85,display:'flex',gap:3,alignItems:'flex-start'}}>
         <span>⚠</span><span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.prereq.slice(0,40)}</span>
       </div>}
@@ -1420,6 +1428,175 @@ function TaskDependencyBadges({ iv, data, compact = false }) {
   if (!predCodes.length && !succCodes.length) return null;
   var style = {display:'inline-flex',alignItems:'center',gap:4,padding:compact?'1px 5px':'2px 7px',borderRadius:20,background:'rgba(202,138,4,.10)',color:'#92400E',border:'1px solid rgba(202,138,4,.25)',fontSize:compact?8.5:10,fontWeight:800,fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap',maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis'};
   return (<>{predCodes.length > 0 && <span style={style}>Pred. {predCodes.join(', ')}</span>}{succCodes.length > 0 && <span style={style}>Succ. {succCodes.join(', ')}</span>}</>);
+}
+
+const CRITICAL_CHAIN_COLORS = ['#EA580C','#0F766E','#7C3AED','#2563EB','#BE185D','#65A30D','#B45309','#0891B2','#DC2626','#4F46E5'];
+function criticalChainColor(index) {
+  return CRITICAL_CHAIN_COLORS[index % CRITICAL_CHAIN_COLORS.length];
+}
+function hexToRgbCss(hex) {
+  var clean = String(hex || '').replace('#','').trim();
+  if (clean.length === 3) clean = clean.split('').map(function(ch){ return ch + ch; }).join('');
+  if (clean.length !== 6) return { r:234, g:88, b:12 };
+  return {
+    r: parseInt(clean.slice(0,2),16),
+    g: parseInt(clean.slice(2,4),16),
+    b: parseInt(clean.slice(4,6),16)
+  };
+}
+function rgbaCss(hex, alpha) {
+  var rgb = hexToRgbCss(hex);
+  return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
+}
+
+function buildZoneCriticalPathMeta(items) {
+  var rows = items || [];
+  var byId = new Map(rows.map(function(iv){ return [iv.id, iv]; }));
+  var seen = new Set();
+  var links = [];
+  var roles = {};
+  var adjacency = {};
+  rows.forEach(function(iv){ adjacency[iv.id] = adjacency[iv.id] || new Set(); });
+  rows.forEach(function(target){
+    if (!target) return;
+    normalizeTaskLinkIds(target.predecessor_ids || target.predecessor_id).forEach(function(predId){
+      var source = byId.get(predId);
+      if (!source || source.id === target.id) return;
+      var key = source.id + '>' + target.id;
+      if (seen.has(key)) return;
+      seen.add(key);
+      var from = source.end || source.start || '';
+      var to = target.start || target.end || '';
+      var rangeStart = from && to ? (from <= to ? from : to) : (from || to || '');
+      var rangeEnd = from && to ? (from <= to ? to : from) : (from || to || '');
+      var direction = !from || !to || from <= to ? 'forward' : 'reverse';
+      links.push({
+        key:key,
+        sourceId:source.id,
+        targetId:target.id,
+        sourceCode:source.task_number || source.id,
+        targetCode:target.task_number || target.id,
+        from:from,
+        to:to,
+        rangeStart:rangeStart,
+        rangeEnd:rangeEnd,
+        direction:direction
+      });
+      adjacency[source.id].add(target.id);
+      adjacency[target.id].add(source.id);
+      if (!roles[source.id]) roles[source.id] = { linked:false, source:false, target:false, count:0 };
+      if (!roles[target.id]) roles[target.id] = { linked:false, source:false, target:false, count:0 };
+      roles[source.id].linked = true; roles[source.id].source = true; roles[source.id].count += 1;
+      roles[target.id].linked = true; roles[target.id].target = true; roles[target.id].count += 1;
+    });
+  });
+  var visited = new Set();
+  var chainByTask = {};
+  var chains = [];
+  Object.keys(adjacency).forEach(function(taskId){
+    if (visited.has(taskId) || !adjacency[taskId] || adjacency[taskId].size === 0) return;
+    var stack = [taskId];
+    var comp = [];
+    visited.add(taskId);
+    while (stack.length) {
+      var current = stack.pop();
+      comp.push(current);
+      adjacency[current].forEach(function(nextId){
+        if (!visited.has(nextId)) {
+          visited.add(nextId);
+          stack.push(nextId);
+        }
+      });
+    }
+    comp.sort(function(a, b){
+      var ta = byId.get(a);
+      var tb = byId.get(b);
+      var da = ta ? (ta.start || ta.end || '') : '';
+      var db = tb ? (tb.start || tb.end || '') : '';
+      if (da !== db) return da.localeCompare(db);
+      return String(a).localeCompare(String(b));
+    });
+    var chainIndex = chains.length;
+    var color = criticalChainColor(chainIndex);
+    var chainId = 'cp_' + (chainIndex + 1);
+    var label = 'CP-' + String(chainIndex + 1).padStart(2, '0');
+    var codes = comp.map(function(id){
+      var task = byId.get(id);
+      return task ? (task.task_number || task.id) : id;
+    });
+    comp.forEach(function(id){
+      chainByTask[id] = chainId;
+      roles[id] = Object.assign({ linked:true, source:false, target:false, count:0 }, roles[id] || {}, {
+        linked:true,
+        chainId:chainId,
+        chainLabel:label,
+        color:color,
+        taskCodes:codes
+      });
+    });
+    chains.push({ id:chainId, label:label, color:color, taskIds:comp.slice(), taskCodes:codes.slice(), links:[] });
+  });
+  links = links.map(function(link){
+    var chainId = chainByTask[link.sourceId] || chainByTask[link.targetId] || null;
+    var chain = chains.find(function(item){ return item.id === chainId; });
+    return Object.assign({}, link, {
+      chainId: chainId,
+      chainLabel: chain ? chain.label : 'CP',
+      color: chain ? chain.color : '#EA580C'
+    });
+  });
+  chains.forEach(function(chain){
+    chain.links = links.filter(function(link){ return link.chainId === chain.id; });
+    chain.linkCount = chain.links.length;
+    chain.taskCount = chain.taskIds.length;
+  });
+  return { links:links, roles:roles, chains:chains, chainByTask:chainByTask };
+}
+function criticalPathLinksForDay(links, dayStr) {
+  return (links || []).filter(function(link){
+    if (!link || !link.rangeStart || !link.rangeEnd) return false;
+    return dayStr >= link.rangeStart && dayStr <= link.rangeEnd;
+  });
+}
+function CriticalPathOverlay({ links, dayStr, isMulti }) {
+  var maxVisible = isMulti ? 2 : 3;
+  var visible = (links || []).slice(0, maxVisible);
+  if (!visible.length) return null;
+  return (
+    <div style={{position:'absolute',left:2,right:2,top:isMulti?1:2,pointerEvents:'none',zIndex:1}}>
+      {visible.map(function(link){
+        var color = link.color || '#EA580C';
+        var soft = rgbaCss(color, .22);
+        var shadowColor = rgbaCss(color, .18);
+        var startHere = dayStr === link.rangeStart;
+        var endHere = dayStr === link.rangeEnd;
+        var singleDay = startHere && endHere;
+        var left = startHere ? '42%' : 0;
+        var right = endHere ? '42%' : 0;
+        var arrowForward = link.direction !== 'reverse';
+        var label = (link.chainLabel || 'CP') + ' · ' + (link.sourceCode || link.sourceId) + ' → ' + (link.targetCode || link.targetId);
+        return (
+          <div key={link.key} style={{position:'relative',height:isMulti?8:16,marginBottom:isMulti?0:2}}>
+            <div style={{position:'absolute',left:left,right:right,top:isMulti?3:8,height:isMulti?2:3,borderRadius:999,
+              background:'repeating-linear-gradient(90deg, '+color+' 0 8px, '+soft+' 8px 13px)',boxShadow:'0 0 0 1px '+shadowColor}}></div>
+            {startHere && <div style={{position:'absolute',left:'calc(42% - 4px)',top:isMulti?1:5,width:isMulti?6:8,height:isMulti?6:8,borderRadius:'50%',background:color,boxShadow:'0 0 0 1px '+shadowColor}}></div>}
+            {startHere && !isMulti && (
+              <div style={{position:'absolute',left:4,top:-1,maxWidth:'calc(100% - 8px)',padding:'1px 5px',borderRadius:999,
+                background:rgbaCss(color,.10),border:'1px solid '+rgbaCss(color,.30),color:color,fontSize:7,
+                lineHeight:1.2,fontWeight:900,fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{label}</div>
+            )}
+            {singleDay && isMulti && <div style={{position:'absolute',left:'calc(50% - 7px)',top:0,fontSize:5.5,fontWeight:900,color:color,fontFamily:"'DM Mono',monospace"}}>{link.chainLabel || 'CP'}</div>}
+            {endHere && !singleDay && (
+              <div style={arrowForward ? {position:'absolute',right:0,top:isMulti?1:5,width:0,height:0,borderTop:(isMulti?3:4)+'px solid transparent',borderBottom:(isMulti?3:4)+'px solid transparent',borderLeft:(isMulti?6:8)+'px solid '+color} : {position:'absolute',left:0,top:isMulti?1:5,width:0,height:0,borderTop:(isMulti?3:4)+'px solid transparent',borderBottom:(isMulti?3:4)+'px solid transparent',borderRight:(isMulti?6:8)+'px solid '+color})}></div>
+            )}
+          </div>
+        );
+      })}
+      {links.length > maxVisible && <div style={{fontSize:isMulti?5.5:6.5,fontWeight:900,color:'var(--muted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>+{links.length - maxVisible}</div>}
+    </div>
+  );
+}
+
 }
 
 /* ── FORM FIELD ───────────────────────────────────────────── */
@@ -2811,6 +2988,10 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const isMulti = weeks > 1;
   const is3s = weeks === 3;
   const [taskHover, setTaskHover] = useState(null);
+  const [showCriticalPath, setShowCriticalPath] = useState(true);
+  const [criticalOnly, setCriticalOnly] = useState(false);
+  const [hoverCriticalChainId, setHoverCriticalChainId] = useState(null);
+  const [pinnedCriticalChainId, setPinnedCriticalChainId] = useState(null);
 
   function compactTaskHoverPayload(ev, iv, zone, statusMeta) {
     return {
@@ -2858,6 +3039,26 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   }
   const visibleZones = zoneFilter.length === 0 ? zones : zones.filter(z => zoneFilter.includes(z.id));
   const activeCount = zoneFilter.length;
+  const criticalPathMetaByZone = React.useMemo(function(){
+    var out = {};
+    (zones || []).forEach(function(zone){
+      var zoneItems = filtered.filter(function(iv){ return iv.zone === zone.id; });
+      out[zone.id] = buildZoneCriticalPathMeta(zoneItems);
+    });
+    return out;
+  }, [filtered, zones]);
+  const activeCriticalChainId = pinnedCriticalChainId || hoverCriticalChainId;
+  const visibleCriticalChains = React.useMemo(function(){
+    var out = [];
+    (visibleZones || []).forEach(function(zone){
+      var meta = criticalPathMetaByZone[zone.id] || { chains:[] };
+      (meta.chains || []).forEach(function(chain){
+        out.push(Object.assign({ zoneId:zone.id, zoneShort:zone.short, zoneName:zone.name }, chain));
+      });
+    });
+    return out;
+  }, [criticalPathMetaByZone, visibleZones]);
+  const activeCriticalChain = visibleCriticalChains.find(function(chain){ return chain.id === activeCriticalChainId; }) || null;
 
   // Floor group boundaries for visual separation
   const floorOf = id => zones.find(z=>z.id===id)?.floor||'';
@@ -2869,6 +3070,69 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         margin:isMulti?0:'0 8px',
         borderRadius:isMulti?0:'var(--r)',
         boxShadow:isMulti?'none':'var(--shadow)'}}>
+
+        <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',background:'var(--surface)'}}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:'1 1 320px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+                <span style={{width:10,height:10,borderRadius:'50%',background:'#EA580C',boxShadow:'0 0 0 1px rgba(234,88,12,.18)'}}></span>
+                <span style={{width:24,height:2,borderRadius:999,background:'#EA580C',boxShadow:'0 0 0 1px rgba(234,88,12,.18)'}}></span>
+                <span style={{width:0,height:0,borderTop:'4px solid transparent',borderBottom:'4px solid transparent',borderLeft:'6px solid #EA580C'}}></span>
+              </div>
+              <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.35}}>
+                <b style={{color:'#9A3412'}}>Chemin critique</b> : lien visuel entre tâches liées par prédécesseur / successeur dans une même zone. Chaque chaîne reçoit sa propre couleur. Survole une tâche liée pour isoler sa chaîne. {visibleCriticalChains.length ? (visibleCriticalChains.length + ' chaîne(s) détectée(s).') : 'Aucune chaîne détectée.'}
+              </div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+              <button onClick={function(){
+                  setShowCriticalPath(function(v){
+                    var next = !v;
+                    if (!next) {
+                      setCriticalOnly(false);
+                      setHoverCriticalChainId(null);
+                      setPinnedCriticalChainId(null);
+                    }
+                    return next;
+                  });
+                }}
+                style={{padding:'6px 10px',borderRadius:'999px',border:'1px solid '+(showCriticalPath?'rgba(234,88,12,.35)':'var(--border)'),background:showCriticalPath?'rgba(234,88,12,.10)':'transparent',color:showCriticalPath?'#9A3412':'var(--muted)',fontSize:11,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>
+                {showCriticalPath ? 'Masquer CP' : 'Afficher CP'}
+              </button>
+              <button onClick={function(){ if (!showCriticalPath) return; setCriticalOnly(function(v){ return !v; }); }}
+                style={{padding:'6px 10px',borderRadius:'999px',border:'1px solid '+(showCriticalPath && criticalOnly ? 'rgba(234,88,12,.35)' : 'var(--border)'),background:showCriticalPath && criticalOnly ? 'rgba(234,88,12,.10)' : 'transparent',color:showCriticalPath ? (criticalOnly ? '#9A3412' : 'var(--muted)') : 'var(--xmuted)',fontSize:11,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:showCriticalPath?'pointer':'not-allowed',opacity:showCriticalPath?1:.55}}>
+                CP seul
+              </button>
+              {(activeCriticalChainId || pinnedCriticalChainId || hoverCriticalChainId) && (
+                <button onClick={function(){ setHoverCriticalChainId(null); setPinnedCriticalChainId(null); }}
+                  style={{padding:'6px 10px',borderRadius:'999px',border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>
+                  Réinit focus
+                </button>
+              )}
+            </div>
+          </div>
+          {showCriticalPath && visibleCriticalChains.length > 0 && (
+            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:8}}>
+              {visibleCriticalChains.slice(0,10).map(function(chain){
+                var isActive = activeCriticalChainId === chain.id;
+                return (
+                  <button key={chain.id} onClick={function(){ setPinnedCriticalChainId(function(prev){ return prev === chain.id ? null : chain.id; }); }}
+                    style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 8px',borderRadius:'999px',border:'1px solid '+rgbaCss(chain.color,.32),background:isActive?rgbaCss(chain.color,.12):'transparent',color:chain.color,fontSize:10.5,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>
+                    <span style={{width:8,height:8,borderRadius:'50%',background:chain.color,display:'inline-block'}}></span>
+                    <span>{chain.label}</span>
+                    <span style={{opacity:.78}}>{chain.zoneShort}</span>
+                    <span style={{opacity:.62}}>{chain.taskCount}T · {chain.linkCount}L</span>
+                  </button>
+                );
+              })}
+              {visibleCriticalChains.length > 10 && <span style={{fontSize:11,color:'var(--muted)'}}>+{visibleCriticalChains.length - 10}</span>}
+            </div>
+          )}
+          {showCriticalPath && activeCriticalChain && (
+            <div style={{marginTop:8,padding:'7px 9px',borderRadius:'var(--r-sm)',border:'1px solid '+rgbaCss(activeCriticalChain.color,.28),background:rgbaCss(activeCriticalChain.color,.08),fontSize:11,color:'var(--muted)'}}>
+              <b style={{color:activeCriticalChain.color,fontFamily:"'DM Mono',monospace"}}>{activeCriticalChain.label}</b> · Zone {activeCriticalChain.zoneShort} · {activeCriticalChain.taskCodes.join(' → ')}
+            </div>
+          )}
+        </div>
 
         {/* TABLE-LAYOUT for guaranteed column alignment */}
         <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
@@ -2991,6 +3255,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
               const dc  = deadlineColor(zone.deadline);
               const rowBg = zone.floor==='R+3' ? 'rgba(33,82,200,.025)' :
                             zone.floor==='R+2' ? 'rgba(13,148,136,.025)' : 'rgba(139,92,246,.025)';
+              const zoneCritical = criticalPathMetaByZone[zone.id] || { links:[], roles:{} };
 
               return (
                 <tr key={zone.id} style={{
@@ -3034,32 +3299,49 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                         return true;
                       }).sort(function(a,b){return (a.priority||3)-(b.priority||3);});
                     })();
-                    const shown = cards;
+                    const shown = (!showCriticalPath ? cards : cards.filter(function(iv){
+                      var role = zoneCritical.roles[iv.id] || null;
+                      if (!criticalOnly) return true;
+                      if (!(role && role.linked)) return false;
+                      return !activeCriticalChainId || role.chainId === activeCriticalChainId;
+                    }));
+                    const cellCriticalLinks = !showCriticalPath ? [] : criticalPathLinksForDay(zoneCritical.links, ds).filter(function(link){
+                      return !activeCriticalChainId || link.chainId === activeCriticalChainId;
+                    });
+                    const hasCriticalPath = showCriticalPath && cellCriticalLinks.length > 0;
 
                     return (
                       <td key={di}
                         onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
                         style={{
-                          padding:isMulti?0:2,
+                          position:'relative',
+                          overflow:'hidden',
+                          padding:isMulti?(hasCriticalPath?8:0):(hasCriticalPath?10:2),
                           height:isMulti?'40px':'56px',
                           verticalAlign:'top',
                           borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                          background:cellBg,
+                          background:hasCriticalPath ? 'linear-gradient(180deg, rgba(234,88,12,.09) 0px, rgba(234,88,12,.03) '+(isMulti?'10px':'12px')+', '+cellBg+' '+(isMulti?'10px':'12px')+')' : cellBg,
                           cursor:isAdmin&&!holiday?'pointer':'default',
                           transition:'background .1s'}}>
+                        {hasCriticalPath && <CriticalPathOverlay links={cellCriticalLinks} dayStr={ds} isMulti={isMulti} />}
                         {shown.map(function(iv){
                           if(isMulti){
                             var _tr=trades.find(function(t){return t.id===iv.trade;});
                             var _c=getTC(_tr?_tr.color:'blue');
                             var _m=STATUS_META[iv.status]||STATUS_META.arealis;
+                            var criticalInfo = zoneCritical.roles[iv.id] || null;
+                            var cpLinked = !!(showCriticalPath && criticalInfo && criticalInfo.linked);
+                            var cpColor = cpLinked ? (criticalInfo.color || '#EA580C') : _c.b;
+                            var cpFocused = !!(activeCriticalChainId && criticalInfo && criticalInfo.chainId === activeCriticalChainId);
+                            var cpDimmed = !!(showCriticalPath && activeCriticalChainId && (!criticalInfo || criticalInfo.chainId !== activeCriticalChainId));
                             return (
                               <div key={iv.id}
-                                onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, _m));}}
+                                onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, _m)); if (criticalInfo && criticalInfo.chainId) setHoverCriticalChainId(criticalInfo.chainId);}}
                                 onMouseMove={function(e){setTaskHover(function(prev){return prev?Object.assign({},prev,{x:e.clientX,y:e.clientY}):compactTaskHoverPayload(e,iv,zone,_m);});}}
-                                onMouseLeave={function(){setTaskHover(null);}}
+                                onMouseLeave={function(){setTaskHover(null); setHoverCriticalChainId(null);}}
                                 onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
                                 style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
-                                  background:_c.bg,borderLeft:'2px solid '+_c.b,overflow:'hidden'}}>
+                                  background:_c.bg,borderLeft:'2px solid '+(cpLinked?cpColor:_c.b),border:'1px solid '+(cpLinked?rgbaCss(cpColor,.32):'transparent'),boxShadow:cpLinked?('0 0 0 1px '+rgbaCss(cpColor, cpFocused ? .22 : .14)+' inset'):'none',overflow:'hidden',opacity: cpDimmed ? .28 : 1,filter:cpDimmed?'saturate(.65)':'none'}}>
                                 <div style={{display:'flex',alignItems:'center',gap:2}}>
                                   <span style={{fontSize:weeks===2?7:6.5,fontWeight:700,color:_c.t,
                                     overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
@@ -3072,17 +3354,22 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                                   textOverflow:'ellipsis'}}>{iv.task}</div>}
                                 {taskCanFinishLater(iv)&&<div style={{fontSize:6.2,color:'var(--primary)',fontWeight:800,
                                   lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
-                                {(taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:6.2,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↔ lien</div> : null}
+                                {cpLinked ? <div style={{fontSize:6.2,color:cpColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↗ {criticalInfo.chainLabel || 'CP'} · chemin critique</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:6.2,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↔ lien</div> : null)}
                               </div>
                             );
                           }
                           return (
                             <div key={iv.id}
-                              onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, STATUS_META[iv.status]||STATUS_META.arealis));}}
+                              onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, STATUS_META[iv.status]||STATUS_META.arealis)); var role = zoneCritical.roles[iv.id] || null; if (role && role.chainId) setHoverCriticalChainId(role.chainId);}}
                               onMouseMove={function(e){setTaskHover(function(prev){return prev?Object.assign({},prev,{x:e.clientX,y:e.clientY}):compactTaskHoverPayload(e,iv,zone,STATUS_META[iv.status]||STATUS_META.arealis);});}}
-                              onMouseLeave={function(){setTaskHover(null);}}>
+                              onMouseLeave={function(){setTaskHover(null); setHoverCriticalChainId(null);}}>
                               <TaskCard iv={iv} trades={trades} data={data} isDark={isDark}
-                                onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}} />
+                                criticalPath={showCriticalPath ? (zoneCritical.roles[iv.id] || null) : null}
+                                criticalVisible={showCriticalPath}
+                                dimmed={!!(showCriticalPath && activeCriticalChainId && (!(zoneCritical.roles[iv.id]) || zoneCritical.roles[iv.id].chainId !== activeCriticalChainId))}
+                                focused={!!(showCriticalPath && activeCriticalChainId && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].chainId === activeCriticalChainId)}
+                                onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
+                                onMouseEnter={undefined} />
                             </div>
                           );
                         })}
