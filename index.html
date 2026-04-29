@@ -1361,9 +1361,36 @@ function normalizeTaskLinkIds(value) {
       var parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
     } catch(e) {}
-    return trimmed.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+
+    // Supabase peut renvoyer une colonne text[] sous forme de littéral PostgreSQL : {imp_1,imp_2}
+    if (trimmed[0] === '{' && trimmed[trimmed.length - 1] === '}') {
+      var inner = trimmed.slice(1, -1);
+      if (!inner.trim()) return [];
+      var parts = [];
+      var cur = '', quoted = false, esc = false;
+      for (var i = 0; i < inner.length; i++) {
+        var ch = inner[i];
+        if (esc) { cur += ch; esc = false; continue; }
+        if (ch === '\\') { esc = true; continue; }
+        if (ch === '"') { quoted = !quoted; continue; }
+        if (ch === ',' && !quoted) { parts.push(cur); cur = ''; continue; }
+        cur += ch;
+      }
+      parts.push(cur);
+      return uniqueTaskIds(parts.map(function(x){ return x.trim(); }).filter(Boolean));
+    }
+
+    return uniqueTaskIds(trimmed.split(',').map(function(x){ return x.trim(); }).filter(Boolean));
   }
   return [];
+}
+function taskLinksForRest(value) {
+  // Colonnes Supabase conseillées : text[]. Format REST fiable : {id_1,id_2}.
+  var ids = normalizeTaskLinkIds(value);
+  if (!ids.length) return '{}';
+  return '{' + ids.map(function(id){
+    return '"' + String(id).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  }).join(',') + '}';
 }
 function uniqueTaskIds(ids) {
   var seen = new Set();
@@ -1425,11 +1452,11 @@ function Select({ value, onChange, children, ...rest }) {
     onBlur={e=>e.target.style.borderColor='var(--border)'}
     {...rest}>{children}</select>;
 }
-function Textarea({ value, onChange, placeholder, rows=3, fixed=false }) {
+function Textarea({ value, onChange, placeholder, rows=3 }) {
   return <textarea value={value} onChange={onChange} placeholder={placeholder} rows={rows}
     style={{width:'100%',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
       fontSize:14,color:'var(--text)',background:'var(--surface)',fontFamily:"'DM Sans',sans-serif",
-      outline:'none',resize:fixed?'none':'vertical',lineHeight:1.5}}
+      outline:'none',resize:'none',lineHeight:1.5}}
     onFocus={e=>e.target.style.borderColor='var(--primary)'}
     onBlur={e=>e.target.style.borderColor='var(--border)'} />;
 }
@@ -4471,22 +4498,74 @@ function FrozenDaysField({ form, set }) {
 
 
 
-function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, zones, trades, currentId, onClose }) {
-  const [weekOffset, setWeekOffset] = React.useState(0);
+function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, zones, trades, currentId, focusDate, onCancel, onValidate }) {
+  function normalizeFocusDate(ds) {
+    if (!ds) return dateStr(new Date());
+    if (ds instanceof Date && !isNaN(ds.getTime())) return dateStr(ds);
+    var raw = String(ds).trim();
+    if (!raw) return dateStr(new Date());
+    var iso = raw.slice(0,10);
+    var d = new Date(iso+'T00:00:00');
+    return isNaN(d.getTime()) ? dateStr(new Date()) : iso;
+  }
+
+  function offsetForDate(ds) {
+    var iso = normalizeFocusDate(ds);
+    var d = new Date(iso+'T00:00:00');
+    if (isNaN(d.getTime())) return 0;
+    var day = d.getDay();
+    var diff = day === 0 ? -6 : 1 - day;
+    var monday = new Date(d); monday.setDate(d.getDate()+diff); monday.setHours(0,0,0,0);
+    var base = getMonday(0);
+    return Math.round((monday - base) / (7*24*60*60*1000));
+  }
+
+  var taskFocusDate = normalizeFocusDate(focusDate);
+  const [weekOffset, setWeekOffset] = React.useState(function(){ return offsetForDate(taskFocusDate); });
+  const [viewWeeks, setViewWeeks] = React.useState(1);
+  const [includeWeekends, setIncludeWeekends] = React.useState(false);
   const [search, setSearch] = React.useState('');
-  const [draftIds, setDraftIds] = React.useState([]);
+  const [jumpDate, setJumpDate] = React.useState(taskFocusDate);
+  const ids = normalizeTaskLinkIds(selectedIds);
 
   React.useEffect(function(){
-    if (open) {
-      setDraftIds(normalizeTaskLinkIds(selectedIds));
-      setSearch('');
-    }
-  }, [open, selectedIds]);
+    if (!open) return;
+    var nextFocus = normalizeFocusDate(focusDate);
+    setJumpDate(nextFocus);
+    setWeekOffset(offsetForDate(nextFocus));
+    setViewWeeks(1);
+  }, [open, focusDate, currentId]);
 
-  const ids = normalizeTaskLinkIds(draftIds);
+  function goToDate(ds, nextViewWeeks) {
+    var iso = normalizeFocusDate(ds);
+    setJumpDate(iso);
+    setWeekOffset(offsetForDate(iso));
+    if (nextViewWeeks) setViewWeeks(nextViewWeeks);
+    else if (viewWeeks === 'all') setViewWeeks(1);
+  }
+
+  function allTaskDays() {
+    var taskDates = (data || []).filter(function(t){ return t && t.start; });
+    if (!taskDates.length) return multiWeekDays(offsetForDate(taskFocusDate), 3, includeWeekends);
+    var min = taskDates.reduce(function(a,t){ return String(t.start) < String(a) ? t.start : a; }, taskDates[0].start);
+    var max = taskDates.reduce(function(a,t){ return String(t.end || t.start) > String(a) ? (t.end || t.start) : a; }, taskDates[0].end || taskDates[0].start);
+    var startD = new Date(min+'T00:00:00');
+    var sd = startD.getDay();
+    startD.setDate(startD.getDate() + (sd === 0 ? -6 : 1 - sd));
+    var endD = new Date(max+'T00:00:00');
+    endD.setDate(endD.getDate()+7);
+    var out = [], cur = new Date(startD), safety = 0;
+    while (cur <= endD && safety < 180) {
+      var dow = cur.getDay();
+      if (includeWeekends || (dow !== 0 && dow !== 6)) out.push(new Date(cur));
+      cur.setDate(cur.getDate()+1); safety++;
+    }
+    return out;
+  }
+
   if (!open) return null;
 
-  const days = multiWeekDays(weekOffset, 2, false);
+  const days = viewWeeks === 'all' ? allTaskDays() : multiWeekDays(weekOffset, viewWeeks, includeWeekends);
   const q = search.trim().toLowerCase();
   const visibleTasks = (data || []).filter(function(t){
     if (!t || t.id === currentId || !t.task_number) return false;
@@ -4499,92 +4578,58 @@ function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, z
 
   function toggle(id) {
     var next = ids.includes(id) ? ids.filter(function(x){ return x !== id; }) : ids.concat([id]);
-    setDraftIds(uniqueTaskIds(next));
+    onChange(uniqueTaskIds(next));
   }
   function selectedTasks() {
     return ids.map(function(id){ return (data || []).find(function(t){ return t.id === id; }); }).filter(Boolean);
   }
   function cellTasks(zone, day) {
-    return visibleTasks.filter(function(iv){
-      return iv.zone === zone.id && isTaskActiveOn(iv, day);
-    }).sort(function(a,b){ return (a.start||'').localeCompare(b.start||'') || (a.task_number||'').localeCompare(b.task_number||''); });
+    return visibleTasks.filter(function(iv){ return iv.zone === zone.id && isTaskActiveOn(iv, day); })
+      .sort(function(a,b){ return (a.start||'').localeCompare(b.start||'') || (a.task_number||'').localeCompare(b.task_number||''); });
   }
-  function validateSelection() {
-    onChange(uniqueTaskIds(ids));
-    onClose();
-  }
-  function cancelSelection() {
-    setDraftIds(normalizeTaskLinkIds(selectedIds));
-    onClose();
-  }
+
+  var tableMinWidth = Math.max(860, 92 + days.length * 118);
+  var rangeText = days.length ? (dateFR(days[0])+' – '+dateFR(days[days.length-1])) : 'Aucune date';
+  var focusText = fmtDate(taskFocusDate);
 
   return (
     <div style={{position:'fixed',inset:0,zIndex:420,background:'rgba(0,0,0,.55)',display:'flex',flexDirection:'column'}}>
       <div style={{background:'var(--hdr)',color:'var(--hdr-text)',padding:'10px 12px',boxShadow:'0 2px 16px rgba(0,0,0,.35)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-        <div style={{minWidth:190,flex:'1 1 260px'}}>
+        <div style={{minWidth:190,flex:'1 1 250px'}}>
           <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",letterSpacing:'.09em',textTransform:'uppercase',color:'rgba(255,255,255,.55)'}}>Sélection sur planning</div>
           <div style={{fontSize:15,fontWeight:800}}>{label}</div>
-          <div style={{fontSize:10,color:'rgba(255,255,255,.6)',fontFamily:"'DM Mono',monospace",marginTop:2}}>Cliquer sur une tâche pour l’ajouter ou la retirer. Valider pour revenir à la fiche tâche.</div>
+          <div style={{fontSize:10,color:'rgba(255,255,255,.6)',fontFamily:"'DM Mono',monospace",marginTop:2}}>Ouverture calée sur la date de la tâche : {focusText}. Cliquer sur une tâche pour l’ajouter ou la retirer.</div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',borderRadius:8,padding:'4px 6px'}}>
-          <button type="button" onClick={function(){setWeekOffset(function(o){return o-1;});}} style={hdrBtnStyle}>‹</button>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'rgba(255,255,255,.75)',minWidth:115,textAlign:'center'}}>{dateFR(days[0])} – {dateFR(days[days.length-1])}</span>
-          <button type="button" onClick={function(){setWeekOffset(function(o){return o+1;});}} style={hdrBtnStyle}>›</button>
+          <button type="button" onClick={function(){setWeekOffset(function(o){return o-1;}); if(viewWeeks==='all') setViewWeeks(3);}} style={hdrBtnStyle}>‹</button>
+          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'rgba(255,255,255,.75)',minWidth:120,textAlign:'center'}}>{rangeText}</span>
+          <button type="button" onClick={function(){setWeekOffset(function(o){return o+1;}); if(viewWeeks==='all') setViewWeeks(3);}} style={hdrBtnStyle}>›</button>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:4,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',borderRadius:8,padding:4}}>
+          {[1,2,3].map(function(w){return <button key={w} type="button" onClick={function(){setViewWeeks(w);}} style={{...hdrBtnStyle,background:viewWeeks===w?'#fff':'rgba(255,255,255,.08)',color:viewWeeks===w?'var(--hdr)':'#fff'}}>{w}S</button>;})}
+          <button type="button" onClick={function(){setViewWeeks('all');}} style={{...hdrBtnStyle,background:viewWeeks==='all'?'#fff':'rgba(255,255,255,.08)',color:viewWeeks==='all'?'var(--hdr)':'#fff'}}>Tout</button>
+          <button type="button" onClick={function(){setIncludeWeekends(function(v){return !v;});}} style={{...hdrBtnStyle,background:includeWeekends?'#fff':'rgba(255,255,255,.08)',color:includeWeekends?'var(--hdr)':'#fff'}}>{includeWeekends?'7J':'5J'}</button>
+          <button type="button" onClick={function(){goToDate(taskFocusDate, 1);}} style={hdrBtnStyle}>Date tâche</button>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',borderRadius:8,padding:'4px 6px'}}>
+          <span style={{fontSize:9,fontFamily:"'DM Mono',monospace",color:'rgba(255,255,255,.65)',whiteSpace:'nowrap'}}>Aller au</span>
+          <input type="date" value={jumpDate} onChange={function(e){goToDate(e.target.value, viewWeeks==='all'?1:null);}} style={{height:26,width:132,border:'1px solid rgba(255,255,255,.18)',borderRadius:6,background:'rgba(255,255,255,.10)',color:'#fff',padding:'0 7px',fontSize:11,fontWeight:800,fontFamily:"'DM Mono',monospace",outline:'none'}} />
         </div>
         <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Filtrer code, entreprise, tâche…" style={{height:30,flex:'1 1 210px',border:'1px solid rgba(255,255,255,.20)',borderRadius:7,background:'rgba(255,255,255,.08)',color:'#fff',padding:'0 10px',fontSize:12,outline:'none'}} />
-        <button type="button" onClick={cancelSelection} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',color:'#fff',border:'1px solid rgba(255,255,255,.24)',borderRadius:7,minWidth:78,height:30,fontWeight:900}}>Annuler</button>
-        <button type="button" onClick={validateSelection} style={{...hdrBtnStyle,background:'rgba(255,255,255,.92)',color:'var(--hdr)',borderRadius:7,minWidth:76,height:30,fontWeight:900}}>Valider</button>
+        <button type="button" onClick={function(){onCancel && onCancel();}} style={{...hdrBtnStyle,background:'rgba(255,255,255,.10)',color:'#fff',borderRadius:7,minWidth:76,height:30,fontWeight:900}}>Annuler</button>
+        <button type="button" onClick={function(){onValidate && onValidate(ids);}} style={{...hdrBtnStyle,background:'rgba(255,255,255,.92)',color:'var(--hdr)',borderRadius:7,minWidth:76,height:30,fontWeight:900}}>Valider</button>
       </div>
-
       <div style={{background:'var(--surface)',borderBottom:'1px solid var(--border)',padding:'8px 12px',display:'flex',gap:6,alignItems:'center',overflowX:'auto'}}>
         <span style={{fontSize:11,color:'var(--muted)',fontWeight:800,whiteSpace:'nowrap'}}>Sélection :</span>
-        {selectedTasks().length ? selectedTasks().map(function(t){
-          return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} title="Retirer cette tâche" style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'4px 8px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer',whiteSpace:'nowrap'}}>{t.task_number || t.id} ×</button>;
-        }) : <span style={{fontSize:11,color:'var(--xmuted)'}}>Aucune tâche sélectionnée.</span>}
-        {ids.length > 0 && <button type="button" onClick={function(){setDraftIds([]);}} style={{border:'1px solid var(--danger)',background:'var(--danger-l)',color:'var(--danger)',borderRadius:20,padding:'4px 9px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer',whiteSpace:'nowrap'}}>Vider la sélection</button>}
+        {selectedTasks().length ? selectedTasks().map(function(t){return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'4px 8px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer',whiteSpace:'nowrap'}}>{t.task_number || t.id} ×</button>;}) : <span style={{fontSize:11,color:'var(--xmuted)'}}>Aucune tâche sélectionnée.</span>}
+        {ids.length > 0 && <button type="button" onClick={function(){onChange([]);}} style={{border:'1px solid var(--danger)',background:'var(--danger-l)',color:'var(--danger)',borderRadius:20,padding:'4px 8px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer',whiteSpace:'nowrap'}}>Vider la sélection</button>}
       </div>
-
       <div style={{flex:1,overflow:'auto',background:'var(--bg)',padding:10}}>
-        <div style={{minWidth:860,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',boxShadow:'var(--shadow)',overflow:'hidden'}}>
+        <div style={{minWidth:tableMinWidth,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',boxShadow:'var(--shadow)',overflow:'hidden'}}>
           <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
             <colgroup><col style={{width:92}} />{days.map(function(_,i){return <col key={i} />;})}</colgroup>
-            <thead>
-              <tr style={{background:'var(--surface-2)',borderBottom:'2px solid var(--border)'}}>
-                <th style={{padding:'8px 6px',fontSize:10,color:'var(--muted)',fontFamily:"'DM Mono',monospace",textAlign:'left'}}>Zone</th>
-                {days.map(function(d){
-                  return <th key={dateStr(d)} style={{padding:'7px 4px',textAlign:'center',borderLeft:'1px solid var(--border)',fontSize:10,color:isToday(d)?'var(--primary)':'var(--muted)',fontFamily:"'DM Mono',monospace"}}>{['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}<br/><b>{String(d.getDate()).padStart(2,'0')}/{String(d.getMonth()+1).padStart(2,'0')}</b></th>;
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {(zones || []).map(function(zone){
-                var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
-                return <tr key={zone.id} style={{borderBottom:'1px solid var(--border)'}}>
-                  <td style={{padding:'8px 6px',borderRight:'3px solid '+fc,background:fc+'12',verticalAlign:'top'}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:fc}}>{zone.short}</div>
-                    <div style={{fontSize:9,color:'var(--xmuted)',marginTop:2}}>{zone.floor}</div>
-                  </td>
-                  {days.map(function(day){
-                    var cards = cellTasks(zone, day);
-                    return <td key={zone.id+'_'+dateStr(day)} style={{height:74,verticalAlign:'top',padding:4,borderLeft:'1px solid var(--border)',background:isToday(day)?'var(--primary-l)':'transparent'}}>
-                      {cards.length ? cards.map(function(iv){
-                        var tr = (trades || []).find(function(t){ return t.id === iv.trade; });
-                        var col = getTC(tr ? tr.color : 'blue');
-                        var active = ids.includes(iv.id);
-                        return <button key={iv.id} type="button" onClick={function(){toggle(iv.id);}} style={{width:'100%',display:'block',textAlign:'left',border:'1px solid '+(active?'var(--primary)':col.b+'35'),borderLeft:'4px solid '+(active?'var(--primary)':col.b),background:active?'var(--primary-l)':col.bg,borderRadius:7,padding:'5px 6px',marginBottom:4,cursor:'pointer',fontFamily:"'DM Sans',sans-serif",boxShadow:active?'0 0 0 1px var(--primary) inset':'none'}}>
-                          <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
-                            <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,fontWeight:900,color:active?'var(--primary)':col.t}}>{iv.task_number}</span>
-                            <span style={{fontSize:10,fontWeight:900,color:active?'var(--primary)':col.t}}>{active?'✓':''}</span>
-                          </div>
-                          <div style={{fontSize:10,fontWeight:800,color:col.t,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.company}</div>
-                          <div style={{fontSize:9,color:col.t,opacity:.8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
-                        </button>;
-                      }) : <div style={{fontSize:9,color:'var(--xmuted)',textAlign:'center',paddingTop:18}}>—</div>}
-                    </td>;
-                  })}
-                </tr>;
-              })}
-            </tbody>
+            <thead><tr style={{background:'var(--surface-2)',borderBottom:'2px solid var(--border)'}}><th style={{padding:'8px 6px',fontSize:10,color:'var(--muted)',fontFamily:"'DM Mono',monospace",textAlign:'left'}}>Zone</th>{days.map(function(d){return <th key={dateStr(d)} style={{padding:'7px 4px',textAlign:'center',borderLeft:'1px solid var(--border)',fontSize:10,color:dateStr(d)===taskFocusDate?'var(--primary)':isToday(d)?'var(--primary)':'var(--muted)',fontFamily:"'DM Mono',monospace",background:dateStr(d)===taskFocusDate?'var(--primary-l)':'transparent'}}>{['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}<br/><b>{String(d.getDate()).padStart(2,'0')}/{String(d.getMonth()+1).padStart(2,'0')}</b>{dateStr(d)===taskFocusDate?<div style={{fontSize:8,fontWeight:900,marginTop:2}}>DATE TÂCHE</div>:null}</th>;})}</tr></thead>
+            <tbody>{(zones || []).map(function(zone){var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF'; return <tr key={zone.id} style={{borderBottom:'1px solid var(--border)'}}><td style={{padding:'8px 6px',borderRight:'3px solid '+fc,background:fc+'12',verticalAlign:'top'}}><div style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:fc}}>{zone.short}</div><div style={{fontSize:9,color:'var(--xmuted)',marginTop:2}}>{zone.floor}</div></td>{days.map(function(day){var cards = cellTasks(zone, day); return <td key={zone.id+'_'+dateStr(day)} style={{height:74,verticalAlign:'top',padding:4,borderLeft:'1px solid var(--border)',background:dateStr(day)===taskFocusDate?'var(--primary-l)':isToday(day)?'var(--primary-l)':'transparent'}}>{cards.length ? cards.map(function(iv){var tr = (trades || []).find(function(t){ return t.id === iv.trade; }); var col = getTC(tr ? tr.color : 'blue'); var active = ids.includes(iv.id); return <button key={iv.id} type="button" onClick={function(){toggle(iv.id);}} style={{width:'100%',display:'block',textAlign:'left',border:'1px solid '+(active?'var(--primary)':col.b+'35'),borderLeft:'4px solid '+(active?'var(--primary)':col.b),background:active?'var(--primary-l)':col.bg,borderRadius:7,padding:'5px 6px',marginBottom:4,cursor:'pointer',fontFamily:"'DM Sans',sans-serif",boxShadow:active?'0 0 0 1px var(--primary) inset':'none'}}><div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}><span style={{fontFamily:"'DM Mono',monospace",fontSize:9,fontWeight:900,color:active?'var(--primary)':col.t}}>{iv.task_number}</span><span style={{fontSize:10,fontWeight:900,color:active?'var(--primary)':col.t}}>{active?'✓':''}</span></div><div style={{fontSize:10,fontWeight:800,color:col.t,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.company}</div><div style={{fontSize:9,color:col.t,opacity:.8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div></button>;}) : <div style={{fontSize:9,color:'var(--xmuted)',textAlign:'center',paddingTop:18}}>—</div>}</td>;})}</tr>;})}</tbody>
           </table>
         </div>
       </div>
@@ -4592,9 +4637,10 @@ function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, z
   );
 }
 
-function TaskLinksPicker({ label, hint, selectedIds, onChange, data, zones, trades, currentId }) {
+function TaskLinksPicker({ label, hint, selectedIds, onChange, data, zones, trades, currentId, focusDate }) {
   var [open, setOpen] = React.useState(false);
   var [planningOpen, setPlanningOpen] = React.useState(false);
+  var [draftIds, setDraftIds] = React.useState([]);
   var [search, setSearch] = React.useState('');
   var ids = normalizeTaskLinkIds(selectedIds);
   var selected = ids.map(function(id){ return (data || []).find(function(t){ return t.id === id; }); }).filter(Boolean);
@@ -4603,18 +4649,13 @@ function TaskLinksPicker({ label, hint, selectedIds, onChange, data, zones, trad
   if (q) candidates = candidates.filter(function(t){ return String(t.task_number||'').toLowerCase().includes(q)||String(t.company||'').toLowerCase().includes(q)||String(t.task||'').toLowerCase().includes(q); });
   candidates = candidates.sort(function(a,b){ return (a.start||'').localeCompare(b.start||'') || (a.task_number||'').localeCompare(b.task_number||''); });
   function toggle(id){ var next = ids.includes(id) ? ids.filter(function(x){return x!==id;}) : ids.concat([id]); onChange(uniqueTaskIds(next)); }
+  function openPlanner(){ setDraftIds(ids); setPlanningOpen(true); }
   return (
     <div style={{border:'1px solid var(--border)',background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:10,marginBottom:13}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:7}}>
-        <div><div style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{label}</div>{hint&&<div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>{hint}</div>}</div>
-        <div style={{display:'flex',gap:5,flexShrink:0}}>
-          <button type="button" onClick={function(){setOpen(!open);}} style={{...miniBtn,background:open?'var(--primary)':'var(--surface)',color:open?'#fff':'var(--muted)',borderColor:open?'var(--primary)':'var(--border)'}}>{open?'Fermer':'Liste'}</button>
-          <button type="button" onClick={function(){setPlanningOpen(true);}} style={{...miniBtn,background:'var(--surface)',color:'var(--primary)',borderColor:'var(--primary)'}}>Vue planning</button>
-        </div>
-      </div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:7}}><div><div style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{label}</div>{hint&&<div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>{hint}</div>}</div><div style={{display:'flex',gap:5,flexShrink:0}}><button type="button" onClick={function(){setOpen(!open);}} style={{...miniBtn,background:open?'var(--primary)':'var(--surface)',color:open?'#fff':'var(--muted)',borderColor:open?'var(--primary)':'var(--border)'}}>{open?'Fermer':'Liste'}</button><button type="button" onClick={openPlanner} style={{...miniBtn,background:'var(--surface)',color:'var(--primary)',borderColor:'var(--primary)'}}>Vue planning</button></div></div>
       {selected.length>0 ? <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:open?8:0}}>{selected.map(function(t){return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} title="Retirer cette tâche" style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'3px 8px',fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>{t.task_number||t.id} ×</button>;})}<button type="button" onClick={function(){onChange([]);}} title="Retirer tous les liens sélectionnés" style={{border:'1px solid var(--danger)',background:'var(--danger-l)',color:'var(--danger)',borderRadius:20,padding:'3px 8px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>Tout retirer</button></div> : <div style={{fontSize:11,color:'var(--xmuted)',marginBottom:open?8:0}}>Aucune tâche sélectionnée.</div>}
       {open&&<div><Input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Rechercher par code, entreprise ou tâche…" style={{fontSize:12,padding:'8px 10px',marginBottom:8}} /><div style={{maxHeight:220,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',background:'var(--surface)'}}>{candidates.length===0?<div style={{padding:10,fontSize:12,color:'var(--muted)'}}>Aucune tâche disponible.</div>:candidates.map(function(t){var active=ids.includes(t.id);return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} style={{width:'100%',display:'flex',alignItems:'flex-start',gap:8,textAlign:'left',padding:'8px 10px',border:'none',borderBottom:'1px solid var(--border)',background:active?'var(--primary-l)':'transparent',cursor:'pointer',fontFamily:"'DM Sans',sans-serif"}}><span style={{width:16,height:16,borderRadius:4,border:'1px solid '+(active?'var(--primary)':'var(--border-s)'),background:active?'var(--primary)':'var(--surface)',color:'#fff',fontSize:11,lineHeight:'16px',textAlign:'center',flexShrink:0}}>{active?'✓':''}</span><span style={{minWidth:0}}><span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:active?'var(--primary)':'var(--xmuted)',marginRight:6}}>{t.task_number}</span><span style={{fontSize:11,fontWeight:800,color:'var(--text)'}}>{t.company}</span><span style={{display:'block',fontSize:11,color:'var(--muted)',lineHeight:1.35,marginTop:2,overflow:'hidden',textOverflow:'ellipsis'}}>{t.task}</span><span style={{display:'block',fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>{fmtDate(t.start)}{t.end&&t.end!==t.start?' → '+fmtDate(t.end):''}</span></span></button>;})}</div></div>}
-      <TaskPlanningPickerOverlay open={planningOpen} label={label} selectedIds={ids} onChange={onChange} data={data} zones={zones || []} trades={trades || []} currentId={currentId} onClose={function(){setPlanningOpen(false);}} />
+      <TaskPlanningPickerOverlay key={(planningOpen?'open':'closed')+'_'+label+'_'+(currentId||'new')+'_'+(focusDate||'')} open={planningOpen} label={label} selectedIds={draftIds} onChange={setDraftIds} data={data} zones={zones || []} trades={trades || []} currentId={currentId} focusDate={focusDate} onCancel={function(){setPlanningOpen(false);}} onValidate={function(nextIds){onChange(uniqueTaskIds(nextIds)); setPlanningOpen(false);}} />
     </div>
   );
 }
@@ -4757,7 +4798,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
 
         <Field label="Prérequis / Point bloquant" hint="optionnel">
           <Textarea value={form.prereq||''} onChange={e=>set('prereq',e.target.value)}
-            placeholder="ex : Libérer le matériel de la zone" rows={2} fixed={true} />
+            placeholder="ex : Libérer le matériel de la zone" rows={2} />
         </Field>
         <Field label="Entreprise concernée par ce prérequis" hint="optionnel">
           <Select value={form.prereq_company||''} onChange={e=>set('prereq_company',e.target.value)}>
@@ -4774,8 +4815,8 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         </div>
         <div style={{marginBottom:13}}>
           <div style={{fontSize:12,fontWeight:700,color:'var(--muted)',marginBottom:7}}>Impact / tâche ou entreprise bloquée</div>
-          <TaskLinksPicker label="Prédécesseur(s)" hint="optionnel — tâche(s) à terminer avant celle-ci" selectedIds={form.predecessor_ids || []} onChange={function(ids){set('predecessor_ids', ids);}} data={data} zones={zones} trades={trades} currentId={editId} />
-          <TaskLinksPicker label="Successeur(s)" hint="optionnel — tâche(s) qui dépendent de celle-ci" selectedIds={form.successor_ids || []} onChange={function(ids){set('successor_ids', ids);}} data={data} zones={zones} trades={trades} currentId={editId} />
+          <TaskLinksPicker label="Prédécesseur(s)" hint="optionnel — tâche(s) à terminer avant celle-ci" selectedIds={form.predecessor_ids || []} onChange={function(ids){set('predecessor_ids', ids);}} data={data} zones={zones} trades={trades} currentId={editId} focusDate={form.start || (existing && existing.start) || form.end || preDate || dateStr(new Date())} />
+          <TaskLinksPicker label="Successeur(s)" hint="optionnel — tâche(s) qui dépendent de celle-ci" selectedIds={form.successor_ids || []} onChange={function(ids){set('successor_ids', ids);}} data={data} zones={zones} trades={trades} currentId={editId} focusDate={form.start || (existing && existing.start) || form.end || preDate || dateStr(new Date())} />
           <Field label="Note d’impact" hint="optionnel">
             <Textarea value={form.impact||''} onChange={e=>set('impact',e.target.value)} placeholder="ex : Bloque la pose appareillage tant que cette tâche n’est pas terminée…" rows={2} />
           </Field>
@@ -5217,6 +5258,17 @@ function PlanifyApp() {
   const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZnFsYmhheGhyYW5lZmxyZmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjE3MTEsImV4cCI6MjA5MjE5NzcxMX0.pi1iytlLCQmtT0Vl4DfWmAj3YhRukICPDnvGIstDcaA';
 
   // ── Core fetch helper ────────────────────────────────────────────────
+  async function buildSupabaseError(r, table, method) {
+    var txt = '';
+    try { txt = await r.text(); } catch(e) {}
+    var msg = txt;
+    try {
+      var j = JSON.parse(txt);
+      msg = [j.message, j.details, j.hint, j.code].filter(Boolean).join(' — ');
+    } catch(e) {}
+    return new Error(table+' '+method+' failed: '+r.status+(msg?' — '+msg:''));
+  }
+
   function sbFetch(method, table, body, query) {
     var url = SUPA_URL+'/rest/v1/'+table+(query?'?'+query:'');
     var hdrs = {
@@ -5226,7 +5278,7 @@ function PlanifyApp() {
       'Prefer': method==='POST'?'return=representation':'return=minimal'
     };
     return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
-      .then(function(r){ if(!r.ok) throw new Error(table+' '+method+' failed: '+r.status); return r; })
+      .then(async function(r){ if(!r.ok) throw await buildSupabaseError(r, table, method); return r; })
       .catch(function(e){ console.error('[Planify] Supabase error:',e); notify('Erreur de sauvegarde','error'); throw e; });
   }
 
@@ -5264,8 +5316,8 @@ function PlanifyApp() {
       'Prefer': method==='POST'?'resolution=merge-duplicates,return=representation':'return=representation'
     };
     return fetch(url,{method:method,headers:hdrs,body:body?JSON.stringify(body):undefined})
-      .then(function(r){
-        if(!r.ok) throw new Error(table+' '+method+' failed: '+r.status);
+      .then(async function(r){
+        if(!r.ok) throw await buildSupabaseError(r, table, method);
         return r.json().catch(function(){ return []; });
       })
       .catch(function(e){ console.error('[Planify] Supabase error:',e); notify('Erreur de sauvegarde','error'); throw e; });
@@ -5839,7 +5891,7 @@ function PlanifyApp() {
     var patches = buildDependencyPatchForTask(savedTask.id, beforeTask, savedTask, allTasks);
     if (!patches.length) return;
     setData(function(prev){ return prev.map(function(t){ var p = patches.find(function(x){ return x.id === t.id; }); return p ? Object.assign({}, t, {predecessor_ids:p.predecessor_ids, successor_ids:p.successor_ids, predecessor_id:p.predecessor_id}) : t; }); });
-    await Promise.all(patches.map(function(t){ return sbFetchSilent('PATCH','interventions',{predecessor_id:t.predecessor_id || null,predecessor_ids:t.predecessor_ids || [],successor_ids:t.successor_ids || [],updated_at:new Date().toISOString()},eqFilter('id', t.id)).catch(function(e){ console.warn('[Planify] dependency sync skipped:', e); }); }));
+    await Promise.all(patches.map(function(t){ return sbFetchSilent('PATCH','interventions',{predecessor_id:t.predecessor_id || null,predecessor_ids:taskLinksForRest(t.predecessor_ids),successor_ids:taskLinksForRest(t.successor_ids),updated_at:new Date().toISOString()},eqFilter('id', t.id)).catch(function(e){ console.warn('[Planify] dependency sync skipped:', e); }); }));
   }
 
   // ── Save new/edited task → Supabase ─────────────────────────────────
@@ -5859,7 +5911,7 @@ function PlanifyApp() {
       status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
       prereq:cleanIv.prereq||'', prereq_company:(cleanIv.prereq&&String(cleanIv.prereq).trim())?(cleanIv.prereq_company||''):'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
       task_number:cleanIv.task_number||null, predecessor_id:(normalizeTaskLinkIds(cleanIv.predecessor_ids)[0]||null),
-      predecessor_ids:normalizeTaskLinkIds(cleanIv.predecessor_ids), successor_ids:normalizeTaskLinkIds(cleanIv.successor_ids),
+      predecessor_ids:taskLinksForRest(cleanIv.predecessor_ids), successor_ids:taskLinksForRest(cleanIv.successor_ids),
       off_days:cleanIv.off_days||[],
       company_edit_allowed: !!cleanIv.company_edit_allowed,
       company_edit_start_min: cleanIv.company_edit_allowed ? (cleanIv.company_edit_start_min || null) : null,
