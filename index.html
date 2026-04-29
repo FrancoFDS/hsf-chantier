@@ -1772,6 +1772,10 @@ function isTaskLate(iv) {
   return due < today;
 }
 
+function isTaskTodoToday(iv) {
+  return !!iv && iv.status === 'arealis' && isTaskActiveToday(iv);
+}
+
 function ZoneTaskList({ items, zones, trades, onOpenDetail, isAdmin, title, emptyLabel }) {
   const ordered = [...items].sort(function(a,b) {
     const rank = function(iv) {
@@ -1968,6 +1972,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   const blocked = myData.filter(i => i.status === 'bloque');
   const termine = myData.filter(i => i.status === 'termine');
   const overdue = myData.filter(i => isTaskLate(i));
+  const todoToday = myData.filter(i => isTaskTodoToday(i));
   const total   = myData.length;
   const pct     = total ? Math.round(termine.length / total * 100) : 0;
   const reliability = calcReliability(myData);
@@ -1993,6 +1998,14 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
         items: myData,
         accent: 'var(--primary)',
         empty: 'Aucune tâche à afficher.'
+      };
+    }
+    if (drawer === 'arealis_today') {
+      return {
+        title: `À réaliser aujourd’hui (${todoToday.length})`,
+        items: todoToday,
+        accent: '#6B7280',
+        empty: 'Aucune tâche à réaliser aujourd’hui.'
       };
     }
     if (drawer === 'encours') {
@@ -2131,6 +2144,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   function renderStatsGrid() {
     return (
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:7,marginBottom:14}}>
+        <StatChip value={todoToday.length} label="À réaliser aujourd’hui" color="#6B7280" onClick={()=>toggle('arealis_today')} />
         <StatChip value={encours.length} label="En cours" color="#2563EB" onClick={()=>toggle('encours')} />
         <StatChip value={blocked.length} label="Bloquées" color="#DC2626" onClick={()=>toggle('bloque')} />
         <StatChip value={overdue.length} label="En retard" color="#EA580C" onClick={()=>toggle('retard')} />
@@ -3018,6 +3032,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const days = weekDays(weekOffset, true);
   const weekItems = shownData.filter(function(i){ return days.some(function(d){ return isTaskActiveOn(i,d); }); });
   const todayItems = shownData.filter(function(i){ return isTaskActiveOn(i,today); });
+  const todoTodayItems = shownData.filter(function(i){ return isTaskTodoToday(i); });
   const urgentItems = shownData.filter(function(i){ return isTaskLate(i) || i.status === 'bloque' || (i.prereq && i.prereq.trim()); });
   const allOrdered = [...shownData].sort(function(a,b){
     var rank = function(iv){ if (iv.status==='bloque') return 0; if (isTaskLate(iv)) return 1; if (iv.status==='encours') return 2; if (iv.status==='arealis') return 3; if (iv.status==='termine') return 5; return 9; };
@@ -3061,6 +3076,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const enc = baseData.filter(function(i){ return i.status === 'encours' && !isTaskFrozenToday(i); }).length;
   const bloc = baseData.filter(function(i){ return i.status === 'bloque'; }).length;
   const late = baseData.filter(function(i){ return isTaskLate(i); }).length;
+  const todoTodayCount = baseData.filter(function(i){ return isTaskTodoToday(i); }).length;
   const progress = pctDone(baseData);
   const reliability = calcReliability(baseData);
   const [reliabilityOpen, setReliabilityOpen] = useState(false);
@@ -3185,16 +3201,17 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
       {reliabilityOpen && <ReliabilityDetailEntreprise />}
 
       <div style={{display:'flex',gap:7,flexWrap:'wrap',marginBottom:12}}>
-        <MiniStat label="Terminées" value={`${done}/${total}`} color="#16A34A" />
+        <MiniStat label="À réaliser jour" value={todoTodayCount} color="#6B7280" />
         <MiniStat label="En cours" value={enc} color="#2563EB" />
         <MiniStat label="Bloquées" value={bloc} color="#DC2626" />
         <MiniStat label="Retard" value={late} color="#EA580C" />
+        <MiniStat label="Terminées" value={`${done}/${total}`} color="#16A34A" />
       </div>
 
-      <TaskSection title={`Aujourd’hui — ${todayItems.length}`} accentColor={accent.b}
-        subtitle="Les tâches à traiter maintenant, avec actions rapides."
-        items={todayItems.sort(function(a,b){ return (a.priority||3)-(b.priority||3); })}
-        empty="Aucune tâche prévue aujourd’hui." />
+      <TaskSection title={`À réaliser aujourd’hui — ${todoTodayItems.length}`} accentColor="#6B7280"
+        subtitle="Tâches prévues aujourd’hui qui ne sont pas encore démarrées."
+        items={todoTodayItems.sort(function(a,b){ return (a.priority||3)-(b.priority||3); })}
+        empty="Aucune tâche à réaliser aujourd’hui." />
 
       <TaskSection title={`Mes urgences — ${urgentItems.length}`} accentColor="#EA580C"
         subtitle="Retards, blocages et prérequis à lever."
