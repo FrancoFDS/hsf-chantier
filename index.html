@@ -946,10 +946,10 @@ function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null,
   return (
     <div onClick={onClick} style={{borderRadius:8,padding:'5px 7px 5px 9px',marginBottom:3,cursor:'pointer',
       background:bg,borderLeft:`3px solid ${hasCritical?ccColor:c.b}`,border:`1px solid ${ccBorder}`,borderLeftWidth:3,
-      borderLeftColor:hasCritical?ccColor:c.b,boxShadow:ccShadow,transition:'opacity .1s, transform .1s, box-shadow .15s',userSelect:'none',
+      borderLeftColor:hasCritical?ccColor:c.b,boxShadow:ccShadow,transition:'opacity .12s, box-shadow .15s',userSelect:'none',
       opacity:dimmed ? .34 : 1,filter:dimmed?'saturate(.65)':'none'}}
-      onMouseEnter={e=>{e.currentTarget.style.opacity=dimmed?'.5':'.82';e.currentTarget.style.transform='scale(1.01)';}}
-      onMouseLeave={e=>{e.currentTarget.style.opacity=dimmed?'.34':'1';e.currentTarget.style.transform='scale(1)';}}>
+      onMouseEnter={e=>{e.currentTarget.style.opacity=dimmed?'.5':'.90';}}
+      onMouseLeave={e=>{e.currentTarget.style.opacity=dimmed?'.34':'1';}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
         <span style={{fontFamily:"'DM Mono',monospace",fontSize:'8.5px',color:c.t,opacity:.7,fontWeight:600}}>
           {iv.task_number}
@@ -1504,37 +1504,61 @@ function criticalPathLinksForDay(links, dayStr) {
   });
 }
 function CriticalPathOverlay({ links, dayStr, isMulti }) {
-  var maxVisible = isMulti ? 2 : 3;
+  var maxVisible = isMulti ? 1 : 2;
   var visible = (links || []).slice(0, maxVisible);
   if (!visible.length) return null;
   return (
-    <div style={{position:'absolute',left:2,right:2,top:isMulti?1:2,pointerEvents:'none',zIndex:1}}>
-      {visible.map(function(link){
+    <div style={{position:'absolute',left:0,right:0,top:isMulti?1:2,pointerEvents:'none',zIndex:1}}>
+      {visible.map(function(link, idx){
         var color = link.color || '#EA580C';
-        var soft = rgbaCss(color, .22);
-        var shadowColor = rgbaCss(color, .18);
-        var startHere = dayStr === link.rangeStart;
-        var endHere = dayStr === link.rangeEnd;
-        var singleDay = startHere && endHere;
-        var left = startHere ? '42%' : 0;
-        var right = endHere ? '42%' : 0;
-        var arrowForward = link.direction !== 'reverse';
+        var lineBg = rgbaCss(color, .18);
+        var soft = rgbaCss(color, .10);
+        var sourceDay = link.from || link.rangeStart;
+        var targetDay = link.to || link.rangeEnd;
+        var forward = !sourceDay || !targetDay || sourceDay <= targetDay;
+        var startHere = dayStr === sourceDay;
+        var endHere = dayStr === targetDay;
+        var singleDay = sourceDay && targetDay && sourceDay === targetDay;
+        var top = isMulti ? 2 : (5 + idx * 16);
+        var h = isMulti ? 8 : 16;
+        var lineTop = isMulti ? 3 : 8;
+        var lineH = isMulti ? 2 : 3;
+        var startCut = isMulti ? '64%' : '68%';
+        var endCut = isMulti ? '64%' : '68%';
+        var left = 0;
+        var right = 0;
+        if (singleDay) { left = '34%'; right = '34%'; }
+        else if (forward) {
+          if (startHere) left = startCut;
+          if (endHere) right = endCut;
+        } else {
+          if (startHere) right = startCut;
+          if (endHere) left = endCut;
+        }
         var label = (link.chainLabel || 'CC') + ' · ' + (link.sourceCode || link.sourceId) + ' → ' + (link.targetCode || link.targetId);
+        var sourceDotStyle = forward
+          ? {position:'absolute',right:'30%',top:isMulti?1:5,width:isMulti?6:8,height:isMulti?6:8,borderRadius:'50%',background:'#fff',border:'2px solid '+color,boxShadow:'0 0 0 2px '+lineBg}
+          : {position:'absolute',left:'30%',top:isMulti?1:5,width:isMulti?6:8,height:isMulti?6:8,borderRadius:'50%',background:'#fff',border:'2px solid '+color,boxShadow:'0 0 0 2px '+lineBg};
+        var arrowStyle;
+        if (forward) {
+          arrowStyle = {position:'absolute',left:endHere?(isMulti?'33%':'31%'):'calc(100% - 8px)',top:isMulti?0:4,width:0,height:0,borderTop:(isMulti?4:5)+'px solid transparent',borderBottom:(isMulti?4:5)+'px solid transparent',borderLeft:(isMulti?7:9)+'px solid '+color};
+        } else {
+          arrowStyle = {position:'absolute',right:endHere?(isMulti?'33%':'31%'):'calc(100% - 8px)',top:isMulti?0:4,width:0,height:0,borderTop:(isMulti?4:5)+'px solid transparent',borderBottom:(isMulti?4:5)+'px solid transparent',borderRight:(isMulti?7:9)+'px solid '+color};
+        }
         return (
-          <div key={link.key} style={{position:'relative',height:isMulti?8:16,marginBottom:isMulti?0:2}}>
-            <div style={{position:'absolute',left:left,right:right,top:isMulti?3:8,height:isMulti?2:3,borderRadius:999,background:'repeating-linear-gradient(90deg, '+color+' 0 8px, '+soft+' 8px 13px)',boxShadow:'0 0 0 1px '+shadowColor}}></div>
-            {startHere && <div style={{position:'absolute',left:'calc(42% - 4px)',top:isMulti?1:5,width:isMulti?6:8,height:isMulti?6:8,borderRadius:'50%',background:color,boxShadow:'0 0 0 1px '+shadowColor}}></div>}
-            {startHere && !isMulti && (
-              <div style={{position:'absolute',left:4,top:-1,maxWidth:'calc(100% - 8px)',padding:'1px 5px',borderRadius:999,background:rgbaCss(color,.10),border:'1px solid '+rgbaCss(color,.30),color:color,fontSize:7,lineHeight:1.2,fontWeight:900,fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{label}</div>
-            )}
-            {singleDay && isMulti && <div style={{position:'absolute',left:'calc(50% - 7px)',top:0,fontSize:5.5,fontWeight:900,color:color,fontFamily:"'DM Mono',monospace"}}>{link.chainLabel || 'CC'}</div>}
-            {endHere && !singleDay && (
-              <div style={arrowForward ? {position:'absolute',right:0,top:isMulti?1:5,width:0,height:0,borderTop:(isMulti?3:4)+'px solid transparent',borderBottom:(isMulti?3:4)+'px solid transparent',borderLeft:(isMulti?6:8)+'px solid '+color} : {position:'absolute',left:0,top:isMulti?1:5,width:0,height:0,borderTop:(isMulti?3:4)+'px solid transparent',borderBottom:(isMulti?3:4)+'px solid transparent',borderRight:(isMulti?6:8)+'px solid '+color}}></div>
+          <div key={link.key} style={{position:'absolute',left:0,right:0,top:top,height:h}}>
+            <div style={{position:'absolute',left:left,right:right,top:lineTop,height:lineH,borderRadius:999,background:color,boxShadow:'0 0 0 2px '+lineBg}}></div>
+            <div style={{position:'absolute',left:left,right:right,top:lineTop + lineH + 1,height:1,borderRadius:999,background:soft}}></div>
+            {startHere && <div style={sourceDotStyle}></div>}
+            {endHere && !singleDay && <div style={arrowStyle}></div>}
+            {singleDay && <div style={{position:'absolute',left:'calc(50% - 10px)',top:isMulti?0:3,padding:isMulti?'0 2px':'1px 4px',borderRadius:999,background:rgbaCss(color,.10),border:'1px solid '+rgbaCss(color,.28),color:color,fontSize:isMulti?5.5:7,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{link.chainLabel || 'CC'}</div>}
+            {startHere && !isMulti && !singleDay && (
+              <div style={{position:'absolute',right:4,top:-2,maxWidth:'calc(70% - 8px)',padding:'1px 5px',borderRadius:999,background:'var(--surface)',border:'1px solid '+rgbaCss(color,.32),color:color,fontSize:7,lineHeight:1.2,fontWeight:900,fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',boxShadow:'var(--shadow)'}}>{label}</div>
             )}
           </div>
         );
       })}
-      {links.length > maxVisible && <div style={{fontSize:isMulti?5.5:6.5,fontWeight:900,color:'var(--muted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>+{links.length - maxVisible}</div>}
+      {links.length > maxVisible && <div style={{position:'absolute',right:3,top:isMulti?17:50,fontSize:isMulti?5.5:6.5,fontWeight:900,color:'var(--muted)',fontFamily:"'DM Mono',monospace"}}>+{links.length - maxVisible}</div>}
     </div>
   );
 }
@@ -2930,7 +2954,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const [taskHover, setTaskHover] = useState(null);
   const [showCriticalPath, setShowCriticalPath] = useState(true);
   const [criticalOnly, setCriticalOnly] = useState(false);
-  const [hoverCriticalChainId, setHoverCriticalChainId] = useState(null);
   const [pinnedCriticalChainId, setPinnedCriticalChainId] = useState(null);
 
   function compactTaskHoverPayload(ev, iv, zone, statusMeta) {
@@ -2987,7 +3010,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     });
     return out;
   }, [filtered, zones]);
-  const activeCriticalChainId = pinnedCriticalChainId || hoverCriticalChainId;
+  const activeCriticalChainId = pinnedCriticalChainId;
   const visibleCriticalChains = React.useMemo(function(){
     var out = [];
     (visibleZones || []).forEach(function(zone){
@@ -3027,7 +3050,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
               <button onClick={function(){
                   setShowCriticalPath(function(v){
                     var next = !v;
-                    if (!next) { setCriticalOnly(false); setHoverCriticalChainId(null); setPinnedCriticalChainId(null); }
+                    if (!next) { setCriticalOnly(false); setPinnedCriticalChainId(null); }
                     return next;
                   });
                 }}
@@ -3038,8 +3061,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                 style={{padding:'6px 10px',borderRadius:'999px',border:'1px solid '+(showCriticalPath && criticalOnly ? 'rgba(234,88,12,.35)' : 'var(--border)'),background:showCriticalPath && criticalOnly ? 'rgba(234,88,12,.10)' : 'transparent',color:showCriticalPath ? (criticalOnly ? '#9A3412' : 'var(--muted)') : 'var(--xmuted)',fontSize:11,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:showCriticalPath?'pointer':'not-allowed',opacity:showCriticalPath?1:.55}}>
                 CC seul
               </button>
-              {(activeCriticalChainId || pinnedCriticalChainId || hoverCriticalChainId) && (
-                <button onClick={function(){ setHoverCriticalChainId(null); setPinnedCriticalChainId(null); }}
+              {(activeCriticalChainId || pinnedCriticalChainId) && (
+                <button onClick={function(){ setPinnedCriticalChainId(null); }}
                   style={{padding:'6px 10px',borderRadius:'999px',border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>
                   Réinit focus
                 </button>
@@ -3245,6 +3268,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                       return !activeCriticalChainId || link.chainId === activeCriticalChainId;
                     });
                     const hasCriticalPath = showCriticalPath && cellCriticalLinks.length > 0;
+                    const ccCellColor = hasCriticalPath ? (cellCriticalLinks[0].color || '#EA580C') : '#EA580C';
+                    const ccBandH = isMulti ? 12 : Math.min(38, 8 + Math.min(cellCriticalLinks.length, 2) * 15);
 
                     return (
                       <td key={di}
@@ -3252,13 +3277,13 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                         style={{
                           position:'relative',
                           overflow:'hidden',
-                          padding:isMulti?(hasCriticalPath?8:0):(hasCriticalPath?10:2),
+                          padding:isMulti?(hasCriticalPath?ccBandH:0):(hasCriticalPath?ccBandH:2),
                           height:isMulti?'40px':'56px',
                           verticalAlign:'top',
                           borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                          background:hasCriticalPath ? 'linear-gradient(180deg, rgba(234,88,12,.09) 0px, rgba(234,88,12,.03) '+(isMulti?'10px':'12px')+', '+cellBg+' '+(isMulti?'10px':'12px')+')' : cellBg,
+                          background:hasCriticalPath ? 'linear-gradient(180deg, '+rgbaCss(ccCellColor,.10)+' 0px, '+rgbaCss(ccCellColor,.035)+' '+ccBandH+'px, '+cellBg+' '+ccBandH+'px)' : cellBg,
                           cursor:isAdmin&&!holiday?'pointer':'default',
-                          transition:'background .1s'}}>
+                          transition:'background .12s'}}>
                         {hasCriticalPath && <CriticalPathOverlay links={cellCriticalLinks} dayStr={ds} isMulti={isMulti} />}
                         {shown.map(function(iv){
                           if(isMulti){
@@ -3272,9 +3297,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                             var ccDimmed = !!(showCriticalPath && activeCriticalChainId && (!criticalInfo || criticalInfo.chainId !== activeCriticalChainId));
                             return (
                               <div key={iv.id}
-                                onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, _m)); if (criticalInfo && criticalInfo.chainId) setHoverCriticalChainId(criticalInfo.chainId);}}
+                                onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, _m));}}
                                 onMouseMove={function(e){setTaskHover(function(prev){return prev?Object.assign({},prev,{x:e.clientX,y:e.clientY}):compactTaskHoverPayload(e,iv,zone,_m);});}}
-                                onMouseLeave={function(){setTaskHover(null); setHoverCriticalChainId(null);}}
+                                onMouseLeave={function(){setTaskHover(null);}}
                                 onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
                                 style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
                                   background:_c.bg,borderLeft:'2px solid '+(ccLinked?ccColor:_c.b),border:'1px solid '+(ccLinked?rgbaCss(ccColor,.32):'transparent'),boxShadow:ccLinked?('0 0 0 1px '+rgbaCss(ccColor, ccFocused ? .22 : .14)+' inset'):'none',overflow:'hidden',opacity:ccDimmed ? .28 : 1,filter:ccDimmed?'saturate(.65)':'none'}}>
@@ -3296,9 +3321,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                           }
                           return (
                             <div key={iv.id}
-                              onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, STATUS_META[iv.status]||STATUS_META.arealis)); var role = zoneCritical.roles[iv.id] || null; if (role && role.chainId) setHoverCriticalChainId(role.chainId);}}
+                              onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, STATUS_META[iv.status]||STATUS_META.arealis));}}
                               onMouseMove={function(e){setTaskHover(function(prev){return prev?Object.assign({},prev,{x:e.clientX,y:e.clientY}):compactTaskHoverPayload(e,iv,zone,STATUS_META[iv.status]||STATUS_META.arealis);});}}
-                              onMouseLeave={function(){setTaskHover(null); setHoverCriticalChainId(null);}}>
+                              onMouseLeave={function(){setTaskHover(null);}}>
                               <TaskCard iv={iv} trades={trades} data={data} isDark={isDark}
                                 criticalPath={showCriticalPath ? (zoneCritical.roles[iv.id] || null) : null}
                                 criticalVisible={showCriticalPath}
