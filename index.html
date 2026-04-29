@@ -4721,25 +4721,76 @@ function FrozenDaysField({ form, set }) {
 
 
 function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, zones, trades, currentId, onClose }) {
-  const [weekOffset, setWeekOffset] = React.useState(0);
+  const currentTask = (data || []).find(function(t){ return t && t.id === currentId; }) || null;
+  const focusDate = currentTask && (currentTask.start || currentTask.end) ? (currentTask.start || currentTask.end) : dateStr(new Date());
+
+  function mondayOfDate(ds) {
+    var d = ds ? new Date(ds + 'T00:00:00') : new Date();
+    d.setHours(0,0,0,0);
+    var day = d.getDay();
+    var diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+  function offsetForDate(ds) {
+    var base = getMonday(0);
+    var target = mondayOfDate(ds);
+    return Math.round((target - base) / (7 * 24 * 3600 * 1000));
+  }
+
+  const [weekOffset, setWeekOffset] = React.useState(function(){ return offsetForDate(focusDate); });
+  const [viewMode, setViewMode] = React.useState('1s');
+  const [showWeekends, setShowWeekends] = React.useState(false);
   const [search, setSearch] = React.useState('');
-  const ids = normalizeTaskLinkIds(selectedIds);
+  const [draftIds, setDraftIds] = React.useState(function(){ return normalizeTaskLinkIds(selectedIds); });
+
+  React.useEffect(function(){
+    if (!open) return;
+    setDraftIds(normalizeTaskLinkIds(selectedIds));
+    setViewMode('1s');
+    setShowWeekends(false);
+    setSearch('');
+    setWeekOffset(offsetForDate(focusDate));
+  }, [open, currentId, focusDate]);
+
   if (!open) return null;
 
-  const days = multiWeekDays(weekOffset, 2, false);
+  var maxWeeks = 1;
+  if (viewMode === 'tout') {
+    var startMonday = getMonday(weekOffset);
+    (zones || []).forEach(function(z){
+      if (z && z.deadline) {
+        var d = new Date(z.deadline + 'T00:00:00');
+        var w = Math.ceil((d - startMonday) / (7 * 24 * 3600 * 1000)) + 1;
+        if (w > maxWeeks) maxWeeks = w;
+      }
+    });
+    (data || []).forEach(function(iv){
+      if (iv && iv.end) {
+        var d = new Date(iv.end + 'T00:00:00');
+        var w = Math.ceil((d - startMonday) / (7 * 24 * 3600 * 1000)) + 1;
+        if (w > maxWeeks) maxWeeks = w;
+      }
+    });
+    maxWeeks = Math.max(1, Math.min(maxWeeks, 16));
+  }
+  const weeks = viewMode === 'tout' ? maxWeeks : viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
+  const days = multiWeekDays(weekOffset, weeks, !!showWeekends);
   const q = search.trim().toLowerCase();
+  const ids = normalizeTaskLinkIds(draftIds);
   const visibleTasks = (data || []).filter(function(t){
     if (!t || t.id === currentId || !t.task_number) return false;
     if (!q) return true;
     return String(t.task_number||'').toLowerCase().includes(q)
       || String(t.company||'').toLowerCase().includes(q)
       || String(t.task||'').toLowerCase().includes(q)
-      || String(t.prereq||'').toLowerCase().includes(q);
+      || String(t.prereq||'').toLowerCase().includes(q)
+      || String(t.notes||'').toLowerCase().includes(q);
   });
 
   function toggle(id) {
     var next = ids.includes(id) ? ids.filter(function(x){ return x !== id; }) : ids.concat([id]);
-    onChange(uniqueTaskIds(next));
+    setDraftIds(uniqueTaskIds(next));
   }
   function selectedTasks() {
     return ids.map(function(id){ return (data || []).find(function(t){ return t.id === id; }); }).filter(Boolean);
@@ -4749,6 +4800,29 @@ function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, z
       return iv.zone === zone.id && isTaskActiveOn(iv, day);
     }).sort(function(a,b){ return (a.start||'').localeCompare(b.start||'') || (a.task_number||'').localeCompare(b.task_number||''); });
   }
+  function jumpToTaskDate() {
+    setWeekOffset(offsetForDate(focusDate));
+  }
+  function goToDate(value) {
+    if (!value) return;
+    setWeekOffset(offsetForDate(value));
+  }
+  function validateSelection() {
+    onChange(uniqueTaskIds(ids));
+    onClose();
+  }
+  function cancelSelection() {
+    setDraftIds(normalizeTaskLinkIds(selectedIds));
+    onClose();
+  }
+
+  const periodLabel = days.length ? (dateFR(days[0]) + ' – ' + dateFR(days[days.length - 1])) : '';
+  const viewButtons = [
+    {key:'1s', label:'1S'},
+    {key:'2s', label:'2S'},
+    {key:'3s', label:'3S'},
+    {key:'tout', label:'Tout'}
+  ];
 
   return (
     <div style={{position:'fixed',inset:0,zIndex:420,background:'rgba(0,0,0,.55)',display:'flex',flexDirection:'column'}}>
@@ -4756,33 +4830,63 @@ function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, z
         <div style={{minWidth:190,flex:'1 1 260px'}}>
           <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",letterSpacing:'.09em',textTransform:'uppercase',color:'rgba(255,255,255,.55)'}}>Sélection sur planning</div>
           <div style={{fontSize:15,fontWeight:800}}>{label}</div>
-          <div style={{fontSize:10,color:'rgba(255,255,255,.6)',fontFamily:"'DM Mono',monospace",marginTop:2}}>Cliquer sur une tâche pour l’ajouter ou la retirer.</div>
+          <div style={{fontSize:10,color:'rgba(255,255,255,.6)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
+            Cliquer sur une tâche pour l’ajouter ou la retirer. Ouverture calée sur {currentTask ? (currentTask.task_number || 'la tâche') : 'la tâche'} · {fmtDate(focusDate)}.
+          </div>
         </div>
+
         <div style={{display:'flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',borderRadius:8,padding:'4px 6px'}}>
           <button type="button" onClick={function(){setWeekOffset(function(o){return o-1;});}} style={hdrBtnStyle}>‹</button>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'rgba(255,255,255,.75)',minWidth:115,textAlign:'center'}}>{dateFR(days[0])} – {dateFR(days[days.length-1])}</span>
+          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'rgba(255,255,255,.75)',minWidth:115,textAlign:'center'}}>{periodLabel}</span>
           <button type="button" onClick={function(){setWeekOffset(function(o){return o+1;});}} style={hdrBtnStyle}>›</button>
         </div>
+
+        <div style={{display:'flex',alignItems:'center',gap:4,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',borderRadius:8,padding:3}}>
+          {viewButtons.map(function(v){
+            return <button key={v.key} type="button" onClick={function(){setViewMode(v.key);}} style={{...hdrBtnStyle,height:24,minWidth:v.key==='tout'?44:32,borderRadius:6,background:viewMode===v.key?'rgba(255,255,255,.92)':'transparent',color:viewMode===v.key?'var(--hdr)':'rgba(255,255,255,.70)',border:'1px solid '+(viewMode===v.key?'rgba(255,255,255,.9)':'transparent'),fontFamily:"'DM Mono',monospace",fontWeight:900}}>{v.label}</button>;
+          })}
+        </div>
+
+        <button type="button" onClick={function(){setShowWeekends(function(v){return !v;});}} title={showWeekends?'Masquer les week-ends':'Afficher les week-ends'}
+          style={{...hdrBtnStyle,height:30,minWidth:42,borderRadius:7,background:showWeekends?'rgba(96,165,250,.22)':'rgba(255,255,255,.08)',border:'1px solid '+(showWeekends?'rgba(147,197,253,.55)':'rgba(255,255,255,.14)'),fontFamily:"'DM Mono',monospace",color:showWeekends?'#BFDBFE':'rgba(255,255,255,.7)'}}>
+          {showWeekends?'7J':'5J'}
+        </button>
+
+        <button type="button" onClick={jumpToTaskDate} style={{...hdrBtnStyle,height:30,borderRadius:7,minWidth:84,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',fontFamily:"'DM Mono',monospace"}}>Date tâche</button>
+
+        <label style={{display:'flex',alignItems:'center',gap:5,height:30,padding:'0 7px',borderRadius:7,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',fontSize:10,color:'rgba(255,255,255,.62)',fontFamily:"'DM Mono',monospace"}}>
+          Aller au
+          <input type="date" defaultValue={focusDate} onChange={function(e){goToDate(e.target.value);}} style={{height:22,border:'none',borderRadius:5,padding:'0 5px',fontSize:10,fontFamily:"'DM Mono',monospace",outline:'none'}} />
+        </label>
+
         <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Filtrer code, entreprise, tâche…" style={{height:30,flex:'1 1 210px',border:'1px solid rgba(255,255,255,.20)',borderRadius:7,background:'rgba(255,255,255,.08)',color:'#fff',padding:'0 10px',fontSize:12,outline:'none'}} />
-        <button type="button" onClick={onClose} style={{...hdrBtnStyle,background:'rgba(255,255,255,.92)',color:'var(--hdr)',borderRadius:7,minWidth:76,height:30,fontWeight:900}}>Valider</button>
+
+        <button type="button" onClick={validateSelection} style={{...hdrBtnStyle,background:'rgba(255,255,255,.92)',color:'var(--hdr)',borderRadius:7,minWidth:76,height:30,fontWeight:900}}>Valider</button>
+        <button type="button" onClick={cancelSelection} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',color:'rgba(255,255,255,.84)',border:'1px solid rgba(255,255,255,.18)',borderRadius:7,minWidth:76,height:30,fontWeight:900}}>Annuler</button>
       </div>
 
       <div style={{background:'var(--surface)',borderBottom:'1px solid var(--border)',padding:'8px 12px',display:'flex',gap:6,alignItems:'center',overflowX:'auto'}}>
         <span style={{fontSize:11,color:'var(--muted)',fontWeight:800,whiteSpace:'nowrap'}}>Sélection :</span>
         {selectedTasks().length ? selectedTasks().map(function(t){
-          return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'4px 8px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer',whiteSpace:'nowrap'}}>{t.task_number || t.id} ×</button>;
+          return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} title="Retirer" style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'4px 8px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer',whiteSpace:'nowrap'}}>{t.task_number || t.id} ×</button>;
         }) : <span style={{fontSize:11,color:'var(--xmuted)'}}>Aucune tâche sélectionnée.</span>}
+        <button type="button" onClick={function(){setDraftIds([]);}} disabled={!ids.length} style={{marginLeft:'auto',border:'1px solid var(--border)',background:ids.length?'var(--surface-2)':'transparent',color:ids.length?'var(--muted)':'var(--xmuted)',borderRadius:7,padding:'5px 8px',fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:ids.length?'pointer':'not-allowed',whiteSpace:'nowrap'}}>Vider la sélection</button>
       </div>
 
       <div style={{flex:1,overflow:'auto',background:'var(--bg)',padding:10}}>
-        <div style={{minWidth:860,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',boxShadow:'var(--shadow)',overflow:'hidden'}}>
+        <div style={{minWidth:Math.max(860, 92 + days.length * 130),background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',boxShadow:'var(--shadow)',overflow:'hidden'}}>
           <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
-            <colgroup><col style={{width:92}} />{days.map(function(_,i){return <col key={i} />;})}</colgroup>
+            <colgroup><col style={{width:92}} />{days.map(function(_,i){return <col key={i} style={{width:130}} />;})}</colgroup>
             <thead>
               <tr style={{background:'var(--surface-2)',borderBottom:'2px solid var(--border)'}}>
-                <th style={{padding:'8px 6px',fontSize:10,color:'var(--muted)',fontFamily:"'DM Mono',monospace",textAlign:'left'}}>Zone</th>
+                <th style={{padding:'8px 6px',fontSize:10,color:'var(--muted)',fontFamily:"'DM Mono',monospace",textAlign:'left',position:'sticky',left:0,zIndex:5,background:'var(--surface-2)'}}>Zone</th>
                 {days.map(function(d){
-                  return <th key={dateStr(d)} style={{padding:'7px 4px',textAlign:'center',borderLeft:'1px solid var(--border)',fontSize:10,color:isToday(d)?'var(--primary)':'var(--muted)',fontFamily:"'DM Mono',monospace"}}>{['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}<br/><b>{String(d.getDate()).padStart(2,'0')}/{String(d.getMonth()+1).padStart(2,'0')}</b></th>;
+                  var ds = dateStr(d);
+                  var isFocus = ds === focusDate;
+                  return <th key={ds} style={{padding:'7px 4px',textAlign:'center',borderLeft:'1px solid var(--border)',fontSize:10,color:isFocus?'#9A3412':isToday(d)?'var(--primary)':'var(--muted)',fontFamily:"'DM Mono',monospace",background:isFocus?'rgba(234,88,12,.12)':isToday(d)?'var(--primary-l)':'var(--surface-2)'}}>
+                    {['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}<br/><b>{String(d.getDate()).padStart(2,'0')}/{String(d.getMonth()+1).padStart(2,'0')}</b>
+                    {isFocus && <div style={{fontSize:7,marginTop:2,fontWeight:900,color:'#9A3412'}}>DATE TÂCHE</div>}
+                  </th>;
                 })}
               </tr>
             </thead>
@@ -4790,13 +4894,15 @@ function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, z
               {(zones || []).map(function(zone){
                 var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
                 return <tr key={zone.id} style={{borderBottom:'1px solid var(--border)'}}>
-                  <td style={{padding:'8px 6px',borderRight:'3px solid '+fc,background:fc+'12',verticalAlign:'top'}}>
+                  <td style={{padding:'8px 6px',borderRight:'3px solid '+fc,background:fc+'12',verticalAlign:'top',position:'sticky',left:0,zIndex:4}}>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:fc}}>{zone.short}</div>
                     <div style={{fontSize:9,color:'var(--xmuted)',marginTop:2}}>{zone.floor}</div>
                   </td>
                   {days.map(function(day){
+                    var ds = dateStr(day);
                     var cards = cellTasks(zone, day);
-                    return <td key={zone.id+'_'+dateStr(day)} style={{height:74,verticalAlign:'top',padding:4,borderLeft:'1px solid var(--border)',background:isToday(day)?'var(--primary-l)':'transparent'}}>
+                    var isFocus = ds === focusDate;
+                    return <td key={zone.id+'_'+ds} style={{height:74,verticalAlign:'top',padding:4,borderLeft:'1px solid var(--border)',background:isFocus?'rgba(234,88,12,.08)':isToday(day)?'var(--primary-l)':'transparent'}}>
                       {cards.length ? cards.map(function(iv){
                         var tr = (trades || []).find(function(t){ return t.id === iv.trade; });
                         var col = getTC(tr ? tr.color : 'blue');
@@ -4808,6 +4914,7 @@ function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, z
                           </div>
                           <div style={{fontSize:10,fontWeight:800,color:col.t,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.company}</div>
                           <div style={{fontSize:9,color:col.t,opacity:.8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
+                          <div style={{fontSize:8,color:active?'var(--primary)':'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>{fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}</div>
                         </button>;
                       }) : <div style={{fontSize:9,color:'var(--xmuted)',textAlign:'center',paddingTop:18}}>—</div>}
                     </td>;
