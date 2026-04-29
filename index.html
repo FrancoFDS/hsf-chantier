@@ -4385,6 +4385,23 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
 
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
+  function getCompanyNameForTrade(tradeId) {
+    if (!tradeId) return '';
+    var sourceCompanies = companies && companies.length ? companies : COMPANIES;
+    var match = sourceCompanies.find(function(c){ return (c.tradeId || c.trade_id) === tradeId; });
+    return match ? match.name : '';
+  }
+
+  function handleTradeChange(tradeId) {
+    setForm(function(f) {
+      var autoCompany = getCompanyNameForTrade(tradeId);
+      return Object.assign({}, f, {
+        trade: tradeId,
+        company: autoCompany || ''
+      });
+    });
+  }
+
   // New task default: if a task crosses a weekend, Saturday/Sunday are frozen automatically.
   // Example: Friday → Monday = Saturday + Sunday are excluded from worked days.
   useEffect(()=>{
@@ -4450,9 +4467,9 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         </div>
         <FrozenDaysField form={form} set={set} />
         <Field label="Corps de métier *">
-          <Select value={form.trade||''} onChange={e=>set('trade',e.target.value)}>
+          <Select value={form.trade||''} onChange={e=>handleTradeChange(e.target.value)}>
             <option value="">Sélectionner…</option>
-            {trades.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+            {trades.map(t=><option key={t.id} value={t.id}>{t.short ? t.short+' — '+t.name : t.name}</option>)}
           </Select>
         </Field>
         <Field label="Entreprise *">
