@@ -1008,7 +1008,7 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil, syncing, busyActions = {}, showWeekends = false, onToggleWeekends }) {
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, notifications = [], viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil, syncing, busyActions = {}, showWeekends = false, onToggleWeekends }) {
   var maxWeeks = 1;
   if (viewMode === 'tout') {
     var nowHdr = new Date(); nowHdr.setHours(0,0,0,0);
@@ -1067,6 +1067,17 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
   const statusLabel = planningValidated
     ? 'Validé' + (planningValidUntil ? ' jusqu’au ' + fmtDate(planningValidUntil) : '')
     : planningLocked ? 'Verrouillé' : '';
+
+  const unreadPrereqMentionCount = (notifications || []).filter(function(n){
+    return !n.read && /prérequis|pré-requis|point bloquant/i.test(String(n.message || ''));
+  }).length;
+  const activePrereqAssignments = (data || []).filter(function(iv){
+    if (!iv || iv.status === 'termine') return false;
+    if (!iv.prereq || !String(iv.prereq).trim() || !iv.prereq_company) return false;
+    if (session && session.role === 'company') return iv.prereq_company === session.company?.name;
+    return true;
+  }).length;
+  const showPrereqHeaderBanner = unreadPrereqMentionCount > 0 || activePrereqAssignments > 0;
 
   return (
     <header style={{background:'var(--hdr)',color:'var(--hdr-text)',padding:'10px 14px 0',flexShrink:0,
@@ -1208,6 +1219,26 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
           </button>
         </div>
       </div>
+
+      {showPrereqHeaderBanner && (
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,
+          background:'rgba(124,58,237,.18)',border:'1px solid rgba(167,139,250,.36)',
+          color:'#DDD6FE',borderRadius:8,padding:'6px 9px',marginBottom:8}}>
+          <div style={{fontSize:11,fontWeight:800,lineHeight:1.25}}>
+            ⚠ {session?.role==='company'?'Vos prérequis / points bloquants':'Prérequis / points bloquants'}
+          </div>
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,background:'rgba(255,255,255,.10)',border:'1px solid rgba(255,255,255,.16)',borderRadius:20,padding:'2px 7px'}}>
+              {activePrereqAssignments} actif{activePrereqAssignments>1?'s':''}
+            </span>
+            {unreadPrereqMentionCount > 0 && (
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,background:'rgba(220,38,38,.22)',border:'1px solid rgba(248,113,113,.45)',borderRadius:20,padding:'2px 7px'}}>
+                {unreadPrereqMentionCount} notif. non lue{unreadPrereqMentionCount>1?'s':''}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Trade filter chips */}
       <FilterChips trades={trades} filter={filter} onFilter={onFilter} />
@@ -1394,11 +1425,11 @@ function Select({ value, onChange, children, ...rest }) {
     onBlur={e=>e.target.style.borderColor='var(--border)'}
     {...rest}>{children}</select>;
 }
-function Textarea({ value, onChange, placeholder, rows=3 }) {
+function Textarea({ value, onChange, placeholder, rows=3, fixed=false }) {
   return <textarea value={value} onChange={onChange} placeholder={placeholder} rows={rows}
     style={{width:'100%',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
       fontSize:14,color:'var(--text)',background:'var(--surface)',fontFamily:"'DM Sans',sans-serif",
-      outline:'none',resize:'vertical',lineHeight:1.5}}
+      outline:'none',resize:fixed?'none':'vertical',lineHeight:1.5}}
     onFocus={e=>e.target.style.borderColor='var(--primary)'}
     onBlur={e=>e.target.style.borderColor='var(--border)'} />;
 }
@@ -4440,8 +4471,130 @@ function FrozenDaysField({ form, set }) {
 
 
 
-function TaskLinksPicker({ label, hint, selectedIds, onChange, data, currentId }) {
+function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, zones, trades, currentId, onClose }) {
+  const [weekOffset, setWeekOffset] = React.useState(0);
+  const [search, setSearch] = React.useState('');
+  const [draftIds, setDraftIds] = React.useState([]);
+
+  React.useEffect(function(){
+    if (open) {
+      setDraftIds(normalizeTaskLinkIds(selectedIds));
+      setSearch('');
+    }
+  }, [open, selectedIds]);
+
+  const ids = normalizeTaskLinkIds(draftIds);
+  if (!open) return null;
+
+  const days = multiWeekDays(weekOffset, 2, false);
+  const q = search.trim().toLowerCase();
+  const visibleTasks = (data || []).filter(function(t){
+    if (!t || t.id === currentId || !t.task_number) return false;
+    if (!q) return true;
+    return String(t.task_number||'').toLowerCase().includes(q)
+      || String(t.company||'').toLowerCase().includes(q)
+      || String(t.task||'').toLowerCase().includes(q)
+      || String(t.prereq||'').toLowerCase().includes(q);
+  });
+
+  function toggle(id) {
+    var next = ids.includes(id) ? ids.filter(function(x){ return x !== id; }) : ids.concat([id]);
+    setDraftIds(uniqueTaskIds(next));
+  }
+  function selectedTasks() {
+    return ids.map(function(id){ return (data || []).find(function(t){ return t.id === id; }); }).filter(Boolean);
+  }
+  function cellTasks(zone, day) {
+    return visibleTasks.filter(function(iv){
+      return iv.zone === zone.id && isTaskActiveOn(iv, day);
+    }).sort(function(a,b){ return (a.start||'').localeCompare(b.start||'') || (a.task_number||'').localeCompare(b.task_number||''); });
+  }
+  function validateSelection() {
+    onChange(uniqueTaskIds(ids));
+    onClose();
+  }
+  function cancelSelection() {
+    setDraftIds(normalizeTaskLinkIds(selectedIds));
+    onClose();
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:420,background:'rgba(0,0,0,.55)',display:'flex',flexDirection:'column'}}>
+      <div style={{background:'var(--hdr)',color:'var(--hdr-text)',padding:'10px 12px',boxShadow:'0 2px 16px rgba(0,0,0,.35)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <div style={{minWidth:190,flex:'1 1 260px'}}>
+          <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",letterSpacing:'.09em',textTransform:'uppercase',color:'rgba(255,255,255,.55)'}}>Sélection sur planning</div>
+          <div style={{fontSize:15,fontWeight:800}}>{label}</div>
+          <div style={{fontSize:10,color:'rgba(255,255,255,.6)',fontFamily:"'DM Mono',monospace",marginTop:2}}>Cliquer sur une tâche pour l’ajouter ou la retirer. Valider pour revenir à la fiche tâche.</div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',borderRadius:8,padding:'4px 6px'}}>
+          <button type="button" onClick={function(){setWeekOffset(function(o){return o-1;});}} style={hdrBtnStyle}>‹</button>
+          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'rgba(255,255,255,.75)',minWidth:115,textAlign:'center'}}>{dateFR(days[0])} – {dateFR(days[days.length-1])}</span>
+          <button type="button" onClick={function(){setWeekOffset(function(o){return o+1;});}} style={hdrBtnStyle}>›</button>
+        </div>
+        <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Filtrer code, entreprise, tâche…" style={{height:30,flex:'1 1 210px',border:'1px solid rgba(255,255,255,.20)',borderRadius:7,background:'rgba(255,255,255,.08)',color:'#fff',padding:'0 10px',fontSize:12,outline:'none'}} />
+        <button type="button" onClick={cancelSelection} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',color:'#fff',border:'1px solid rgba(255,255,255,.24)',borderRadius:7,minWidth:78,height:30,fontWeight:900}}>Annuler</button>
+        <button type="button" onClick={validateSelection} style={{...hdrBtnStyle,background:'rgba(255,255,255,.92)',color:'var(--hdr)',borderRadius:7,minWidth:76,height:30,fontWeight:900}}>Valider</button>
+      </div>
+
+      <div style={{background:'var(--surface)',borderBottom:'1px solid var(--border)',padding:'8px 12px',display:'flex',gap:6,alignItems:'center',overflowX:'auto'}}>
+        <span style={{fontSize:11,color:'var(--muted)',fontWeight:800,whiteSpace:'nowrap'}}>Sélection :</span>
+        {selectedTasks().length ? selectedTasks().map(function(t){
+          return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} title="Retirer cette tâche" style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'4px 8px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer',whiteSpace:'nowrap'}}>{t.task_number || t.id} ×</button>;
+        }) : <span style={{fontSize:11,color:'var(--xmuted)'}}>Aucune tâche sélectionnée.</span>}
+        {ids.length > 0 && <button type="button" onClick={function(){setDraftIds([]);}} style={{border:'1px solid var(--danger)',background:'var(--danger-l)',color:'var(--danger)',borderRadius:20,padding:'4px 9px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer',whiteSpace:'nowrap'}}>Vider la sélection</button>}
+      </div>
+
+      <div style={{flex:1,overflow:'auto',background:'var(--bg)',padding:10}}>
+        <div style={{minWidth:860,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',boxShadow:'var(--shadow)',overflow:'hidden'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
+            <colgroup><col style={{width:92}} />{days.map(function(_,i){return <col key={i} />;})}</colgroup>
+            <thead>
+              <tr style={{background:'var(--surface-2)',borderBottom:'2px solid var(--border)'}}>
+                <th style={{padding:'8px 6px',fontSize:10,color:'var(--muted)',fontFamily:"'DM Mono',monospace",textAlign:'left'}}>Zone</th>
+                {days.map(function(d){
+                  return <th key={dateStr(d)} style={{padding:'7px 4px',textAlign:'center',borderLeft:'1px solid var(--border)',fontSize:10,color:isToday(d)?'var(--primary)':'var(--muted)',fontFamily:"'DM Mono',monospace"}}>{['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}<br/><b>{String(d.getDate()).padStart(2,'0')}/{String(d.getMonth()+1).padStart(2,'0')}</b></th>;
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {(zones || []).map(function(zone){
+                var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
+                return <tr key={zone.id} style={{borderBottom:'1px solid var(--border)'}}>
+                  <td style={{padding:'8px 6px',borderRight:'3px solid '+fc,background:fc+'12',verticalAlign:'top'}}>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:fc}}>{zone.short}</div>
+                    <div style={{fontSize:9,color:'var(--xmuted)',marginTop:2}}>{zone.floor}</div>
+                  </td>
+                  {days.map(function(day){
+                    var cards = cellTasks(zone, day);
+                    return <td key={zone.id+'_'+dateStr(day)} style={{height:74,verticalAlign:'top',padding:4,borderLeft:'1px solid var(--border)',background:isToday(day)?'var(--primary-l)':'transparent'}}>
+                      {cards.length ? cards.map(function(iv){
+                        var tr = (trades || []).find(function(t){ return t.id === iv.trade; });
+                        var col = getTC(tr ? tr.color : 'blue');
+                        var active = ids.includes(iv.id);
+                        return <button key={iv.id} type="button" onClick={function(){toggle(iv.id);}} style={{width:'100%',display:'block',textAlign:'left',border:'1px solid '+(active?'var(--primary)':col.b+'35'),borderLeft:'4px solid '+(active?'var(--primary)':col.b),background:active?'var(--primary-l)':col.bg,borderRadius:7,padding:'5px 6px',marginBottom:4,cursor:'pointer',fontFamily:"'DM Sans',sans-serif",boxShadow:active?'0 0 0 1px var(--primary) inset':'none'}}>
+                          <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
+                            <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,fontWeight:900,color:active?'var(--primary)':col.t}}>{iv.task_number}</span>
+                            <span style={{fontSize:10,fontWeight:900,color:active?'var(--primary)':col.t}}>{active?'✓':''}</span>
+                          </div>
+                          <div style={{fontSize:10,fontWeight:800,color:col.t,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.company}</div>
+                          <div style={{fontSize:9,color:col.t,opacity:.8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{iv.task}</div>
+                        </button>;
+                      }) : <div style={{fontSize:9,color:'var(--xmuted)',textAlign:'center',paddingTop:18}}>—</div>}
+                    </td>;
+                  })}
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskLinksPicker({ label, hint, selectedIds, onChange, data, zones, trades, currentId }) {
   var [open, setOpen] = React.useState(false);
+  var [planningOpen, setPlanningOpen] = React.useState(false);
   var [search, setSearch] = React.useState('');
   var ids = normalizeTaskLinkIds(selectedIds);
   var selected = ids.map(function(id){ return (data || []).find(function(t){ return t.id === id; }); }).filter(Boolean);
@@ -4454,10 +4607,14 @@ function TaskLinksPicker({ label, hint, selectedIds, onChange, data, currentId }
     <div style={{border:'1px solid var(--border)',background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:10,marginBottom:13}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:7}}>
         <div><div style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{label}</div>{hint&&<div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>{hint}</div>}</div>
-        <button type="button" onClick={function(){setOpen(!open);}} style={{...miniBtn,background:open?'var(--primary)':'var(--surface)',color:open?'#fff':'var(--muted)',borderColor:open?'var(--primary)':'var(--border)'}}>{open?'Fermer':'Sélection planning'}</button>
+        <div style={{display:'flex',gap:5,flexShrink:0}}>
+          <button type="button" onClick={function(){setOpen(!open);}} style={{...miniBtn,background:open?'var(--primary)':'var(--surface)',color:open?'#fff':'var(--muted)',borderColor:open?'var(--primary)':'var(--border)'}}>{open?'Fermer':'Liste'}</button>
+          <button type="button" onClick={function(){setPlanningOpen(true);}} style={{...miniBtn,background:'var(--surface)',color:'var(--primary)',borderColor:'var(--primary)'}}>Vue planning</button>
+        </div>
       </div>
-      {selected.length>0 ? <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:open?8:0}}>{selected.map(function(t){return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} title="Retirer" style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'3px 8px',fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>{t.task_number||t.id} ×</button>;})}</div> : <div style={{fontSize:11,color:'var(--xmuted)',marginBottom:open?8:0}}>Aucune tâche sélectionnée.</div>}
+      {selected.length>0 ? <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:open?8:0}}>{selected.map(function(t){return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} title="Retirer cette tâche" style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'3px 8px',fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>{t.task_number||t.id} ×</button>;})}<button type="button" onClick={function(){onChange([]);}} title="Retirer tous les liens sélectionnés" style={{border:'1px solid var(--danger)',background:'var(--danger-l)',color:'var(--danger)',borderRadius:20,padding:'3px 8px',fontSize:10,fontWeight:900,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>Tout retirer</button></div> : <div style={{fontSize:11,color:'var(--xmuted)',marginBottom:open?8:0}}>Aucune tâche sélectionnée.</div>}
       {open&&<div><Input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Rechercher par code, entreprise ou tâche…" style={{fontSize:12,padding:'8px 10px',marginBottom:8}} /><div style={{maxHeight:220,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',background:'var(--surface)'}}>{candidates.length===0?<div style={{padding:10,fontSize:12,color:'var(--muted)'}}>Aucune tâche disponible.</div>:candidates.map(function(t){var active=ids.includes(t.id);return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} style={{width:'100%',display:'flex',alignItems:'flex-start',gap:8,textAlign:'left',padding:'8px 10px',border:'none',borderBottom:'1px solid var(--border)',background:active?'var(--primary-l)':'transparent',cursor:'pointer',fontFamily:"'DM Sans',sans-serif"}}><span style={{width:16,height:16,borderRadius:4,border:'1px solid '+(active?'var(--primary)':'var(--border-s)'),background:active?'var(--primary)':'var(--surface)',color:'#fff',fontSize:11,lineHeight:'16px',textAlign:'center',flexShrink:0}}>{active?'✓':''}</span><span style={{minWidth:0}}><span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:active?'var(--primary)':'var(--xmuted)',marginRight:6}}>{t.task_number}</span><span style={{fontSize:11,fontWeight:800,color:'var(--text)'}}>{t.company}</span><span style={{display:'block',fontSize:11,color:'var(--muted)',lineHeight:1.35,marginTop:2,overflow:'hidden',textOverflow:'ellipsis'}}>{t.task}</span><span style={{display:'block',fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>{fmtDate(t.start)}{t.end&&t.end!==t.start?' → '+fmtDate(t.end):''}</span></span></button>;})}</div></div>}
+      <TaskPlanningPickerOverlay open={planningOpen} label={label} selectedIds={ids} onChange={onChange} data={data} zones={zones || []} trades={trades || []} currentId={currentId} onClose={function(){setPlanningOpen(false);}} />
     </div>
   );
 }
@@ -4600,7 +4757,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
 
         <Field label="Prérequis / Point bloquant" hint="optionnel">
           <Textarea value={form.prereq||''} onChange={e=>set('prereq',e.target.value)}
-            placeholder="ex : Libérer le matériel de la zone" rows={2} />
+            placeholder="ex : Libérer le matériel de la zone" rows={2} fixed={true} />
         </Field>
         <Field label="Entreprise concernée par ce prérequis" hint="optionnel">
           <Select value={form.prereq_company||''} onChange={e=>set('prereq_company',e.target.value)}>
@@ -4611,10 +4768,14 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         {!String(form.prereq||'').trim() && form.prereq_company && (
           <div style={{fontSize:11,color:'var(--xmuted)',marginTop:-8,marginBottom:12,fontFamily:"'DM Mono',monospace"}}>L’entreprise sélectionnée ne sera pas sauvegardée tant qu’aucune note n’est renseignée.</div>
         )}
+        <div style={{fontSize:11,color:'var(--xmuted)',marginTop:-6,marginBottom:12,lineHeight:1.35}}>
+          La note du prérequis s’affiche dans la fiche tâche et sur le planning uniquement si elle est renseignée.
+          L’entreprise concernée est notifiée automatiquement.
+        </div>
         <div style={{marginBottom:13}}>
           <div style={{fontSize:12,fontWeight:700,color:'var(--muted)',marginBottom:7}}>Impact / tâche ou entreprise bloquée</div>
-          <TaskLinksPicker label="Prédécesseur(s)" hint="optionnel — tâche(s) à terminer avant celle-ci" selectedIds={form.predecessor_ids || []} onChange={function(ids){set('predecessor_ids', ids);}} data={data} currentId={editId} />
-          <TaskLinksPicker label="Successeur(s)" hint="optionnel — tâche(s) qui dépendent de celle-ci" selectedIds={form.successor_ids || []} onChange={function(ids){set('successor_ids', ids);}} data={data} currentId={editId} />
+          <TaskLinksPicker label="Prédécesseur(s)" hint="optionnel — tâche(s) à terminer avant celle-ci" selectedIds={form.predecessor_ids || []} onChange={function(ids){set('predecessor_ids', ids);}} data={data} zones={zones} trades={trades} currentId={editId} />
+          <TaskLinksPicker label="Successeur(s)" hint="optionnel — tâche(s) qui dépendent de celle-ci" selectedIds={form.successor_ids || []} onChange={function(ids){set('successor_ids', ids);}} data={data} zones={zones} trades={trades} currentId={editId} />
           <Field label="Note d’impact" hint="optionnel">
             <Textarea value={form.impact||''} onChange={e=>set('impact',e.target.value)} placeholder="ex : Bloque la pose appareillage tant que cette tâche n’est pas terminée…" rows={2} />
           </Field>
@@ -5638,6 +5799,14 @@ function PlanifyApp() {
           read:false
         }]).catch(function(){});
       }
+      if (status !== 'refused' && savedTask && savedTask.prereq && savedTask.prereq_company && String(savedTask.prereq || '') !== String(iv.prereq || '')) {
+        var reviewPrereqNotif = {company:savedTask.prereq_company,task_id:savedTask.id,message:'Prérequis / point bloquant mis à jour · '+(savedTask.task_number||savedTask.task)+' · '+savedTask.prereq,read:false};
+        await sbFetchSilent('POST','notifications',[reviewPrereqNotif]).catch(function(){});
+        setNotifications(function(prev){
+          if (session && session.role === 'company' && session.company?.name !== savedTask.prereq_company) return prev;
+          return [Object.assign({id:'local_'+Date.now(),created_at:new Date().toISOString()}, reviewPrereqNotif)].concat(prev || []);
+        });
+      }
       notify(status === 'refused' ? 'Demande refusée ✓' : 'Tâche mise à jour ✓','success');
       return {request:savedReq,intervention:savedTask};
     } catch(e) {
@@ -5731,7 +5900,12 @@ function PlanifyApp() {
       if (saved.prereq && saved.prereq_company) {
         var previousMention = existing && existing.prereq_company === saved.prereq_company && String(existing.prereq || '') === String(saved.prereq || '');
         if (!previousMention) {
-          await sbFetchSilent('POST','notifications',[{company:saved.prereq_company,task_id:saved.id,message:'Prérequis / point bloquant assigné · '+(saved.task_number||saved.task)+' · '+saved.prereq,read:false}]).catch(function(){});
+          var prereqNotif = {company:saved.prereq_company,task_id:saved.id,message:'Prérequis / point bloquant assigné · '+(saved.task_number||saved.task)+' · '+saved.prereq,read:false};
+          await sbFetchSilent('POST','notifications',[prereqNotif]).catch(function(){});
+          setNotifications(function(prev){
+            if (session && session.role === 'company' && session.company?.name !== saved.prereq_company) return prev;
+            return [Object.assign({id:'local_'+Date.now(),created_at:new Date().toISOString()}, prereqNotif)].concat(prev || []);
+          });
         }
       }
       notify('Tâche sauvegardée ✓','success');
@@ -6356,7 +6530,7 @@ function PlanifyApp() {
           onSettings={()=>setScreen('settings')}
           onUserMenu={()=>setUserMenu(true)}
           filter={filter} trades={trades} onFilter={setFilter}
-          zones={zones} data={data}
+          zones={zones} data={data} notifications={notifications}
           viewMode={viewMode} onViewMode={setViewMode}
           onToday={()=>setWeekOffset(0)}
           showWeekends={showWeekends}
