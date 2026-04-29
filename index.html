@@ -124,6 +124,21 @@ const STATUS_META = {
   bloque: {label:'Bloqué',    dot:'#DC2626',text:'#991B1B',bg:'rgba(220,38,38,.12)', pill:'#DC2626'},
 };
 
+const CHANGE_REQUEST_STATUS_META = {
+  pending_admin:     {label:'Tâche modifiée par l’entreprise', short:'Modif. entreprise', dot:'#F97316', text:'#9A3412', bg:'rgba(249,115,22,.12)'},
+  accepted:          {label:'Modification acceptée',            short:'Acceptée',          dot:'#16A34A', text:'#166534', bg:'rgba(22,163,74,.12)'},
+  refused:           {label:'Modification refusée',             short:'Refusée',           dot:'#DC2626', text:'#991B1B', bg:'rgba(220,38,38,.12)'},
+  adjusted_accepted: {label:'Ajustée puis validée',             short:'Ajustée validée',   dot:'#2563EB', text:'#1D4ED8', bg:'rgba(37,99,235,.12)'},
+};
+
+const TASK_CHANGE_FIELDS = [
+  {key:'start', label:'Date de début', oldKey:'old_start_date', newKey:'new_start_date', finalKey:'final_start_date', type:'date'},
+  {key:'end', label:'Date de fin', oldKey:'old_end_date', newKey:'new_end_date', finalKey:'final_end_date', type:'date'},
+  {key:'task', label:'Descriptif', oldKey:'old_task', newKey:'new_task', finalKey:'final_task', type:'textarea'},
+  {key:'prereq', label:'Pré-requis', oldKey:'old_prereq', newKey:'new_prereq', finalKey:'final_prereq', type:'textarea'},
+  {key:'notes', label:'Notes', oldKey:'old_notes', newKey:'new_notes', finalKey:'final_notes', type:'textarea'}
+];
+
 const INTERVENTIONS = [
   {id:'imp_1', trade:'tr_1',company:'STD',         task:'Déposer placage imposte porte + doublage GEBERIT',     zone:'z_1',start:'2026-04-15',end:'2026-04-15',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-001',predecessor_id:null,attachments:[]},
   {id:'imp_2', trade:'tr_1',company:'STD',         task:'Dépose équipement toilette (WC + vasque + miroir)',     zone:'z_1',start:'2026-04-15',end:'2026-04-15',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-002',predecessor_id:null,attachments:[]},
@@ -323,7 +338,7 @@ function workingDaysUntil(ds) {
 
 // Expose all globals so Babel-compiled scripts can access them
 Object.assign(window, {
-  ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, FLOOR_COLORS, DAYS_FR,
+  ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, CHANGE_REQUEST_STATUS_META, TASK_CHANGE_FIELDS, FLOOR_COLORS, DAYS_FR,
   HOLIDAYS_2026, isHoliday, workingDaysUntil,
   getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
   genId, genTaskNum, daysUntil, deadlineColor,
@@ -3678,13 +3693,383 @@ function StatusWithNote({ iv, session, onStatusChange }) {
 }
 
 
-function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, canEditPlanning = true, canChangeStatus = true }) {
+function ChangeRequestStatusBadge({ status }) {
+  const m = CHANGE_REQUEST_STATUS_META[status] || CHANGE_REQUEST_STATUS_META.pending_admin;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 9px',
+      borderRadius:20,background:m.bg,color:m.text,fontSize:10.5,fontWeight:700,
+      fontFamily:"'DM Mono',monospace",border:`1px solid ${m.dot}35`,whiteSpace:'nowrap'}}>
+      <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+      {m.short}
+    </span>
+  );
+}
+
+function changeRequestValueText(field, value) {
+  if (value == null || value === '') return '—';
+  if (field && field.type === 'date') return fmtDate(String(value));
+  return String(value);
+}
+
+function getChangeRequestValue(req, field, mode) {
+  if (!req || !field) return '';
+  if (mode === 'old') return req[field.oldKey] || '';
+  if (mode === 'final') return req[field.finalKey] || req[field.newKey] || '';
+  return req[field.newKey] || '';
+}
+
+function valuesDiffer(a, b) {
+  return String(a == null ? '' : a).trim() !== String(b == null ? '' : b).trim();
+}
+
+function getRequestChangedFields(req) {
+  return TASK_CHANGE_FIELDS.filter(function(f){
+    return valuesDiffer(req[f.oldKey], req[f.newKey]);
+  });
+}
+
+function buildRequestFormFromTask(iv) {
+  return {
+    start: iv.start || '',
+    end: iv.end || iv.start || '',
+    task: iv.task || '',
+    prereq: iv.prereq || '',
+    notes: iv.notes || ''
+  };
+}
+
+function buildRequestFormFromRequest(req) {
+  return {
+    start: req.final_start_date || req.new_start_date || '',
+    end: req.final_end_date || req.new_end_date || req.new_start_date || '',
+    task: req.final_task || req.new_task || '',
+    prereq: req.final_prereq || req.new_prereq || '',
+    notes: req.final_notes || req.new_notes || ''
+  };
+}
+
+function taskChangeWindowText(iv) {
+  if (!iv) return '';
+  var min = iv.company_edit_start_min || '';
+  var max = iv.company_edit_end_max || '';
+  if (min && max) return 'Dates proposées autorisées entre le '+fmtDate(min)+' et le '+fmtDate(max)+'.';
+  if (min) return 'Date proposée autorisée à partir du '+fmtDate(min)+'.';
+  if (max) return 'Date proposée autorisée jusqu’au '+fmtDate(max)+'.';
+  return 'Aucune borne de date définie par l’admin.';
+}
+
+function isDateOutsideTaskChangeWindow(iv, ds) {
+  if (!ds || !iv) return false;
+  if (iv.company_edit_start_min && ds < iv.company_edit_start_min) return true;
+  if (iv.company_edit_end_max && ds > iv.company_edit_end_max) return true;
+  return false;
+}
+
+function validateCompanyDateProposal(iv, form) {
+  if (!form) return '';
+  if (form.start && form.end && form.end < form.start) {
+    return 'La date de fin ne peut pas être avant la date de début.';
+  }
+  if (isDateOutsideTaskChangeWindow(iv, form.start)) {
+    return 'La date de début proposée doit respecter la fenêtre autorisée par l’admin : '+taskChangeWindowText(iv);
+  }
+  if (isDateOutsideTaskChangeWindow(iv, form.end)) {
+    return 'La date de fin proposée doit respecter la fenêtre autorisée par l’admin : '+taskChangeWindowText(iv);
+  }
+  return '';
+}
+
+function CompanyChangeRequestForm({ iv, onSubmit, busy }) {
+  const [openForm, setOpenForm] = useState(false);
+  const [form, setForm] = useState(buildRequestFormFromTask(iv));
+  const [error, setError] = useState('');
+
+  useEffect(function(){
+    setForm(buildRequestFormFromTask(iv));
+    setError('');
+    setOpenForm(false);
+  }, [iv.id, iv.updated_at]);
+
+  function setField(key, value) {
+    setForm(function(prev){ return Object.assign({}, prev, {[key]: value}); });
+    setError('');
+  }
+
+  function changedFields() {
+    return TASK_CHANGE_FIELDS.filter(function(f){
+      return valuesDiffer(iv[f.key] || '', form[f.key] || '');
+    });
+  }
+
+  function submit() {
+    var changes = changedFields();
+    if (!changes.length) {
+      setError('Aucune modification détectée.');
+      return;
+    }
+    var dateError = validateCompanyDateProposal(iv, form);
+    if (dateError) {
+      setError(dateError);
+      return;
+    }
+    onSubmit(iv, form)
+      .then(function(){ setOpenForm(false); })
+      .catch(function(e){ setError((e && e.message) || 'Erreur lors de l’envoi.'); });
+  }
+
+  if (!openForm) {
+    return (
+      <button onClick={function(){setOpenForm(true);}} style={{...btnSecStyle,width:'100%',marginTop:8,marginBottom:8}}>
+        Demander une modification
+      </button>
+    );
+  }
+
+  var changes = changedFields();
+
+  return (
+    <div style={{border:'1px solid var(--border)',background:'var(--surface-2)',
+      borderRadius:'var(--r-sm)',padding:12,marginTop:10,marginBottom:10}}>
+      <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:4}}>
+        Demande de modification entreprise
+      </div>
+      <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.45,marginBottom:12}}>
+        Vous pouvez proposer une modification sur les dates, le descriptif, les pré-requis et les notes.
+        La zone, le niveau, l’entreprise et le corps de métier restent verrouillés.
+        <br/><b>{taskChangeWindowText(iv)}</b>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <Field label="Date de début">
+          <Input type="date" value={form.start} min={iv.company_edit_start_min || undefined} max={iv.company_edit_end_max || undefined} onChange={function(e){setField('start', e.target.value);}} />
+        </Field>
+        <Field label="Date de fin">
+          <Input type="date" value={form.end} min={iv.company_edit_start_min || undefined} max={iv.company_edit_end_max || undefined} onChange={function(e){setField('end', e.target.value);}} />
+        </Field>
+      </div>
+      <Field label="Descriptif">
+        <Textarea rows={3} value={form.task} onChange={function(e){setField('task', e.target.value);}} />
+      </Field>
+      <Field label="Pré-requis">
+        <Textarea rows={2} value={form.prereq} onChange={function(e){setField('prereq', e.target.value);}} />
+      </Field>
+      <Field label="Notes">
+        <Textarea rows={2} value={form.notes} onChange={function(e){setField('notes', e.target.value);}} />
+      </Field>
+
+      <div style={{fontSize:11,color:changes.length?'var(--primary)':'var(--xmuted)',
+        fontFamily:"'DM Mono',monospace",marginBottom:8}}>
+        {changes.length ? changes.length+' champ'+(changes.length>1?'s':'')+' modifié'+(changes.length>1?'s':'') : 'Aucun champ modifié'}
+      </div>
+      {error && <div style={{fontSize:12,color:'var(--danger)',fontWeight:700,marginBottom:8}}>{error}</div>}
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={submit} disabled={busy} style={{...btnPrimaryStyle,flex:1,opacity:busy ? .7 : 1}}>
+          {busy?'Envoi…':'Envoyer à l’admin'}
+        </button>
+        <button onClick={function(){setOpenForm(false);setError('');setForm(buildRequestFormFromTask(iv));}}
+          disabled={busy} style={{...btnSecStyle,flex:'0 0 110px'}}>
+          Annuler
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AdminChangeRequestReview({ iv, req, onReview, busy }) {
+  const [form, setForm] = useState(buildRequestFormFromRequest(req));
+  const [comment, setComment] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(function(){
+    setForm(buildRequestFormFromRequest(req));
+    setComment('');
+    setError('');
+  }, [req && req.id]);
+
+  function setField(key, value) {
+    setForm(function(prev){ return Object.assign({}, prev, {[key]: value}); });
+    setError('');
+  }
+
+  function review(action) {
+    if (action !== 'refuse' && form.start && form.end && form.end < form.start) {
+      setError('La date de fin ne peut pas être avant la date de début.');
+      return;
+    }
+    onReview(req, action, form, comment)
+      .catch(function(e){ setError((e && e.message) || 'Erreur lors du traitement.'); });
+  }
+
+  var changedFields = getRequestChangedFields(req);
+
+  return (
+    <div style={{border:'1px solid rgba(249,115,22,.35)',background:'rgba(249,115,22,.06)',
+      borderRadius:'var(--r-sm)',padding:12,marginTop:10,marginBottom:10}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:8}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:800,color:'var(--text)'}}>Action admin requise</div>
+          <div style={{fontSize:11,color:'var(--muted)',fontFamily:"'DM Mono',monospace"}}>
+            Demandée par {req.requested_by_company || 'Entreprise'} · {req.created_at ? new Date(req.created_at).toLocaleString('fr-FR') : ''}
+          </div>
+        </div>
+        <ChangeRequestStatusBadge status={req.status} />
+      </div>
+
+      {changedFields.length ? (
+        <div style={{display:'grid',gap:7,marginBottom:10}}>
+          {changedFields.map(function(f){
+            return (
+              <div key={f.key} style={{background:'var(--surface)',border:'1px solid var(--border)',
+                borderRadius:'var(--r-xs)',padding:8}}>
+                <div style={{fontSize:10,color:'var(--muted)',fontFamily:"'DM Mono',monospace",marginBottom:4}}>
+                  {f.label}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:12,lineHeight:1.4}}>
+                  <div>
+                    <b>Actuel</b><br/>
+                    <span style={{color:'var(--muted)'}}>{changeRequestValueText(f, getChangeRequestValue(req, f, 'old'))}</span>
+                  </div>
+                  <div>
+                    <b>Proposé</b><br/>
+                    <span>{changeRequestValueText(f, getChangeRequestValue(req, f, 'new'))}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Aucun écart détecté dans cette demande.</div>
+      )}
+
+      <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:8}}>Ajustement admin éventuel</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <Field label="Date de début">
+          <Input type="date" value={form.start} onChange={function(e){setField('start', e.target.value);}} />
+        </Field>
+        <Field label="Date de fin">
+          <Input type="date" value={form.end} onChange={function(e){setField('end', e.target.value);}} />
+        </Field>
+      </div>
+      <Field label="Descriptif">
+        <Textarea rows={3} value={form.task} onChange={function(e){setField('task', e.target.value);}} />
+      </Field>
+      <Field label="Pré-requis">
+        <Textarea rows={2} value={form.prereq} onChange={function(e){setField('prereq', e.target.value);}} />
+      </Field>
+      <Field label="Notes">
+        <Textarea rows={2} value={form.notes} onChange={function(e){setField('notes', e.target.value);}} />
+      </Field>
+      <Field label="Commentaire admin">
+        <Textarea rows={2} value={comment} onChange={function(e){setComment(e.target.value);}}
+          placeholder="Motif du refus ou précision d’ajustement…" />
+      </Field>
+
+      {error && <div style={{fontSize:12,color:'var(--danger)',fontWeight:700,marginBottom:8}}>{error}</div>}
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+        <button onClick={function(){review('accept');}} disabled={busy}
+          style={{padding:'10px',borderRadius:'var(--r-sm)',border:'none',background:'var(--success)',color:'#fff',
+            fontWeight:800,fontSize:12,cursor:busy?'wait':'pointer'}}>
+          Accepter
+        </button>
+        <button onClick={function(){review('adjust');}} disabled={busy}
+          style={{padding:'10px',borderRadius:'var(--r-sm)',border:'none',background:'var(--primary)',color:'#fff',
+            fontWeight:800,fontSize:12,cursor:busy?'wait':'pointer'}}>
+          Ajuster
+        </button>
+        <button onClick={function(){review('refuse');}} disabled={busy}
+          style={{padding:'10px',borderRadius:'var(--r-sm)',border:'1px solid var(--danger)',background:'transparent',
+            color:'var(--danger)',fontWeight:800,fontSize:12,cursor:busy?'wait':'pointer'}}>
+          Refuser
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ChangeRequestPanel({ iv, taskRequests, session, onSubmit, onReview, busy, canRequestTaskChange }) {
+  var requests = (taskRequests || []).slice().sort(function(a,b){
+    return String(b.created_at||'').localeCompare(String(a.created_at||''));
+  });
+  var pending = requests.find(function(r){ return r.status === 'pending_admin'; });
+  var latest = requests[0] || null;
+  var isOwnerCompany = session && session.role === 'company' && session.company && session.company.name === iv.company;
+  var isAdmin = session && session.role === 'admin';
+  var taskOpenForCompany = !!iv.company_edit_allowed;
+  var effectiveCanRequest = !!canRequestTaskChange && taskOpenForCompany;
+
+  if (!isOwnerCompany && !isAdmin && !latest) return null;
+
+  return (
+    <div style={{marginBottom:12}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:8}}>
+        <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',letterSpacing:'.05em',
+          textTransform:'uppercase',fontFamily:"'DM Mono',monospace"}}>
+          Modification contrôlée
+        </div>
+        {latest && <ChangeRequestStatusBadge status={latest.status} />}
+      </div>
+
+      {latest && latest.status !== 'pending_admin' && (
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
+          padding:'9px 11px',fontSize:12,color:'var(--muted)',lineHeight:1.45,marginBottom:8}}>
+          Dernière demande : {CHANGE_REQUEST_STATUS_META[latest.status]?.label || latest.status}
+          {latest.admin_comment ? <><br/><b>Commentaire admin :</b> {latest.admin_comment}</> : null}
+        </div>
+      )}
+
+      {pending && isOwnerCompany && (
+        <div style={{background:'rgba(249,115,22,.08)',border:'1px solid rgba(249,115,22,.25)',
+          borderRadius:'var(--r-sm)',padding:'10px 12px',fontSize:12,color:'#9A3412',lineHeight:1.45}}>
+          Votre demande de modification est en attente d’action admin. La tâche officielle n’est pas encore modifiée.
+        </div>
+      )}
+
+      {!pending && isOwnerCompany && effectiveCanRequest && (
+        <CompanyChangeRequestForm iv={iv} onSubmit={onSubmit} busy={busy} />
+      )}
+
+      {!pending && isOwnerCompany && !effectiveCanRequest && (
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',
+          borderRadius:'var(--r-sm)',padding:'10px 12px',fontSize:12,color:'var(--muted)',lineHeight:1.45}}>
+          {!canRequestTaskChange
+            ? 'Planning validé : les demandes de modification sont désactivées sur cette version.'
+            : 'Cette tâche n’est pas ouverte à modification par l’entreprise. L’admin doit l’autoriser dans la fiche tâche.'}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{background:taskOpenForCompany?'var(--success-l)':'var(--surface-2)',border:'1px solid var(--border)',
+          borderRadius:'var(--r-sm)',padding:'9px 11px',fontSize:12,color:taskOpenForCompany?'var(--success)':'var(--muted)',lineHeight:1.45,marginBottom:8}}>
+          <b>{taskOpenForCompany ? 'Modification entreprise autorisée' : 'Modification entreprise non autorisée'}</b>
+          {taskOpenForCompany ? <><br/>{taskChangeWindowText(iv)}</> : null}
+        </div>
+      )}
+
+      {pending && isAdmin && canRequestTaskChange && (
+        <AdminChangeRequestReview iv={iv} req={pending} onReview={onReview} busy={busy} />
+      )}
+
+      {pending && isAdmin && !canRequestTaskChange && (
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',
+          borderRadius:'var(--r-sm)',padding:'10px 12px',fontSize:12,color:'var(--muted)',lineHeight:1.45}}>
+          Une demande entreprise est en attente, mais le planning est validé. Réindexez une nouvelle version avant traitement.
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, canEditPlanning = true, canChangeStatus = true, changeRequests = [], onSubmitChangeRequest, onReviewChangeRequest, changeRequestBusy = false, canRequestTaskChange = true }) {
   const iv = data.find(x=>x.id===ivId);
   if (!iv) return null;
   const z  = zones.find(x=>x.id===iv.zone);
   const tr = trades.find(t=>t.id===iv.trade);
   const c  = getTC(tr?.color||'blue');
   const pred = iv.predecessor_id ? data.find(x=>x.id===iv.predecessor_id) : null;
+  const taskRequests = (changeRequests || []).filter(function(r){ return r.task_id === iv.id; });
 
   return (
     <SheetModal open={open} onClose={onClose}>
@@ -3719,6 +4104,13 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
           </div>
         ))}
       </div>
+      {iv.company_edit_allowed && (
+        <div style={{background:'var(--success-l)',border:'1px solid rgba(22,163,74,.22)',
+          borderRadius:'var(--r-sm)',padding:'9px 12px',marginBottom:10,fontSize:12,color:'var(--success)',lineHeight:1.45}}>
+          <b>Modification entreprise autorisée</b><br/>
+          {taskChangeWindowText(iv)}
+        </div>
+      )}
       {iv.off_days&&iv.off_days.length>0&&(
         <div style={{background:'rgba(220,38,38,.06)',border:'1px solid rgba(220,38,38,.2)',
           borderRadius:'var(--r-sm)',padding:'9px 12px',marginBottom:10}}>
@@ -3759,6 +4151,16 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'var(--text)'}}>
         <b>Notes</b><br/>{iv.notes}
       </div>}
+
+      <ChangeRequestPanel
+        iv={iv}
+        taskRequests={taskRequests}
+        session={session}
+        onSubmit={onSubmitChangeRequest}
+        onReview={onReviewChangeRequest}
+        busy={changeRequestBusy}
+        canRequestTaskChange={canRequestTaskChange}
+      />
 
       {/* Attachments */}
       {iv.attachments&&iv.attachments.length>0&&(
@@ -3911,11 +4313,15 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         trade: existing.trade||'', company: existing.company||'', task: existing.task||'',
         priority: existing.priority||3, prereq: existing.prereq||'', impact: existing.impact||'', notes: existing.notes||'',
         predecessor_id: existing.predecessor_id||'', status: existing.status||'arealis',
+        company_edit_allowed: !!existing.company_edit_allowed,
+        company_edit_start_min: existing.company_edit_start_min || '',
+        company_edit_end_max: existing.company_edit_end_max || '',
         _expected_updated_at: existing.updated_at||'',
       } : {
         zone: preZone||'', start: preDate||dateStr(new Date()),
         end: preDate||dateStr(new Date()), trade:'', company:'', task:'',
         priority:3, prereq:'', impact:'', notes:'', predecessor_id:'', status:'arealis',
+        company_edit_allowed:false, company_edit_start_min:'', company_edit_end_max:'',
       });
       setAttachments(existing?.attachments||[]);
     }
@@ -3945,6 +4351,10 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
   async function handleSave() {
     if (saving) return;
     if (!form.trade||!form.company||!form.task) { alert('Corps de métier, entreprise et description sont requis.'); return; }
+    if (form.company_edit_allowed && form.company_edit_start_min && form.company_edit_end_max && form.company_edit_end_max < form.company_edit_start_min) {
+      alert('La date limite au plus tard ne peut pas être avant la date au plus tôt.');
+      return;
+    }
     const tn = existing?.task_number || genTaskNum(data, form.company, form.trade, trades);
     setSaving(true);
     try {
@@ -4012,6 +4422,39 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
           <Textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)}
             placeholder="Informations complémentaires…" rows={2} />
         </Field>
+
+        <div style={{border:'1px solid var(--border)',background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:12,marginBottom:13}}>
+          <label style={{display:'flex',alignItems:'flex-start',gap:9,cursor:'pointer'}}>
+            <input type="checkbox" checked={!!form.company_edit_allowed}
+              onChange={e=>set('company_edit_allowed', e.target.checked)}
+              style={{marginTop:3,width:16,height:16,accentColor:'var(--primary)'}} />
+            <span>
+              <span style={{display:'block',fontSize:13,fontWeight:800,color:'var(--text)'}}>
+                Rendre cette tâche modifiable par l’entreprise
+              </span>
+              <span style={{display:'block',fontSize:12,color:'var(--muted)',lineHeight:1.45,marginTop:2}}>
+                L’entreprise pourra proposer une nouvelle date de début/fin, un descriptif, des pré-requis ou des notes.
+                La zone, le niveau, l’entreprise titulaire et le corps de métier restent verrouillés.
+              </span>
+            </span>
+          </label>
+          {form.company_edit_allowed && (
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:12}}>
+              <Field label="Date au plus tôt" hint="optionnel">
+                <Input type="date" value={form.company_edit_start_min||''} onChange={e=>set('company_edit_start_min', e.target.value)} />
+              </Field>
+              <Field label="Date au plus tard" hint="optionnel">
+                <Input type="date" value={form.company_edit_end_max||''} onChange={e=>set('company_edit_end_max', e.target.value)} />
+              </Field>
+            </div>
+          )}
+          {form.company_edit_allowed && form.company_edit_start_min && form.company_edit_end_max && form.company_edit_end_max < form.company_edit_start_min && (
+            <div style={{fontSize:12,color:'var(--danger)',fontWeight:700,marginTop:4}}>
+              La date au plus tard doit être après la date au plus tôt.
+            </div>
+          )}
+        </div>
+
         <Field label="Pièces jointes" hint="PDF ou image">
           <AttachmentZone files={attachments} setFiles={setAttachments} />
         </Field>
@@ -4368,6 +4811,7 @@ function PlanifyApp() {
   const [showWeekends, setShowWeekends] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState([]);
+  const [changeRequests, setChangeRequests] = useState([]);
   const [planningVersion, setPlanningVersion] = useState(null);
   const [planningLocked, setPlanningLocked] = useState(false);
   const [planningValidated, setPlanningValidated] = useState(false);
@@ -4449,7 +4893,16 @@ function PlanifyApp() {
       end: r.end_date,
       impact: r.impact || '',
       attachments: [],
-      off_days: r.off_days || []
+      off_days: r.off_days || [],
+      company_edit_allowed: !!r.company_edit_allowed,
+      company_edit_start_min: r.company_edit_start_min || '',
+      company_edit_end_max: r.company_edit_end_max || ''
+    });
+  }
+
+  function normalizeChangeRequestRow(r) {
+    return Object.assign({}, r, {
+      status: r.status || 'pending_admin'
     });
   }
 
@@ -4480,8 +4933,11 @@ function PlanifyApp() {
     if (key === 'priority') {
       return ({1:'Urgente',2:'Haute',3:'Normale',4:'Basse',5:'À confirmer'}[value]) || String(value || '');
     }
-    if (key === 'start' || key === 'end') {
+    if (key === 'start' || key === 'end' || key === 'company_edit_start_min' || key === 'company_edit_end_max') {
       return value ? fmtDate(String(value)) : '';
+    }
+    if (key === 'company_edit_allowed') {
+      return value ? 'Oui' : 'Non';
     }
     if (key === 'off_days') {
       var arr = Array.isArray(value) ? value : [];
@@ -4501,6 +4957,9 @@ function PlanifyApp() {
       {key:'end', label:'Date de fin'},
       {key:'status', label:'Statut'},
       {key:'priority', label:'Priorité'},
+      {key:'company_edit_allowed', label:'Modification entreprise autorisée'},
+      {key:'company_edit_start_min', label:'Date modifiable au plus tôt'},
+      {key:'company_edit_end_max', label:'Date modifiable au plus tard'},
       {key:'prereq', label:'Prérequis / point bloquant'},
       {key:'impact', label:'Impact / dépendance'},
       {key:'notes', label:'Note'},
@@ -4533,7 +4992,8 @@ function PlanifyApp() {
       zones:zones,
       trades:trades,
       companies:companies,
-      interventions:data
+      interventions:data,
+      change_requests:changeRequests
     }, extra || {});
   }
   function applyPlanningVersion(v) {
@@ -4596,9 +5056,10 @@ function PlanifyApp() {
       fetch(SUPA_URL+'/rest/v1/companies?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/interventions?order=start_date',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/calendar_overrides?order=date',{headers:hdrs}),
+      fetch(SUPA_URL+'/rest/v1/task_change_requests?order=created_at.desc&limit=500',{headers:hdrs}),
     ]).then(function(rs){ return Promise.all(rs.map(function(r){return r.ok?r.json():[];})); })
     .then(function(results){
-      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4];
+      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], crData=results[5];
       if(zData&&zData.length) setZones(zData);
       if(tData&&tData.length) setTrades(tData.map(function(t){
         var loc=TRADES.find(function(lt){return lt.id===t.id;}) || {};
@@ -4612,6 +5073,7 @@ function PlanifyApp() {
       setCalendarOverrides((calData||[]).map(function(r){
         return {date:r.date,label:r.label||'',is_worked:!!r.is_worked,updated_at:r.updated_at||''};
       }));
+      setChangeRequests((crData||[]).map(normalizeChangeRequestRow));
       return results;
     }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); notify('Erreur de mise à jour','error'); throw e; });
   }
@@ -4669,6 +5131,7 @@ function PlanifyApp() {
       .on('postgres_changes', {event:'*', schema:'public', table:'interventions'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'planning_versions'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'planning_events'}, scheduleRealtimeActualiser)
+      .on('postgres_changes', {event:'*', schema:'public', table:'task_change_requests'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'companies'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'zones'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'trades'}, scheduleRealtimeActualiser)
@@ -4765,6 +5228,184 @@ function PlanifyApp() {
     }
   }
 
+  // ── Controlled company task change requests ───────────────────────────
+  async function handleSubmitTaskChangeRequest(iv, form) {
+    if (planningValidated) {
+      throw new Error('Planning validé : réindexez une nouvelle version pour demander une modification.');
+    }
+    if (!session || session.role !== 'company' || !session.company || session.company.name !== iv.company) {
+      throw new Error('Vous ne pouvez modifier que les tâches de votre entreprise.');
+    }
+    if (!iv.company_edit_allowed) {
+      throw new Error('Cette tâche n’a pas été ouverte à modification par l’admin.');
+    }
+    var pending = changeRequests.find(function(r){ return r.task_id === iv.id && r.status === 'pending_admin'; });
+    if (pending) throw new Error('Une demande est déjà en attente sur cette tâche.');
+
+    var changed = TASK_CHANGE_FIELDS.filter(function(f){
+      return valuesDiffer(iv[f.key] || '', form[f.key] || '');
+    });
+    if (!changed.length) throw new Error('Aucune modification détectée.');
+    var dateError = validateCompanyDateProposal(iv, form);
+    if (dateError) throw new Error(dateError);
+
+    var nowIso = new Date().toISOString();
+    var row = {
+      task_id: iv.id,
+      task_number: iv.task_number || '',
+      task_company: iv.company || '',
+      requested_by_company: session.company.name,
+      requested_by_contact: session.name || session.company.contact || '',
+      status: 'pending_admin',
+      old_start_date: iv.start || '',
+      old_end_date: iv.end || iv.start || '',
+      old_task: iv.task || '',
+      old_prereq: iv.prereq || '',
+      old_notes: iv.notes || '',
+      new_start_date: form.start || '',
+      new_end_date: form.end || form.start || '',
+      new_task: form.task || '',
+      new_prereq: form.prereq || '',
+      new_notes: form.notes || '',
+      created_at: nowIso,
+      updated_at: nowIso,
+      payload: {
+        changed_fields: changed.map(function(f){return f.key;}),
+        company_edit_allowed: !!iv.company_edit_allowed,
+        company_edit_start_min: iv.company_edit_start_min || null,
+        company_edit_end_max: iv.company_edit_end_max || null
+      }
+    };
+
+    setBusyKey('change_request_'+iv.id, true);
+    try {
+      var rows = await sbFetchRows('POST','task_change_requests',row);
+      var saved = rows && rows[0] ? normalizeChangeRequestRow(rows[0]) : normalizeChangeRequestRow(row);
+      setChangeRequests(function(prev){ return [saved].concat(prev || []); });
+      await addPlanningEvent({
+        event_type:'task_change_requested',
+        task_id:iv.id,
+        task_number:iv.task_number||'',
+        task_title:iv.task||'',
+        task_company:iv.company||'',
+        zone_id:iv.zone||'',
+        message:'Modification demandée par '+session.company.name+' : '+(iv.task_number||iv.task),
+        payload:{request:saved,changed_fields:changed.map(function(f){return f.key;})}
+      });
+      await sbFetch('POST','notifications',[{
+        company:'Admin',
+        task_id:iv.id,
+        message:'Modification demandée par '+session.company.name+' · '+(iv.task_number||iv.task),
+        read:false
+      }]).catch(function(){});
+      notify('Demande envoyée à l’admin ✓','success');
+      return saved;
+    } catch(e) {
+      notify(e.message || 'Erreur demande de modification','error',4200);
+      throw e;
+    } finally {
+      setBusyKey('change_request_'+iv.id, false);
+    }
+  }
+
+  async function handleReviewTaskChangeRequest(req, action, form, comment) {
+    if (planningValidated) {
+      throw new Error('Planning validé : réindexez une nouvelle version avant traitement.');
+    }
+    if (!session || session.role !== 'admin') {
+      throw new Error('Action réservée à l’admin.');
+    }
+    if (!req || req.status !== 'pending_admin') {
+      throw new Error('Cette demande n’est plus en attente.');
+    }
+    var iv = data.find(function(i){ return i.id === req.task_id; });
+    if (!iv) throw new Error('Tâche introuvable. Actualisez puis réessayez.');
+
+    var nowIso = new Date().toISOString();
+    var finalForm = action === 'accept'
+      ? {
+          start:req.new_start_date || '',
+          end:req.new_end_date || req.new_start_date || '',
+          task:req.new_task || '',
+          prereq:req.new_prereq || '',
+          notes:req.new_notes || ''
+        }
+      : form;
+
+    if (action !== 'refuse' && finalForm.start && finalForm.end && finalForm.end < finalForm.start) {
+      throw new Error('La date de fin ne peut pas être avant la date de début.');
+    }
+
+    setBusyKey('change_request_'+req.task_id, true);
+    try {
+      var savedTask = iv;
+      if (action !== 'refuse') {
+        var patchRow = {
+          start_date: finalForm.start || iv.start,
+          end_date: finalForm.end || finalForm.start || iv.end || iv.start,
+          task: finalForm.task || '',
+          prereq: finalForm.prereq || '',
+          notes: finalForm.notes || '',
+          updated_at: nowIso
+        };
+        var taskRows = await sbFetchRows('PATCH','interventions',patchRow,conflictQuery(iv.id, iv.updated_at));
+        if (iv.updated_at && (!taskRows || !taskRows.length)) {
+          await syncAll(false).catch(function(){});
+          throw new Error('Cette tâche a été modifiée par un autre utilisateur. Actualisez avant de valider.');
+        }
+        savedTask = taskRows && taskRows[0] ? normalizeInterventionRow(taskRows[0]) : Object.assign({}, iv, {
+          start:patchRow.start_date,end:patchRow.end_date,task:patchRow.task,
+          prereq:patchRow.prereq,notes:patchRow.notes,updated_at:nowIso
+        });
+        setData(function(prev){ return prev.map(function(i){ return i.id === savedTask.id ? savedTask : i; }); });
+      }
+
+      var status = action === 'refuse' ? 'refused' : (action === 'adjust' ? 'adjusted_accepted' : 'accepted');
+      var reviewRow = {
+        status: status,
+        admin_decision: action,
+        admin_comment: comment || '',
+        reviewed_at: nowIso,
+        reviewed_by: actorName(),
+        updated_at: nowIso,
+        final_start_date: action === 'refuse' ? null : finalForm.start,
+        final_end_date: action === 'refuse' ? null : finalForm.end,
+        final_task: action === 'refuse' ? null : finalForm.task,
+        final_prereq: action === 'refuse' ? null : finalForm.prereq,
+        final_notes: action === 'refuse' ? null : finalForm.notes
+      };
+      var reqRows = await sbFetchRows('PATCH','task_change_requests',reviewRow,eqFilter('id', req.id));
+      var savedReq = reqRows && reqRows[0] ? normalizeChangeRequestRow(reqRows[0]) : normalizeChangeRequestRow(Object.assign({}, req, reviewRow));
+      setChangeRequests(function(prev){ return (prev||[]).map(function(r){ return r.id === savedReq.id ? savedReq : r; }); });
+
+      await addPlanningEvent({
+        event_type: status === 'refused' ? 'task_change_refused' : (status === 'adjusted_accepted' ? 'task_change_adjusted' : 'task_change_accepted'),
+        task_id:iv.id,
+        task_number:iv.task_number||'',
+        task_title:iv.task||'',
+        task_company:iv.company||'',
+        zone_id:iv.zone||'',
+        message:(status === 'refused' ? 'Modification refusée : ' : status === 'adjusted_accepted' ? 'Modification ajustée et validée : ' : 'Modification acceptée : ')+(iv.task_number||iv.task),
+        payload:{request:savedReq,intervention:savedTask}
+      });
+      if (req.requested_by_company) {
+        await sbFetch('POST','notifications',[{
+          company:req.requested_by_company,
+          task_id:iv.id,
+          message:(status === 'refused' ? 'Modification refusée' : status === 'adjusted_accepted' ? 'Modification ajustée et validée' : 'Modification acceptée')+' · '+(iv.task_number||iv.task),
+          read:false
+        }]).catch(function(){});
+      }
+      notify(status === 'refused' ? 'Demande refusée ✓' : 'Tâche mise à jour ✓','success');
+      return {request:savedReq,intervention:savedTask};
+    } catch(e) {
+      notify(e.message || 'Erreur traitement demande','error',4200);
+      throw e;
+    } finally {
+      setBusyKey('change_request_'+req.task_id, false);
+    }
+  }
+
   // ── Save new/edited task → Supabase ─────────────────────────────────
   async function handleSave(iv) {
     if (!canEditPlanning) {
@@ -4782,7 +5423,11 @@ function PlanifyApp() {
       status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
       prereq:cleanIv.prereq||'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
       task_number:cleanIv.task_number||null, predecessor_id:null,
-      off_days:cleanIv.off_days||[], updated_at:newUpdatedAt
+      off_days:cleanIv.off_days||[],
+      company_edit_allowed: !!cleanIv.company_edit_allowed,
+      company_edit_start_min: cleanIv.company_edit_allowed ? (cleanIv.company_edit_start_min || null) : null,
+      company_edit_end_max: cleanIv.company_edit_allowed ? (cleanIv.company_edit_end_max || null) : null,
+      updated_at:newUpdatedAt
     };
 
     setBusyKey('task_save', true);
@@ -5440,7 +6085,12 @@ function PlanifyApp() {
       <DetailModal open={modal?.type==='detail'} ivId={modal?.id}
         data={data} zones={zones} trades={trades} session={session}
         onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit}
-        canEditPlanning={canEditPlanning} canChangeStatus={canChangeStatus} />
+        canEditPlanning={canEditPlanning} canChangeStatus={canChangeStatus}
+        changeRequests={changeRequests}
+        onSubmitChangeRequest={handleSubmitTaskChangeRequest}
+        onReviewChangeRequest={handleReviewTaskChangeRequest}
+        changeRequestBusy={modal?.id ? isBusy('change_request_'+modal.id) : false}
+        canRequestTaskChange={!planningValidated} />
       <AddEditModal open={modal?.type==='add'||modal?.type==='edit'}
         editId={modal?.type==='edit'?modal?.id:null}
         preZone={modal?.zone} preDate={modal?.date}
