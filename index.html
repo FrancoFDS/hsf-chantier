@@ -88,31 +88,33 @@ function deadlineColor(dateStr) {
 }
 
 const TRADES = [
-  {id:'tr_1',name:'STD',short:'STD',color:'crimson'},
-  {id:'tr_2',name:'BARRE BOUILLET',short:'BB',color:'brown'},
-  {id:'tr_3',name:'ELPHITEC',short:'ELPH',color:'navy'},
-  {id:'tr_4',name:'PROST',short:'PROST',color:'forest'},
-  {id:'tr_5',name:'AM FRANCE',short:'AMF',color:'amber'},
-  {id:'tr_6',name:'SOA-A',short:'SOAA',color:'violet'},
-  {id:'tr_7',name:'BENE',short:'BENE',color:'slate'},
-  {id:'tr_8',name:'9ème sens',short:'9ÈM',color:'orange'},
-  {id:'tr_9',name:'Jeanne',short:'JEAN',color:'sky'},
-  {id:'tr_10',name:'Papier peint',short:'PAP',color:'pink'},
-  {id:'tr_11',name:'Move Company',short:'MOVE',color:'lime'},
+  {id:'tr_1', name:'Plafond / cloison',      short:'STD',         color:'crimson'},
+  {id:'tr_2', name:'Agencement',             short:'BB',          color:'brown'},
+  {id:'tr_3', name:'Plomberie / CVC',        short:'ELPH-PL/CVC', color:'navy'},
+  {id:'tr_12',name:'Électricité',            short:'ELPH-ELEC',   color:'blue'},
+  {id:'tr_4', name:'Revêtement sol/mur',     short:'PROST',       color:'forest'},
+  {id:'tr_5', name:'Peinture',               short:'AMF',         color:'amber'},
+  {id:'tr_6', name:'Cloison amovible',       short:'SOAA',        color:'violet'},
+  {id:'tr_7', name:'Mobilier',               short:'BENE',        color:'slate'},
+  {id:'tr_8', name:'Vitrophanie',            short:'9ÈM',         color:'orange'},
+  {id:'tr_9', name:'Nettoyage',              short:'JEAN',        color:'sky'},
+  {id:'tr_10',name:'Papier peint',           short:'SRPM',        color:'pink'},
+  {id:'tr_11',name:'Accessoire bureautique', short:'MOVE',        color:'lime'},
 ];
 
 const COMPANIES = [
-  {id:'std',        name:'STD',            contact:'Tibor Salak',                         code:'1001', tradeId:'tr_1'},
-  {id:'barreb',     name:'BARRE BOUILLET', contact:'Cyrille Mazaleyrat',                  code:'7007', tradeId:'tr_2'},
-  {id:'elphitec',   name:'ELPHITEC',       contact:'Laurent Testa / Thibault Brousseau',  code:'2002', tradeId:'tr_3'},
-  {id:'prost',      name:'PROST',          contact:'Bruno Machado',                       code:'5005', tradeId:'tr_4'},
-  {id:'amfrance',   name:'AM FRANCE',      contact:'Ahmed El Sabbagh',                    code:'4004', tradeId:'tr_5'},
-  {id:'soaa',       name:'SOA-A',          contact:'Antoine Delalande',                   code:'6006', tradeId:'tr_6'},
-  {id:'bene',       name:'BENE',           contact:'Francois Corbin',                     code:'8008', tradeId:'tr_7'},
-  {id:'sens9',      name:'9ème sens',      contact:'Référent 9ème sens',                  code:'9009', tradeId:'tr_8'},
-  {id:'jeanne',     name:'Jeanne',         contact:'Référent Jeanne',                     code:'1010', tradeId:'tr_9'},
-  {id:'papier',     name:'Papier peint',   contact:'Référent Papier peint',               code:'1111', tradeId:'tr_10'},
-  {id:'move',       name:'Move Company',   contact:'Référent Move Company',               code:'1212', tradeId:'tr_11'},
+  {id:'std',              name:'STD',            contact:'',                 code:'1001', tradeId:'tr_1'},
+  {id:'barreb',           name:'BARRE BOUILLET', contact:'',                 code:'7007', tradeId:'tr_2'},
+  {id:'elphitec_pl_cvc',  name:'ELPHITEC',       contact:'Laurent Testa',    code:'2002', tradeId:'tr_3'},
+  {id:'elphitec_elec',    name:'ELPHITEC',       contact:'Thibaut Brousseau',code:'2002', tradeId:'tr_12'},
+  {id:'prost',            name:'PROST',          contact:'',                 code:'5005', tradeId:'tr_4'},
+  {id:'amfrance',         name:'AM FRANCE',      contact:'',                 code:'4004', tradeId:'tr_5'},
+  {id:'soaa',             name:'SOA-A',          contact:'',                 code:'6006', tradeId:'tr_6'},
+  {id:'bene',             name:'BENE',           contact:'François CORBIN',  code:'8008', tradeId:'tr_7'},
+  {id:'sens9',            name:'9ème sens',      contact:'Carole Guittet',   code:'9009', tradeId:'tr_8'},
+  {id:'jeanne',           name:'Jeanne',         contact:'',                 code:'1010', tradeId:'tr_9'},
+  {id:'srpm',             name:'SRPM',           contact:'Stéphane Croizet', code:'1111', tradeId:'tr_10'},
+  {id:'move',             name:'Move Company',   contact:'',                 code:'1212', tradeId:'tr_11'},
 ];
 
 const STATUS_META = {
@@ -132,7 +134,7 @@ const INTERVENTIONS = [
   {id:'imp_7', trade:'tr_3',company:'ELPHITEC',    task:'Installation Support Geberit',                         zone:'z_1',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-004',predecessor_id:null,attachments:[]},
   {id:'imp_8', trade:'tr_1',company:'STD',         task:'Doublage / rebouchage pour corps du mitigeur',         zone:'z_1',start:'2026-04-17',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-003',predecessor_id:null,attachments:[]},
   {id:'imp_9', trade:'tr_1',company:'STD',         task:'Doublage support GEBERIT',                             zone:'z_1',start:'2026-04-17',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-004',predecessor_id:null,attachments:[]},
-  {id:'imp_10',trade:'tr_3',company:'ELPHITEC',    task:'Repositionner alim éclairage suivant plan implantation',zone:'z_1',start:'2026-04-17',end:'2026-04-17',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-005',predecessor_id:null,attachments:[]},
+  {id:'imp_10',trade:'tr_12',company:'ELPHITEC',    task:'Repositionner alim éclairage suivant plan implantation',zone:'z_1',start:'2026-04-17',end:'2026-04-17',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-005',predecessor_id:null,attachments:[]},
   {id:'imp_11',trade:'tr_2',company:'BARRE BOUILLET',task:'Pose vasque',                                        zone:'z_1',start:'2026-05-06',end:'2026-05-06',status:'arealis',priority:3,prereq:'Enduits secs',notes:'Étage: R+3',task_number:'BAR-002',predecessor_id:null,attachments:[]},
   {id:'imp_12',trade:'tr_4',company:'PROST',       task:'Pose faience coin vasque',                             zone:'z_1',start:'2026-05-11',end:'2026-05-12',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-001',predecessor_id:null,attachments:[]},
   {id:'imp_13',trade:'tr_2',company:'BARRE BOUILLET',task:'Pose porte + habillage encadrement',                 zone:'z_1',start:'2026-05-06',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-003',predecessor_id:null,attachments:[]},
@@ -140,21 +142,21 @@ const INTERVENTIONS = [
   {id:'imp_15',trade:'tr_5',company:'AM FRANCE',   task:'Préparation support enduit + ponçage — Plafond & Mur', zone:'z_1',start:'2026-04-22',end:'2026-04-24',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-001',predecessor_id:null,attachments:[]},
   {id:'imp_16',trade:'tr_5',company:'AM FRANCE',   task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_1',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-002',predecessor_id:null,attachments:[]},
   {id:'imp_17',trade:'tr_3',company:'ELPHITEC',    task:'Pose cuvette + plaque déclenchement + barre relevage', zone:'z_1',start:'2026-05-26',end:'2026-05-26',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-006',predecessor_id:null,attachments:[]},
-  {id:'imp_18',trade:'tr_3',company:'ELPHITEC',    task:'Pose terminaux faux-plafond (elec. + cvc)',            zone:'z_1',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-007',predecessor_id:null,attachments:[]},
+  {id:'imp_18',trade:'tr_12',company:'ELPHITEC',    task:'Pose terminaux faux-plafond (elec. + cvc)',            zone:'z_1',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-007',predecessor_id:null,attachments:[]},
   {id:'imp_19',trade:'tr_5',company:'AM FRANCE',   task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_1',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-003',predecessor_id:null,attachments:[]},
   {id:'imp_20',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_1',start:'2026-05-04',end:'2026-05-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-008',predecessor_id:null,attachments:[]},
   {id:'imp_21',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre + pose butée de sol',            zone:'z_1',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-002',predecessor_id:null,attachments:[]},
   {id:'imp_22',trade:'tr_4',company:'PROST',       task:'Dépose moquette',                                      zone:'z_2',start:'2026-04-10',end:'2026-04-24',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-003',predecessor_id:null,attachments:[]},
   {id:'imp_23',trade:'tr_6',company:'SOA-A',       task:'Dépose cloison',                                       zone:'z_2',start:'2026-04-10',end:'2026-04-10',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'SOA-001',predecessor_id:null,attachments:[]},
-  {id:'imp_24',trade:'tr_3',company:'ELPHITEC',    task:'Curage câble CFO/CFA sol R+1 — raccordement',          zone:'z_2',start:'2026-04-13',end:'2026-04-17',status:'encours',priority:2,prereq:'Accès plateau libre',notes:'Étage: R+3',task_number:'ELP-009',predecessor_id:null,attachments:[]},
-  {id:'imp_25',trade:'tr_3',company:'ELPHITEC',    task:'Tirage des RJ au sol',                                 zone:'z_2',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-010',predecessor_id:null,attachments:[]},
-  {id:'imp_26',trade:'tr_3',company:'ELPHITEC',    task:'Distribution wifi',                                    zone:'z_2',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-011',predecessor_id:null,attachments:[]},
+  {id:'imp_24',trade:'tr_12',company:'ELPHITEC',    task:'Curage câble CFO/CFA sol R+1 — raccordement',          zone:'z_2',start:'2026-04-13',end:'2026-04-17',status:'encours',priority:2,prereq:'Accès plateau libre',notes:'Étage: R+3',task_number:'ELP-009',predecessor_id:null,attachments:[]},
+  {id:'imp_25',trade:'tr_12',company:'ELPHITEC',    task:'Tirage des RJ au sol',                                 zone:'z_2',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-010',predecessor_id:null,attachments:[]},
+  {id:'imp_26',trade:'tr_12',company:'ELPHITEC',    task:'Distribution wifi',                                    zone:'z_2',start:'2026-05-04',end:'2026-05-13',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-011',predecessor_id:null,attachments:[]},
   {id:'imp_27',trade:'tr_3',company:'ELPHITEC',    task:'Reprise des réseaux CVC',                              zone:'z_2',start:'2026-04-22',end:'2026-05-07',status:'bloque',priority:1,prereq:'Zone libérée par les menuisiers',notes:'Étage: R+3',task_number:'ELP-012',predecessor_id:null,attachments:[]},
   {id:'imp_28',trade:'tr_3',company:'ELPHITEC',    task:'Transfert d\'air — distribution',                     zone:'z_2',start:'2026-04-22',end:'2026-05-04',status:'encours',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-013',predecessor_id:null,attachments:[]},
   {id:'imp_29',trade:'tr_3',company:'ELPHITEC',    task:'Remplacer MR soufflage bureaux + extraction circulation',zone:'z_2',start:'2026-04-23',end:'2026-04-30',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-014',predecessor_id:null,attachments:[]},
   {id:'imp_30',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture plafond & mur',     zone:'z_2',start:'2026-04-15',end:'2026-05-13',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-004',predecessor_id:null,attachments:[]},
   {id:'imp_31',trade:'tr_4',company:'PROST',       task:'Pose moquette TTZ + barre de seuil + local VDI',       zone:'z_2',start:'2026-05-06',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-004',predecessor_id:null,attachments:[]},
-  {id:'imp_32',trade:'tr_3',company:'ELPHITEC',    task:'Refixer boitier de sol / Recettage',                   zone:'z_2',start:'2026-05-13',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-015',predecessor_id:null,attachments:[]},
+  {id:'imp_32',trade:'tr_12',company:'ELPHITEC',    task:'Refixer boitier de sol / Recettage',                   zone:'z_2',start:'2026-05-13',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-015',predecessor_id:null,attachments:[]},
   {id:'imp_33',trade:'tr_2',company:'BARRE BOUILLET',task:'Traitement acoustique + support cloisons SOAA',      zone:'z_2',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BAR-005',predecessor_id:null,attachments:[]},
   {id:'imp_34',trade:'tr_5',company:'AM FRANCE',   task:'Enduit cloisons SOA-A',                                zone:'z_2',start:'2026-05-18',end:'2026-05-19',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-005',predecessor_id:null,attachments:[]},
   {id:'imp_35',trade:'tr_6',company:'SOA-A',       task:'Tracer cloison + passage de porte / retracer terrain', zone:'z_2',start:'2026-04-16',end:'2026-04-28',status:'encours',priority:2,prereq:'',notes:'Étage: R+3',task_number:'SOA-002',predecessor_id:null,attachments:[]},
@@ -164,7 +166,7 @@ const INTERVENTIONS = [
   {id:'imp_39',trade:'tr_5',company:'AM FRANCE',   task:'2ème couche de peinture',                              zone:'z_2',start:'2026-05-11',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'AMF-006',predecessor_id:null,attachments:[]},
   {id:'imp_40',trade:'tr_3',company:'ELPHITEC',    task:'Pose grille transfert d\'air',                         zone:'z_2',start:'2026-05-25',end:'2026-05-27',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-016',predecessor_id:null,attachments:[]},
   {id:'imp_41',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin de chantier',                            zone:'z_2',start:'2026-05-28',end:'2026-05-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'JEA-001',predecessor_id:null,attachments:[]},
-  {id:'imp_42',trade:'tr_3',company:'ELPHITEC',    task:'Raccordement bureaux',                                 zone:'z_2',start:'2026-06-01',end:'2026-06-03',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-017',predecessor_id:null,attachments:[]},
+  {id:'imp_42',trade:'tr_12',company:'ELPHITEC',    task:'Raccordement bureaux',                                 zone:'z_2',start:'2026-06-01',end:'2026-06-03',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-017',predecessor_id:null,attachments:[]},
   {id:'imp_43',trade:'tr_7',company:'BENE',        task:'Installation du mobilier',                             zone:'z_2',start:'2026-06-01',end:'2026-06-03',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'BEN-001',predecessor_id:null,attachments:[]},
   {id:'imp_44',trade:'tr_3',company:'ELPHITEC',    task:'Dépose radiateur',                                     zone:'z_3',start:'2026-04-21',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-018',predecessor_id:null,attachments:[]},
   {id:'imp_45',trade:'tr_1',company:'STD',         task:'Dépose meuble évier + faience + BECS',                 zone:'z_3',start:'2026-04-15',end:'2026-04-20',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-005',predecessor_id:null,attachments:[]},
@@ -179,15 +181,15 @@ const INTERVENTIONS = [
   {id:'imp_54',trade:'tr_3',company:'ELPHITEC',    task:'Repose radiateur',                                     zone:'z_3',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-022',predecessor_id:null,attachments:[]},
   {id:'imp_55',trade:'tr_4',company:'PROST',       task:'Traitement sol pierre',                                zone:'z_3',start:'2026-05-22',end:'2026-05-25',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-006',predecessor_id:null,attachments:[]},
   {id:'imp_56',trade:'tr_9',company:'Jeanne',      task:'Nettoyage fin de chantier',                            zone:'z_3',start:'2026-05-27',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'JEA-002',predecessor_id:null,attachments:[]},
-  {id:'imp_57',trade:'tr_3',company:'ELPHITEC',    task:'Dépose et évacuation de la baie existante',            zone:'z_4',start:'2026-04-15',end:'2026-04-15',status:'termine',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-023',predecessor_id:null,attachments:[]},
+  {id:'imp_57',trade:'tr_12',company:'ELPHITEC',    task:'Dépose et évacuation de la baie existante',            zone:'z_4',start:'2026-04-15',end:'2026-04-15',status:'termine',priority:2,prereq:'',notes:'Étage: R+3',task_number:'ELP-023',predecessor_id:null,attachments:[]},
   {id:'imp_58',trade:'tr_4',company:'PROST',       task:'Curage du sol',                                        zone:'z_4',start:'2026-04-17',end:'2026-04-17',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-007',predecessor_id:null,attachments:[]},
   {id:'imp_59',trade:'tr_1',company:'STD',         task:'Curage faux-plafond',                                  zone:'z_4',start:'2026-04-16',end:'2026-04-16',status:'termine',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-006',predecessor_id:null,attachments:[]},
   {id:'imp_60',trade:'tr_3',company:'ELPHITEC',    task:'Remplacement ventilo',                                 zone:'z_4',start:'2026-04-29',end:'2026-04-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-024',predecessor_id:null,attachments:[]},
   {id:'imp_61',trade:'tr_3',company:'ELPHITEC',    task:'Installation de la clim',                              zone:'z_4',start:'2026-04-29',end:'2026-04-29',status:'bloque',priority:1,prereq:'Livraison unité extérieure confirmée',notes:'Étage: R+3',task_number:'ELP-025',predecessor_id:null,attachments:[]},
   {id:'imp_62',trade:'tr_1',company:'STD',         task:'Pose du nouveau plafond',                              zone:'z_4',start:'2026-05-04',end:'2026-05-04',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'STD-007',predecessor_id:null,attachments:[]},
   {id:'imp_63',trade:'tr_4',company:'PROST',       task:'Pose du nouveau sol souple + barre de seuil',         zone:'z_4',start:'2026-06-01',end:'2026-06-02',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'PRO-008',predecessor_id:null,attachments:[]},
-  {id:'imp_64',trade:'tr_3',company:'ELPHITEC',    task:'Installation baie + câblage baie info',                zone:'z_4',start:'2026-05-19',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-026',predecessor_id:null,attachments:[]},
-  {id:'imp_65',trade:'tr_3',company:'ELPHITEC',    task:'Recettage + raccordement fibre',                       zone:'z_4',start:'2026-05-25',end:'2026-05-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-027',predecessor_id:null,attachments:[]},
+  {id:'imp_64',trade:'tr_12',company:'ELPHITEC',    task:'Installation baie + câblage baie info',                zone:'z_4',start:'2026-05-19',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-026',predecessor_id:null,attachments:[]},
+  {id:'imp_65',trade:'tr_12',company:'ELPHITEC',    task:'Recettage + raccordement fibre',                       zone:'z_4',start:'2026-05-25',end:'2026-05-29',status:'arealis',priority:3,prereq:'',notes:'Étage: R+3',task_number:'ELP-027',predecessor_id:null,attachments:[]},
   {id:'imp_66',trade:'tr_3',company:'ELPHITEC',    task:'Dépose radiateur',                                     zone:'z_5',start:'2026-04-21',end:'2026-04-21',status:'encours',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-028',predecessor_id:null,attachments:[]},
   {id:'imp_67',trade:'tr_1',company:'STD',         task:'Dépose meuble évier + faience + BECS',                 zone:'z_5',start:'2026-04-15',end:'2026-04-20',status:'termine',priority:3,prereq:'',notes:'Étage: R+2',task_number:'STD-008',predecessor_id:null,attachments:[]},
   {id:'imp_68',trade:'tr_3',company:'ELPHITEC',    task:'Distribution EF/EC',                                   zone:'z_5',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+2',task_number:'ELP-029',predecessor_id:null,attachments:[]},
@@ -217,19 +219,19 @@ const INTERVENTIONS = [
   {id:'imp_92',trade:'tr_4',company:'PROST',       task:'Pose revêtement de sol',                               zone:'z_7',start:'2026-05-04',end:'2026-05-07',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-013',predecessor_id:null,attachments:[]},
   {id:'imp_93',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation cuisine + pose crédence',               zone:'z_7',start:'2026-05-08',end:'2026-05-08',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-009',predecessor_id:null,attachments:[]},
   {id:'imp_94',trade:'tr_5',company:'AM FRANCE',   task:'2ème couche de peinture',                              zone:'z_7',start:'2026-05-18',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-017',predecessor_id:null,attachments:[]},
-  {id:'imp_95',trade:'tr_3',company:'ELPHITEC',    task:'Pose appareillage',                                    zone:'z_7',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-038',predecessor_id:null,attachments:[]},
+  {id:'imp_95',trade:'tr_12',company:'ELPHITEC',    task:'Pose appareillage',                                    zone:'z_7',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-038',predecessor_id:null,attachments:[]},
   {id:'imp_96',trade:'tr_8',company:'9ème sens',   task:'Vitrophanie',                                          zone:'z_7',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'9EM-001',predecessor_id:null,attachments:[]},
   {id:'imp_97',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture — plafond & mur',  zone:'z_8',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-018',predecessor_id:null,attachments:[]},
   {id:'imp_98',trade:'tr_4',company:'PROST',       task:'Remanier position boitier de sol',                     zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-014',predecessor_id:null,attachments:[]},
-  {id:'imp_99',trade:'tr_3',company:'ELPHITEC',    task:'Distribution au sol + repositionner boitier',          zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-039',predecessor_id:null,attachments:[]},
+  {id:'imp_99',trade:'tr_12',company:'ELPHITEC',    task:'Distribution au sol + repositionner boitier',          zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-039',predecessor_id:null,attachments:[]},
   {id:'imp_100',trade:'tr_4',company:'PROST',      task:'Pose moquette + PVC TTZ + barre de seuil',             zone:'z_8',start:'2026-05-04',end:'2026-05-07',status:'arealis',priority:3,prereq:'Euler vers Marceau',notes:'Étage: R+1',task_number:'PRO-015',predecessor_id:null,attachments:[]},
   {id:'imp_101',trade:'tr_5',company:'AM FRANCE',  task:'Application 1ère couche peinture — Plafond & Mur',    zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-019',predecessor_id:null,attachments:[]},
   {id:'imp_102',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation et pose des aménagements',             zone:'z_8',start:'2026-05-11',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-010',predecessor_id:null,attachments:[]},
   {id:'imp_103',trade:'tr_1',company:'STD',        task:'Installation des panneaux acoustiques',                zone:'z_8',start:'2026-05-21',end:'2026-05-22',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'STD-009',predecessor_id:null,attachments:[]},
-  {id:'imp_104',trade:'tr_10',company:'Papier peint',task:'Préparation des supports + pose papier peint',       zone:'z_8',start:'2026-05-18',end:'2026-05-18',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PAP-001',predecessor_id:null,attachments:[]},
+  {id:'imp_104',trade:'tr_10',company:'SRPM',task:'Préparation des supports + pose papier peint',       zone:'z_8',start:'2026-05-18',end:'2026-05-18',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'SRPM-001',predecessor_id:null,attachments:[]},
   {id:'imp_105',trade:'tr_5',company:'AM FRANCE',  task:'Application 2ème couche peinture — Plafond & Mur',    zone:'z_8',start:'2026-05-26',end:'2026-05-27',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-020',predecessor_id:null,attachments:[]},
-  {id:'imp_107',trade:'tr_11',company:'Move Company',task:'Installation bras ecran',zone:'z_2',start:'2026-06-01',end:'2026-06-04',status:'arealis',priority:3,prereq:'',notes:'Etage: R+3',task_number:'MOV-001',predecessor_id:null,attachments:[]},
-  {id:'imp_106',trade:'tr_3',company:'ELPHITEC',   task:'Installation des appliques + éclairage',               zone:'z_8',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-040',predecessor_id:null,attachments:[]},
+  {id:'imp_107',trade:'tr_11',company:'Move Company',task:'Installation bras ecran',zone:'z_2',start:'2026-06-01',end:'2026-06-04',status:'arealis',priority:3,prereq:'',notes:'Etage: R+3',task_number:'MOVE-001',predecessor_id:null,attachments:[]},
+  {id:'imp_106',trade:'tr_12',company:'ELPHITEC',   task:'Installation des appliques + éclairage',               zone:'z_8',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-040',predecessor_id:null,attachments:[]},
 ];
 
 // ─── UTILITIES ──────────────────────────────────────────────────
@@ -279,10 +281,18 @@ function isTaskActiveToday(iv) {
   return isTaskActiveOn(iv, t);
 }
 function genId()      { return 'u_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6); }
-function genTaskNum(interventions, company) {
-  const prefix = (company||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
-  const existing = interventions.filter(i=>i.company===company&&i.task_number);
-  const nums = existing.map(i=>parseInt((i.task_number||'').replace(/[^0-9]/g,''))||0);
+function genTaskNum(interventions, company, tradeId, tradesList) {
+  const list = tradesList || (typeof TRADES !== 'undefined' ? TRADES : []);
+  const trade = list.find(t => t.id === tradeId);
+  const rawPrefix = trade && trade.short ? trade.short : company;
+  const prefix = String(rawPrefix || 'TACHE')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\//g,'-')
+    .replace(/[^A-Za-z0-9-]/g,'')
+    .slice(0,12)
+    .toUpperCase() || 'TACHE';
+  const existing = interventions.filter(i => i.trade === tradeId && i.task_number);
+  const nums = existing.map(i => parseInt((i.task_number||'').replace(/[^0-9]/g,''))||0);
   return `${prefix}-${String((nums.length?Math.max(...nums):0)+1).padStart(3,'0')}`;
 }
 const DAYS_FR = ['Lun','Mar','Mer','Jeu','Ven'];
@@ -3935,7 +3945,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
   async function handleSave() {
     if (saving) return;
     if (!form.trade||!form.company||!form.task) { alert('Corps de métier, entreprise et description sont requis.'); return; }
-    const tn = existing?.task_number || genTaskNum(data, form.company);
+    const tn = existing?.task_number || genTaskNum(data, form.company, form.trade, trades);
     setSaving(true);
     try {
       var cleanForm = Object.assign({}, form);
@@ -4591,8 +4601,9 @@ function PlanifyApp() {
       var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4];
       if(zData&&zData.length) setZones(zData);
       if(tData&&tData.length) setTrades(tData.map(function(t){
-        var loc=TRADES.find(function(lt){return lt.id===t.id;});
-        return loc?Object.assign({},t,{color:loc.color}):t;
+        var loc=TRADES.find(function(lt){return lt.id===t.id;}) || {};
+        // Supabase reste prioritaire ; le HTML sert uniquement de fallback local.
+        return Object.assign({}, loc, t);
       }));
       if(cData&&cData.length) setCompanies(cData.map(function(c){
         return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',tradeId:c.trade_id||c.tradeId||'',updated_at:c.updated_at||''};
