@@ -957,6 +957,11 @@ function TaskCard({ iv, trades, isDark, onClick }) {
       {iv.prereq && <div style={{fontSize:'8.5px',marginTop:2,color:'#DC2626',opacity:.85,display:'flex',gap:3,alignItems:'flex-start'}}>
         <span>⚠</span><span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.prereq.slice(0,40)}</span>
       </div>}
+      {taskCanFinishLater(iv) && (
+        <div style={{marginTop:3}}>
+          <TaskFinishLaterBadge iv={iv} compact />
+        </div>
+      )}
     </div>
   );
 }
@@ -1273,6 +1278,29 @@ const btnDangerStyle = {
   cursor:'pointer',fontFamily:"'DM Sans',sans-serif",
 };
 
+function taskCanFinishLater(iv) {
+  if (!iv || !iv.company_edit_allowed || !iv.company_edit_end_max) return false;
+  var currentEnd = iv.end || iv.start || '';
+  return !!currentEnd && String(iv.company_edit_end_max) > String(currentEnd);
+}
+
+function taskLatestFinishText(iv) {
+  if (!taskCanFinishLater(iv)) return '';
+  return 'Date au plus tard pour finir la tâche : ' + fmtDate(iv.company_edit_end_max) + '.';
+}
+
+function TaskFinishLaterBadge({ iv, compact = false }) {
+  if (!taskCanFinishLater(iv)) return null;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:compact?'1px 5px':'2px 7px',
+      borderRadius:20,background:'var(--primary-l)',color:'var(--primary)',
+      border:'1px solid rgba(33,82,200,.25)',fontSize:compact?8.5:10,fontWeight:800,
+      fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap'}}>
+      ↪ fin max {fmtDate(iv.company_edit_end_max)}
+    </span>
+  );
+}
+
 /* ── FORM FIELD ───────────────────────────────────────────── */
 function Field({ label, children, hint }) {
   return (
@@ -1384,6 +1412,7 @@ Object.assign(window, {
   FilterChips, AppHeader, BottomNav, Field, Input, Select, Textarea,
   AttachmentZone, ZoneProgressBar,
   DashIcon, PlanIcon, ListIcon, SettIcon, AttachIcon,
+  taskCanFinishLater, taskLatestFinishText, TaskFinishLaterBadge,
   hdrBtnStyle, btnPrimaryStyle, btnSecStyle, btnDangerStyle,
 });
 </script>
@@ -1613,9 +1642,10 @@ function EnterpriseTaskItem({ iv, zones, trades, onOpenDetail, onStatusChange, c
         </div>
         <StatusBadge status={iv.status} size="sm" />
       </div>
-      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',fontSize:11,color:'var(--muted)',marginBottom:(iv.prereq||iv.impact||iv.notes)?6:0}}>
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',fontSize:11,color:'var(--muted)',marginBottom:(iv.prereq||iv.impact||iv.notes||taskCanFinishLater(iv))?6:0}}>
         <span style={{fontFamily:"'DM Mono',monospace"}}>{fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}</span>
         {tr && <TradeBadge tradeId={iv.trade} trades={trades} />}
+        <TaskFinishLaterBadge iv={iv} />
       </div>
       {iv.prereq && <div style={{fontSize:11,color:'#DC2626',background:'rgba(220,38,38,.08)',borderLeft:'2px solid #DC2626',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>⚠ {iv.prereq}</div>}
       {iv.impact && <div style={{fontSize:11,color:'#92400E',background:'rgba(202,138,4,.10)',borderLeft:'2px solid #CA8A04',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>↪ Impact : {iv.impact}</div>}
@@ -1665,6 +1695,7 @@ function TaskCard2({ iv, zones, trades, onOpenDetail }) {
             {iv.off_days.length} jour{iv.off_days.length>1?'s':''} gelé{iv.off_days.length>1?'s':''}
           </span>
         )}
+        <TaskFinishLaterBadge iv={iv} />
       </div>
       {iv.prereq&&iv.prereq.trim()&&(
         <div style={{fontSize:11,color:'#DC2626',background:'#FEF2F2',padding:'4px 8px',
@@ -1722,6 +1753,7 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
           </span>
           {z&&<span style={{fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',
             padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>{z.short}</span>}
+          <TaskFinishLaterBadge iv={iv} />
         </div>
       </div>
     </div>
@@ -2645,7 +2677,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
       dates: fmtDate(iv.start) + (iv.end && iv.end !== iv.start ? ' → ' + fmtDate(iv.end) : ''),
       prereq: iv.prereq || '',
       notes: iv.notes || '',
-      taskNumber: iv.task_number || ''
+      taskNumber: iv.task_number || '',
+      canFinishLater: taskCanFinishLater(iv),
+      latestFinish: taskLatestFinishText(iv)
     };
   }
 
@@ -2887,6 +2921,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                                 {weeks===2&&<div style={{fontSize:6.5,color:_c.t,opacity:.7,
                                   lineHeight:1.2,overflow:'hidden',whiteSpace:'nowrap',
                                   textOverflow:'ellipsis'}}>{iv.task}</div>}
+                                {taskCanFinishLater(iv)&&<div style={{fontSize:6.2,color:'var(--primary)',fontWeight:800,
+                                  lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
                               </div>
                             );
                           }
@@ -2948,6 +2984,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             <span>Statut</span><b style={{color:'var(--text)'}}>{taskHover.status}</b>
             <span>Zone</span><b style={{color:'var(--text)'}}>{taskHover.zone}</b>
             <span>Dates</span><b style={{color:'var(--text)',fontFamily:"'DM Mono',monospace"}}>{taskHover.dates}</b>
+            {taskHover.canFinishLater && <>
+              <span>Modif.</span><b style={{color:'var(--primary)'}}>{taskHover.latestFinish}</b>
+            </>}
           </div>
           {taskHover.prereq && (
             <div style={{marginTop:7,padding:'5px 7px',borderLeft:'3px solid var(--danger)',
@@ -3752,9 +3791,9 @@ function taskChangeWindowText(iv) {
   if (!iv) return '';
   var min = iv.company_edit_start_min || '';
   var max = iv.company_edit_end_max || '';
-  if (min && max) return 'Dates proposées autorisées entre le '+fmtDate(min)+' et le '+fmtDate(max)+'.';
-  if (min) return 'Date proposée autorisée à partir du '+fmtDate(min)+'.';
-  if (max) return 'Date proposée autorisée jusqu’au '+fmtDate(max)+'.';
+  if (min && max) return 'Date au plus tôt pour démarrer la tâche : '+fmtDate(min)+'. Date au plus tard pour finir la tâche : '+fmtDate(max)+'.';
+  if (min) return 'Date au plus tôt pour démarrer la tâche : '+fmtDate(min)+'.';
+  if (max) return 'Date au plus tard pour finir la tâche : '+fmtDate(max)+'.';
   return 'Aucune borne de date définie par l’admin.';
 }
 
@@ -3819,7 +3858,7 @@ function CompanyChangeRequestForm({ iv, onSubmit, busy }) {
 
   if (!openForm) {
     return (
-      <button onClick={function(){setOpenForm(true);}} style={{...btnSecStyle,width:'100%',marginTop:8,marginBottom:8}}>
+      <button onClick={function(){setOpenForm(true);}} style={{...btnPrimaryStyle,width:'100%',marginTop:8,marginBottom:8}}>
         Demander une modification
       </button>
     );
@@ -4040,8 +4079,8 @@ function ChangeRequestPanel({ iv, taskRequests, session, onSubmit, onReview, bus
       )}
 
       {isAdmin && (
-        <div style={{background:taskOpenForCompany?'var(--success-l)':'var(--surface-2)',border:'1px solid var(--border)',
-          borderRadius:'var(--r-sm)',padding:'9px 11px',fontSize:12,color:taskOpenForCompany?'var(--success)':'var(--muted)',lineHeight:1.45,marginBottom:8}}>
+        <div style={{background:taskOpenForCompany?'var(--primary-l)':'var(--surface-2)',border:'1px solid var(--border)',
+          borderRadius:'var(--r-sm)',padding:'9px 11px',fontSize:12,color:taskOpenForCompany?'var(--primary)':'var(--muted)',lineHeight:1.45,marginBottom:8}}>
           <b>{taskOpenForCompany ? 'Modification entreprise autorisée' : 'Modification entreprise non autorisée'}</b>
           {taskOpenForCompany ? <><br/>{taskChangeWindowText(iv)}</> : null}
         </div>
@@ -4105,8 +4144,8 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         ))}
       </div>
       {iv.company_edit_allowed && (
-        <div style={{background:'var(--success-l)',border:'1px solid rgba(22,163,74,.22)',
-          borderRadius:'var(--r-sm)',padding:'9px 12px',marginBottom:10,fontSize:12,color:'var(--success)',lineHeight:1.45}}>
+        <div style={{background:'var(--primary-l)',border:'1px solid rgba(33,82,200,.22)',
+          borderRadius:'var(--r-sm)',padding:'9px 12px',marginBottom:10,fontSize:12,color:'var(--primary)',lineHeight:1.45}}>
           <b>Modification entreprise autorisée</b><br/>
           {taskChangeWindowText(iv)}
         </div>
@@ -4205,7 +4244,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
           Ajout / modification désactivés : planning verrouillé ou validé.
         </div>
       )}
-      <button onClick={onClose} style={btnSecStyle}>Fermer</button>
+      <button onClick={onClose} style={btnPrimaryStyle}>Fermer</button>
     </SheetModal>
   );
 }
