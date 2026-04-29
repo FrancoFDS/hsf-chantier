@@ -933,7 +933,7 @@ function ConfirmDialog({ open, message, onConfirm, onCancel }) {
 }
 
 /* ── TASK CARD (planning grid) ────────────────────────────── */
-function TaskCard({ iv, trades, isDark, onClick }) {
+function TaskCard({ iv, trades, data = [], isDark, onClick }) {
   const tr = trades.find(t => t.id === iv.trade);
   const c  = getTC(tr?.color || 'blue');
   const m  = STATUS_META[iv.status] || STATUS_META.arealis;
@@ -954,6 +954,7 @@ function TaskCard({ iv, trades, isDark, onClick }) {
       <div style={{fontSize:11,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.2}}>{iv.company}</div>
       <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',
         display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
+      <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}><TaskDependencyBadges iv={iv} data={data} compact /></div>
       {iv.prereq && <div style={{fontSize:'8.5px',marginTop:2,color:'#DC2626',opacity:.85,display:'flex',gap:3,alignItems:'flex-start'}}>
         <span>⚠</span><span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.prereq.slice(0,40)}</span>
       </div>}
@@ -1044,6 +1045,11 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
 
   const [exportOpen, setExportOpen] = React.useState(false);
   const exportRef = React.useRef(null);
+  const defaultExportStartDate = start ? dateStr(start) : dateStr(getMonday(weekOffset));
+  const [exportStartDate, setExportStartDate] = React.useState(defaultExportStartDate);
+  React.useEffect(() => {
+    setExportStartDate(defaultExportStartDate);
+  }, [defaultExportStartDate]);
   React.useEffect(() => {
     if (!exportOpen) return;
     const close = (e) => {
@@ -1158,20 +1164,33 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             </button>
             {exportOpen && (
               <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:80,
-                width:220,background:'var(--surface)',color:'var(--text)',border:'1px solid var(--border)',
+                width:270,background:'var(--surface)',color:'var(--text)',border:'1px solid var(--border)',
                 borderRadius:'var(--r-sm)',boxShadow:'var(--shadow-lg)',overflow:'hidden'}}>
                 <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',
                   fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:800,color:'var(--muted)',
                   letterSpacing:'.05em',textTransform:'uppercase'}}>Télécharger planning</div>
+                <div style={{padding:'9px 10px',borderBottom:'1px solid var(--border)',background:'var(--surface-2)'}}>
+                  <label style={{display:'block',fontSize:10,fontWeight:800,color:'var(--muted)',
+                    fontFamily:"'DM Mono',monospace",letterSpacing:'.04em',textTransform:'uppercase',marginBottom:6}}>
+                    1er jour impression / XLSX
+                  </label>
+                  <input type="date" value={exportStartDate || defaultExportStartDate}
+                    onChange={e=>setExportStartDate(e.target.value)}
+                    style={{width:'100%',height:34,border:'1px solid var(--border)',borderRadius:7,
+                      background:'var(--surface)',color:'var(--text)',padding:'0 9px',fontSize:13,fontWeight:700}} />
+                  <div style={{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.35}}>
+                    La vue 1S, 2S, 3S ou Tout démarre à partir de cette date.
+                  </div>
+                </div>
                 {exportModes.map(m => (
                   <div key={m.key} style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,
                     padding:'8px 10px',borderBottom:'1px solid var(--border)'}}>
                     <div style={{gridColumn:'1 / -1',fontSize:11,fontWeight:700,color:'var(--muted)',
                       fontFamily:"'DM Mono',monospace"}}>Vue {m.label}</div>
-                    <button onClick={()=>{setExportOpen(false);onExport&&onExport('pdf',m.key);}}
+                    <button onClick={()=>{setExportOpen(false);onExport&&onExport('pdf',m.key,exportStartDate || defaultExportStartDate);}}
                       style={{padding:'7px 8px',border:'1px solid var(--border)',borderRadius:6,
                         background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>PDF</button>
-                    <button onClick={()=>{setExportOpen(false);onExport&&onExport('xlsx',m.key);}}
+                    <button onClick={()=>{setExportOpen(false);onExport&&onExport('xlsx',m.key,exportStartDate || defaultExportStartDate);}}
                       style={{padding:'7px 8px',border:'1px solid var(--border)',borderRadius:6,
                         background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX</button>
                   </div>
@@ -1299,6 +1318,50 @@ function TaskFinishLaterBadge({ iv, compact = false }) {
       ↪ fin max {fmtDate(iv.company_edit_end_max)}
     </span>
   );
+}
+
+function normalizeTaskLinkIds(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean).map(String);
+  if (typeof value === 'string') {
+    var trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      var parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
+    } catch(e) {}
+    return trimmed.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+  }
+  return [];
+}
+function uniqueTaskIds(ids) {
+  var seen = new Set();
+  return (ids || []).filter(function(id){ if(!id || seen.has(id)) return false; seen.add(id); return true; });
+}
+function taskCodesForIds(ids, data) {
+  return normalizeTaskLinkIds(ids).map(function(id){
+    var t = (data || []).find(function(x){ return x.id === id; });
+    return t ? (t.task_number || t.task || id) : id;
+  }).filter(Boolean);
+}
+function taskDependencyIds(iv, data, type) {
+  if (!iv) return [];
+  var direct = type === 'predecessor'
+    ? normalizeTaskLinkIds(iv.predecessor_ids || iv.predecessor_id)
+    : normalizeTaskLinkIds(iv.successor_ids);
+  var derived = (data || []).filter(function(other){
+    if (!other || other.id === iv.id) return false;
+    if (type === 'predecessor') return normalizeTaskLinkIds(other.successor_ids).includes(iv.id);
+    return normalizeTaskLinkIds(other.predecessor_ids || other.predecessor_id).includes(iv.id);
+  }).map(function(other){ return other.id; });
+  return uniqueTaskIds(direct.concat(derived));
+}
+function TaskDependencyBadges({ iv, data, compact = false }) {
+  var predCodes = taskCodesForIds(taskDependencyIds(iv, data, 'predecessor'), data);
+  var succCodes = taskCodesForIds(taskDependencyIds(iv, data, 'successor'), data);
+  if (!predCodes.length && !succCodes.length) return null;
+  var style = {display:'inline-flex',alignItems:'center',gap:4,padding:compact?'1px 5px':'2px 7px',borderRadius:20,background:'rgba(202,138,4,.10)',color:'#92400E',border:'1px solid rgba(202,138,4,.25)',fontSize:compact?8.5:10,fontWeight:800,fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap',maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis'};
+  return (<>{predCodes.length > 0 && <span style={style}>Pred. {predCodes.join(', ')}</span>}{succCodes.length > 0 && <span style={style}>Succ. {succCodes.join(', ')}</span>}</>);
 }
 
 /* ── FORM FIELD ───────────────────────────────────────────── */
@@ -1646,8 +1709,9 @@ function EnterpriseTaskItem({ iv, zones, trades, onOpenDetail, onStatusChange, c
         <span style={{fontFamily:"'DM Mono',monospace"}}>{fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}</span>
         {tr && <TradeBadge tradeId={iv.trade} trades={trades} />}
         <TaskFinishLaterBadge iv={iv} />
+        <TaskDependencyBadges iv={iv} data={window.PLANIFY_CURRENT_DATA || []} />
       </div>
-      {iv.prereq && <div style={{fontSize:11,color:'#DC2626',background:'rgba(220,38,38,.08)',borderLeft:'2px solid #DC2626',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>⚠ {iv.prereq}</div>}
+      {iv.prereq && <div style={{fontSize:11,color:'#DC2626',background:'rgba(220,38,38,.08)',borderLeft:'2px solid #DC2626',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>⚠ {iv.prereq}{iv.prereq_company ? ' · '+iv.prereq_company : ''}</div>}
       {iv.impact && <div style={{fontSize:11,color:'#92400E',background:'rgba(202,138,4,.10)',borderLeft:'2px solid #CA8A04',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>↪ Impact : {iv.impact}</div>}
       {!compact && iv.notes && iv.notes.trim() && !iv.notes.startsWith('Etage') && !iv.notes.startsWith('Étage') && <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',marginTop:5}}>{iv.notes}</div>}
       <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:8}}>
@@ -1696,11 +1760,12 @@ function TaskCard2({ iv, zones, trades, onOpenDetail }) {
           </span>
         )}
         <TaskFinishLaterBadge iv={iv} />
+        <TaskDependencyBadges iv={iv} data={window.PLANIFY_CURRENT_DATA || []} />
       </div>
       {iv.prereq&&iv.prereq.trim()&&(
         <div style={{fontSize:11,color:'#DC2626',background:'#FEF2F2',padding:'4px 8px',
           borderRadius:3,borderLeft:'3px solid #DC2626',marginBottom:4}}>
-          ⚠ Prérequis : {iv.prereq}
+          ⚠ Prérequis : {iv.prereq}{iv.prereq_company ? ' · '+iv.prereq_company : ''}
         </div>
       )}
       {iv.impact&&iv.impact.trim()&&(
@@ -1754,6 +1819,7 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
           {z&&<span style={{fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',
             padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>{z.short}</span>}
           <TaskFinishLaterBadge iv={iv} />
+          <TaskDependencyBadges iv={iv} data={window.PLANIFY_CURRENT_DATA || []} />
         </div>
       </div>
     </div>
@@ -1960,7 +2026,7 @@ function calcReliability(items) {
   };
 }
 
-function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetail }) {
+function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, session, onOpenDetail }) {
   const isAdmin = session?.role === 'admin';
   const myName  = session?.company?.name || '';
 
@@ -1973,6 +2039,10 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
   const termine = myData.filter(i => i.status === 'termine');
   const overdue = myData.filter(i => isTaskLate(i));
   const todoToday = myData.filter(i => isTaskTodoToday(i));
+  const mentionTasks = isAdmin
+    ? data.filter(function(i){ return i.prereq_company && i.prereq && i.status !== 'termine'; })
+    : data.filter(function(i){ return i.prereq_company === myName && i.prereq && i.status !== 'termine'; });
+  const unreadMentionCount = (notifications || []).filter(function(n){ return !n.read && String(n.message || '').toLowerCase().includes('prérequis'); }).length;
   const total   = myData.length;
   const pct     = total ? Math.round(termine.length / total * 100) : 0;
   const reliability = calcReliability(myData);
@@ -2007,6 +2077,9 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
         accent: '#6B7280',
         empty: 'Aucune tâche à réaliser aujourd’hui.'
       };
+    }
+    if (drawer === 'mentions') {
+      return {title: isAdmin ? `Prérequis assignés (${mentionTasks.length})` : `Mentions / points bloquants pour mon entreprise (${mentionTasks.length})`,items: mentionTasks,accent: '#7C3AED',empty: 'Aucun prérequis assigné à cette entreprise.'};
     }
     if (drawer === 'encours') {
       return {
@@ -2145,6 +2218,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
     return (
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:7,marginBottom:14}}>
         <StatChip value={todoToday.length} label="À réaliser aujourd’hui" color="#6B7280" onClick={()=>toggle('arealis_today')} />
+        <StatChip value={mentionTasks.length} label={isAdmin?'Prérequis assignés':'Mentions / blocages'} color="#7C3AED" onClick={()=>toggle('mentions')} />
         <StatChip value={encours.length} label="En cours" color="#2563EB" onClick={()=>toggle('encours')} />
         <StatChip value={blocked.length} label="Bloquées" color="#DC2626" onClick={()=>toggle('bloque')} />
         <StatChip value={overdue.length} label="En retard" color="#EA580C" onClick={()=>toggle('retard')} />
@@ -2217,7 +2291,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
                 fontFamily:"'DM Mono',monospace",
                 marginTop:4
               }}>
-                Cliquer pour voir toutes les tâches
+                Cliquer pour voir toutes les tâches{mentionTasks.length ? ' · '+mentionTasks.length+' mention'+(mentionTasks.length>1?'s':'')+' / point'+(mentionTasks.length>1?'s':'')+' bloquant'+(mentionTasks.length>1?'s':'') : ''}
               </div>
             </div>
 
@@ -2286,7 +2360,7 @@ function DashboardScreen({ data, zones, trades, weekOffset, session, onOpenDetai
               {subtitle}
             </div>
             <div style={{fontSize:10,color:'rgba(255,255,255,.45)',fontFamily:"'DM Mono',monospace",marginTop:4}}>
-              Cliquer pour voir toutes les tâches · cliquer sur fiabilité pour le détail
+              Cliquer pour voir toutes les tâches · cliquer sur fiabilité pour le détail{mentionTasks.length ? ' · '+mentionTasks.length+' prérequis assigné'+(mentionTasks.length>1?'s':'') : ''}
             </div>
           </div>
           <div style={{display:'flex',gap:14,alignItems:'flex-start',flexShrink:0,textAlign:'right'}}>
@@ -2693,7 +2767,10 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
       notes: iv.notes || '',
       taskNumber: iv.task_number || '',
       canFinishLater: taskCanFinishLater(iv),
-      latestFinish: taskLatestFinishText(iv)
+      latestFinish: taskLatestFinishText(iv),
+      predCodes: taskCodesForIds(taskDependencyIds(iv, data, 'predecessor'), data),
+      succCodes: taskCodesForIds(taskDependencyIds(iv, data, 'successor'), data),
+      prereqCompany: iv.prereq_company || ''
     };
   }
 
@@ -2937,6 +3014,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                                   textOverflow:'ellipsis'}}>{iv.task}</div>}
                                 {taskCanFinishLater(iv)&&<div style={{fontSize:6.2,color:'var(--primary)',fontWeight:800,
                                   lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
+                                {(taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:6.2,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↔ lien</div> : null}
                               </div>
                             );
                           }
@@ -2945,7 +3023,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                               onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, STATUS_META[iv.status]||STATUS_META.arealis));}}
                               onMouseMove={function(e){setTaskHover(function(prev){return prev?Object.assign({},prev,{x:e.clientX,y:e.clientY}):compactTaskHoverPayload(e,iv,zone,STATUS_META[iv.status]||STATUS_META.arealis);});}}
                               onMouseLeave={function(){setTaskHover(null);}}>
-                              <TaskCard iv={iv} trades={trades} isDark={isDark}
+                              <TaskCard iv={iv} trades={trades} data={data} isDark={isDark}
                                 onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}} />
                             </div>
                           );
@@ -3001,11 +3079,17 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             {taskHover.canFinishLater && <>
               <span>Modif.</span><b style={{color:'var(--primary)'}}>{taskHover.latestFinish}</b>
             </>}
+            {taskHover.predCodes && taskHover.predCodes.length > 0 && <>
+              <span>Pred.</span><b style={{color:'#92400E'}}>{taskHover.predCodes.join(', ')}</b>
+            </>}
+            {taskHover.succCodes && taskHover.succCodes.length > 0 && <>
+              <span>Succ.</span><b style={{color:'#92400E'}}>{taskHover.succCodes.join(', ')}</b>
+            </>}
           </div>
           {taskHover.prereq && (
             <div style={{marginTop:7,padding:'5px 7px',borderLeft:'3px solid var(--danger)',
               background:'var(--danger-l)',color:'var(--danger)',borderRadius:'0 4px 4px 0'}}>
-              <b>Prérequis</b> · {taskHover.prereq}
+              <b>Prérequis</b> · {taskHover.prereq}{taskHover.prereqCompany ? ' · '+taskHover.prereqCompany : ''}
             </div>
           )}
           {taskHover.notes && !String(taskHover.notes).startsWith('Etage') && !String(taskHover.notes).startsWith('Étage') && (
@@ -3033,7 +3117,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const weekItems = shownData.filter(function(i){ return days.some(function(d){ return isTaskActiveOn(i,d); }); });
   const todayItems = shownData.filter(function(i){ return isTaskActiveOn(i,today); });
   const todoTodayItems = shownData.filter(function(i){ return isTaskTodoToday(i); });
-  const urgentItems = shownData.filter(function(i){ return isTaskLate(i) || i.status === 'bloque' || (i.prereq && i.prereq.trim()); });
+  const urgentItems = shownData.filter(function(i){ return i.status !== 'termine' && (isTaskLate(i) || i.status === 'bloque'); });
   const allOrdered = [...shownData].sort(function(a,b){
     var rank = function(iv){ if (iv.status==='bloque') return 0; if (isTaskLate(iv)) return 1; if (iv.status==='encours') return 2; if (iv.status==='arealis') return 3; if (iv.status==='termine') return 5; return 9; };
     var ra=rank(a), rb=rank(b); if (ra!==rb) return ra-rb;
@@ -3214,7 +3298,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
         empty="Aucune tâche à réaliser aujourd’hui." />
 
       <TaskSection title={`Mes urgences — ${urgentItems.length}`} accentColor="#EA580C"
-        subtitle="Retards, blocages et prérequis à lever."
+        subtitle="Retards et tâches bloquées à traiter."
         items={urgentItems}
         empty="Aucune urgence identifiée." />
 
@@ -4124,7 +4208,10 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
   const z  = zones.find(x=>x.id===iv.zone);
   const tr = trades.find(t=>t.id===iv.trade);
   const c  = getTC(tr?.color||'blue');
-  const pred = iv.predecessor_id ? data.find(x=>x.id===iv.predecessor_id) : null;
+  const predecessorIds = taskDependencyIds(iv, data, 'predecessor');
+  const successorIds = taskDependencyIds(iv, data, 'successor');
+  const predecessorTasks = predecessorIds.map(function(id){ return data.find(function(x){ return x.id === id; }); }).filter(Boolean);
+  const successorTasks = successorIds.map(function(id){ return data.find(function(x){ return x.id === id; }); }).filter(Boolean);
   const taskRequests = (changeRequests || []).filter(function(r){ return r.task_id === iv.id; });
 
   return (
@@ -4189,15 +4276,16 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         </div>
       )}
 
-      {pred&&<div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',borderRadius:'0 6px 6px 0',
-        padding:'8px 12px',marginBottom:10,fontSize:12}}>
-        <b>Prédécesseur : {pred.task_number}</b><br/>
-        <span style={{color:'var(--muted)'}}>{pred.company} — {pred.task}</span>
-      </div>}
+      {(predecessorTasks.length > 0 || successorTasks.length > 0) && (
+        <div style={{background:'rgba(202,138,4,.1)',borderLeft:'3px solid #CA8A04',borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12}}>
+          {predecessorTasks.length > 0 && <div style={{marginBottom:successorTasks.length?7:0}}><b>Prédécesseur(s) : {predecessorTasks.map(function(t){return t.task_number||t.id;}).join(', ')}</b><br/><span style={{color:'var(--muted)'}}>{predecessorTasks.map(function(t){return (t.company||'')+' — '+(t.task||'');}).join(' · ')}</span></div>}
+          {successorTasks.length > 0 && <div><b>Successeur(s) : {successorTasks.map(function(t){return t.task_number||t.id;}).join(', ')}</b><br/><span style={{color:'var(--muted)'}}>{successorTasks.map(function(t){return (t.company||'')+' — '+(t.task||'');}).join(' · ')}</span></div>}
+        </div>
+      )}
 
       {iv.prereq&&<div style={{background:'rgba(220,38,38,.1)',borderLeft:'3px solid #DC2626',
         borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#991B1B'}}>
-        <b>⚠ Prérequis</b><br/>{iv.prereq}
+        <b>⚠ Prérequis / point bloquant</b>{iv.prereq_company ? <span> · {iv.prereq_company}</span> : null}<br/>{iv.prereq}
       </div>}
       {iv.impact&&<div style={{background:'rgba(202,138,4,.10)',borderLeft:'3px solid #CA8A04',
         borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'#92400E'}}>
@@ -4351,6 +4439,29 @@ function FrozenDaysField({ form, set }) {
 }
 
 
+
+function TaskLinksPicker({ label, hint, selectedIds, onChange, data, currentId }) {
+  var [open, setOpen] = React.useState(false);
+  var [search, setSearch] = React.useState('');
+  var ids = normalizeTaskLinkIds(selectedIds);
+  var selected = ids.map(function(id){ return (data || []).find(function(t){ return t.id === id; }); }).filter(Boolean);
+  var candidates = (data || []).filter(function(t){ return t && t.id !== currentId && t.task_number; });
+  var q = search.trim().toLowerCase();
+  if (q) candidates = candidates.filter(function(t){ return String(t.task_number||'').toLowerCase().includes(q)||String(t.company||'').toLowerCase().includes(q)||String(t.task||'').toLowerCase().includes(q); });
+  candidates = candidates.sort(function(a,b){ return (a.start||'').localeCompare(b.start||'') || (a.task_number||'').localeCompare(b.task_number||''); });
+  function toggle(id){ var next = ids.includes(id) ? ids.filter(function(x){return x!==id;}) : ids.concat([id]); onChange(uniqueTaskIds(next)); }
+  return (
+    <div style={{border:'1px solid var(--border)',background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:10,marginBottom:13}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:7}}>
+        <div><div style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{label}</div>{hint&&<div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>{hint}</div>}</div>
+        <button type="button" onClick={function(){setOpen(!open);}} style={{...miniBtn,background:open?'var(--primary)':'var(--surface)',color:open?'#fff':'var(--muted)',borderColor:open?'var(--primary)':'var(--border)'}}>{open?'Fermer':'Sélection planning'}</button>
+      </div>
+      {selected.length>0 ? <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:open?8:0}}>{selected.map(function(t){return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} title="Retirer" style={{border:'1px solid rgba(202,138,4,.30)',background:'rgba(202,138,4,.10)',color:'#92400E',borderRadius:20,padding:'3px 8px',fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",cursor:'pointer'}}>{t.task_number||t.id} ×</button>;})}</div> : <div style={{fontSize:11,color:'var(--xmuted)',marginBottom:open?8:0}}>Aucune tâche sélectionnée.</div>}
+      {open&&<div><Input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Rechercher par code, entreprise ou tâche…" style={{fontSize:12,padding:'8px 10px',marginBottom:8}} /><div style={{maxHeight:220,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',background:'var(--surface)'}}>{candidates.length===0?<div style={{padding:10,fontSize:12,color:'var(--muted)'}}>Aucune tâche disponible.</div>:candidates.map(function(t){var active=ids.includes(t.id);return <button key={t.id} type="button" onClick={function(){toggle(t.id);}} style={{width:'100%',display:'flex',alignItems:'flex-start',gap:8,textAlign:'left',padding:'8px 10px',border:'none',borderBottom:'1px solid var(--border)',background:active?'var(--primary-l)':'transparent',cursor:'pointer',fontFamily:"'DM Sans',sans-serif"}}><span style={{width:16,height:16,borderRadius:4,border:'1px solid '+(active?'var(--primary)':'var(--border-s)'),background:active?'var(--primary)':'var(--surface)',color:'#fff',fontSize:11,lineHeight:'16px',textAlign:'center',flexShrink:0}}>{active?'✓':''}</span><span style={{minWidth:0}}><span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:active?'var(--primary)':'var(--xmuted)',marginRight:6}}>{t.task_number}</span><span style={{fontSize:11,fontWeight:800,color:'var(--text)'}}>{t.company}</span><span style={{display:'block',fontSize:11,color:'var(--muted)',lineHeight:1.35,marginTop:2,overflow:'hidden',textOverflow:'ellipsis'}}>{t.task}</span><span style={{display:'block',fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>{fmtDate(t.start)}{t.end&&t.end!==t.start?' → '+fmtDate(t.end):''}</span></span></button>;})}</div></div>}
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════
    ADD / EDIT MODAL
 ═══════════════════════════════════════════════════════════ */
@@ -4367,8 +4478,8 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
       setForm(existing ? {
         zone: existing.zone||'', start: existing.start||'', end: existing.end||'',
         trade: existing.trade||'', company: existing.company||'', task: existing.task||'',
-        priority: existing.priority||3, prereq: existing.prereq||'', impact: existing.impact||'', notes: existing.notes||'',
-        predecessor_id: existing.predecessor_id||'', status: existing.status||'arealis',
+        priority: existing.priority||3, prereq: existing.prereq||'', prereq_company: existing.prereq_company||'', impact: existing.impact||'', notes: existing.notes||'',
+        predecessor_id: existing.predecessor_id||'', predecessor_ids: normalizeTaskLinkIds(existing.predecessor_ids || existing.predecessor_id), successor_ids: normalizeTaskLinkIds(existing.successor_ids), status: existing.status||'arealis',
         company_edit_allowed: !!existing.company_edit_allowed,
         company_edit_start_min: existing.company_edit_start_min || '',
         company_edit_end_max: existing.company_edit_end_max || '',
@@ -4376,7 +4487,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
       } : {
         zone: preZone||'', start: preDate||dateStr(new Date()),
         end: preDate||dateStr(new Date()), trade:'', company:'', task:'',
-        priority:3, prereq:'', impact:'', notes:'', predecessor_id:'', status:'arealis',
+        priority:3, prereq:'', prereq_company:'', impact:'', notes:'', predecessor_id:'', predecessor_ids:[], successor_ids:[], status:'arealis',
         company_edit_allowed:false, company_edit_start_min:'', company_edit_end_max:'',
       });
       setAttachments(existing?.attachments||[]);
@@ -4433,6 +4544,10 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
     try {
       var cleanForm = Object.assign({}, form);
       delete cleanForm._auto_weekend_off_days;
+      cleanForm.predecessor_ids = normalizeTaskLinkIds(cleanForm.predecessor_ids || cleanForm.predecessor_id);
+      cleanForm.successor_ids = normalizeTaskLinkIds(cleanForm.successor_ids);
+      cleanForm.predecessor_id = cleanForm.predecessor_ids[0] || '';
+      if (!String(cleanForm.prereq || '').trim()) cleanForm.prereq_company = '';
       await onSave({
         id: editId||genId(), ...cleanForm,
         priority: form.priority||3, staff:1, progress:0, delay:0,
@@ -4483,14 +4598,27 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         </Field>
 
 
-        <Field label="Prérequis / Point bloquant">
+        <Field label="Prérequis / Point bloquant" hint="optionnel">
           <Textarea value={form.prereq||''} onChange={e=>set('prereq',e.target.value)}
-            placeholder="ex : Zone libérée avant intervention…" rows={2} />
+            placeholder="ex : Libérer le matériel de la zone" rows={2} />
         </Field>
-        <Field label="Impact / tâche ou entreprise bloquée" hint="optionnel">
-          <Textarea value={form.impact||''} onChange={e=>set('impact',e.target.value)}
-            placeholder="ex : Bloque ELPHITEC pour pose appareillage…" rows={2} />
+        <Field label="Entreprise concernée par ce prérequis" hint="optionnel">
+          <Select value={form.prereq_company||''} onChange={e=>set('prereq_company',e.target.value)}>
+            <option value="">Aucune entreprise mentionnée…</option>
+            {companyNames.map(n=><option key={n} value={n}>{n}</option>)}
+          </Select>
         </Field>
+        {!String(form.prereq||'').trim() && form.prereq_company && (
+          <div style={{fontSize:11,color:'var(--xmuted)',marginTop:-8,marginBottom:12,fontFamily:"'DM Mono',monospace"}}>L’entreprise sélectionnée ne sera pas sauvegardée tant qu’aucune note n’est renseignée.</div>
+        )}
+        <div style={{marginBottom:13}}>
+          <div style={{fontSize:12,fontWeight:700,color:'var(--muted)',marginBottom:7}}>Impact / tâche ou entreprise bloquée</div>
+          <TaskLinksPicker label="Prédécesseur(s)" hint="optionnel — tâche(s) à terminer avant celle-ci" selectedIds={form.predecessor_ids || []} onChange={function(ids){set('predecessor_ids', ids);}} data={data} currentId={editId} />
+          <TaskLinksPicker label="Successeur(s)" hint="optionnel — tâche(s) qui dépendent de celle-ci" selectedIds={form.successor_ids || []} onChange={function(ids){set('successor_ids', ids);}} data={data} currentId={editId} />
+          <Field label="Note d’impact" hint="optionnel">
+            <Textarea value={form.impact||''} onChange={e=>set('impact',e.target.value)} placeholder="ex : Bloque la pose appareillage tant que cette tâche n’est pas terminée…" rows={2} />
+          </Field>
+        </div>
         <Field label="Notes / Consignes">
           <Textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)}
             placeholder="Informations complémentaires…" rows={2} />
@@ -4885,6 +5013,7 @@ function PlanifyApp() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [changeRequests, setChangeRequests] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [planningVersion, setPlanningVersion] = useState(null);
   const [planningLocked, setPlanningLocked] = useState(false);
   const [planningValidated, setPlanningValidated] = useState(false);
@@ -4898,6 +5027,10 @@ function PlanifyApp() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', tweaks.theme);
   }, [tweaks.theme]);
+
+  useEffect(function(){
+    window.PLANIFY_CURRENT_DATA = data || [];
+  }, [data]);
 
   // Calendar overrides: allow an admin to make a public holiday worked.
   useEffect(() => {
@@ -4994,7 +5127,10 @@ function PlanifyApp() {
       off_days: r.off_days || [],
       company_edit_allowed: !!r.company_edit_allowed,
       company_edit_start_min: r.company_edit_start_min || '',
-      company_edit_end_max: r.company_edit_end_max || ''
+      company_edit_end_max: r.company_edit_end_max || '',
+      predecessor_ids: normalizeTaskLinkIds(r.predecessor_ids || r.predecessor_id),
+      successor_ids: normalizeTaskLinkIds(r.successor_ids),
+      prereq_company: r.prereq_company || ''
     });
   }
 
@@ -5041,6 +5177,9 @@ function PlanifyApp() {
       var arr = Array.isArray(value) ? value : [];
       return arr.length ? arr.map(function(d){ return fmtDate(d); }).join(', ') : '';
     }
+    if (key === 'predecessor_ids' || key === 'successor_ids') {
+      return taskCodesForIds(value, data).join(', ');
+    }
     return String(value || '').trim();
   }
 
@@ -5059,7 +5198,10 @@ function PlanifyApp() {
       {key:'company_edit_start_min', label:'Date modifiable au plus tôt'},
       {key:'company_edit_end_max', label:'Date modifiable au plus tard'},
       {key:'prereq', label:'Prérequis / point bloquant'},
+      {key:'prereq_company', label:'Entreprise concernée par le prérequis'},
       {key:'impact', label:'Impact / dépendance'},
+      {key:'predecessor_ids', label:'Prédécesseur(s)'},
+      {key:'successor_ids', label:'Successeur(s)'},
       {key:'notes', label:'Note'},
       {key:'off_days', label:'Jours gelés'},
     ];
@@ -5155,9 +5297,10 @@ function PlanifyApp() {
       fetch(SUPA_URL+'/rest/v1/interventions?order=start_date',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/calendar_overrides?order=date',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/task_change_requests?order=created_at.desc&limit=500',{headers:hdrs}),
+      fetch(SUPA_URL+'/rest/v1/notifications?order=created_at.desc&limit=200'+(sess&&sess.role==='company'&&sess.company?('&company=eq.'+encodeURIComponent(sess.company.name)):''),{headers:hdrs}),
     ]).then(function(rs){ return Promise.all(rs.map(function(r){return r.ok?r.json():[];})); })
     .then(function(results){
-      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], crData=results[5];
+      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], crData=results[5], nData=results[6];
       if(zData&&zData.length) setZones(zData);
       if(tData&&tData.length) setTrades(tData.map(function(t){
         var loc=TRADES.find(function(lt){return lt.id===t.id;}) || {};
@@ -5172,6 +5315,7 @@ function PlanifyApp() {
         return {date:r.date,label:r.label||'',is_worked:!!r.is_worked,updated_at:r.updated_at||''};
       }));
       setChangeRequests((crData||[]).map(normalizeChangeRequestRow));
+      setNotifications(nData || []);
       return results;
     }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); notify('Erreur de mise à jour','error'); throw e; });
   }
@@ -5504,6 +5648,31 @@ function PlanifyApp() {
     }
   }
 
+  function buildDependencyPatchForTask(taskId, beforeTask, savedTask, allTasks) {
+    var beforePred = beforeTask ? taskDependencyIds(beforeTask, allTasks, 'predecessor') : [];
+    var beforeSucc = beforeTask ? taskDependencyIds(beforeTask, allTasks, 'successor') : [];
+    var afterPred = normalizeTaskLinkIds(savedTask.predecessor_ids || savedTask.predecessor_id);
+    var afterSucc = normalizeTaskLinkIds(savedTask.successor_ids);
+    var touched = uniqueTaskIds(beforePred.concat(beforeSucc).concat(afterPred).concat(afterSucc));
+    return touched.filter(function(id){ return id !== savedTask.id; }).map(function(id){
+      var t = allTasks.find(function(x){ return x.id === id; }); if (!t) return null;
+      var predIds = normalizeTaskLinkIds(t.predecessor_ids || t.predecessor_id);
+      var succIds = normalizeTaskLinkIds(t.successor_ids);
+      if (afterPred.includes(id)) succIds = uniqueTaskIds(succIds.concat([savedTask.id])); else succIds = succIds.filter(function(x){ return x !== savedTask.id; });
+      if (afterSucc.includes(id)) predIds = uniqueTaskIds(predIds.concat([savedTask.id])); else predIds = predIds.filter(function(x){ return x !== savedTask.id; });
+      return Object.assign({}, t, {predecessor_ids:predIds, successor_ids:succIds, predecessor_id:predIds[0] || null});
+    }).filter(Boolean);
+  }
+
+  async function syncTaskDependencyLinks(beforeTask, savedTask) {
+    var allTasks = data.map(function(t){ return t.id === savedTask.id ? savedTask : t; });
+    if (!allTasks.find(function(t){ return t.id === savedTask.id; })) allTasks = allTasks.concat([savedTask]);
+    var patches = buildDependencyPatchForTask(savedTask.id, beforeTask, savedTask, allTasks);
+    if (!patches.length) return;
+    setData(function(prev){ return prev.map(function(t){ var p = patches.find(function(x){ return x.id === t.id; }); return p ? Object.assign({}, t, {predecessor_ids:p.predecessor_ids, successor_ids:p.successor_ids, predecessor_id:p.predecessor_id}) : t; }); });
+    await Promise.all(patches.map(function(t){ return sbFetchSilent('PATCH','interventions',{predecessor_id:t.predecessor_id || null,predecessor_ids:t.predecessor_ids || [],successor_ids:t.successor_ids || [],updated_at:new Date().toISOString()},eqFilter('id', t.id)).catch(function(e){ console.warn('[Planify] dependency sync skipped:', e); }); }));
+  }
+
   // ── Save new/edited task → Supabase ─────────────────────────────────
   async function handleSave(iv) {
     if (!canEditPlanning) {
@@ -5519,8 +5688,9 @@ function PlanifyApp() {
       id:cleanIv.id, trade:cleanIv.trade, company:cleanIv.company, task:cleanIv.task,
       zone:cleanIv.zone, start_date:cleanIv.start, end_date:cleanIv.end||cleanIv.start,
       status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
-      prereq:cleanIv.prereq||'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
-      task_number:cleanIv.task_number||null, predecessor_id:null,
+      prereq:cleanIv.prereq||'', prereq_company:(cleanIv.prereq&&String(cleanIv.prereq).trim())?(cleanIv.prereq_company||''):'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
+      task_number:cleanIv.task_number||null, predecessor_id:(normalizeTaskLinkIds(cleanIv.predecessor_ids)[0]||null),
+      predecessor_ids:normalizeTaskLinkIds(cleanIv.predecessor_ids), successor_ids:normalizeTaskLinkIds(cleanIv.successor_ids),
       off_days:cleanIv.off_days||[],
       company_edit_allowed: !!cleanIv.company_edit_allowed,
       company_edit_start_min: cleanIv.company_edit_allowed ? (cleanIv.company_edit_start_min || null) : null,
@@ -5543,6 +5713,7 @@ function PlanifyApp() {
         if(idx>=0){ var n=[].concat(prev); n[idx]=saved; return n; }
         return prev.concat([saved]);
       });
+      await syncTaskDependencyLinks(existing, saved).catch(function(e){ console.warn('[Planify] dependency links not fully synced:', e); });
       closeModal();
       var z = zones.find(function(x){return x.id===cleanIv.zone;});
       var taskChanges = existing ? buildTaskChangeDetails(existing, saved) : [];
@@ -5557,6 +5728,12 @@ function PlanifyApp() {
         message:(existing?'Tâche modifiée : ':'Tâche ajoutée : ')+(cleanIv.task_number||cleanIv.task)+(existing&&taskChanges.length?' · '+taskChanges.length+' champ'+(taskChanges.length>1?'s':'')+' modifié'+(taskChanges.length>1?'s':''):''),
         payload:{intervention:saved,changes:taskChanges}
       });
+      if (saved.prereq && saved.prereq_company) {
+        var previousMention = existing && existing.prereq_company === saved.prereq_company && String(existing.prereq || '') === String(saved.prereq || '');
+        if (!previousMention) {
+          await sbFetchSilent('POST','notifications',[{company:saved.prereq_company,task_id:saved.id,message:'Prérequis / point bloquant assigné · '+(saved.task_number||saved.task)+' · '+saved.prereq,read:false}]).catch(function(){});
+        }
+      }
       notify('Tâche sauvegardée ✓','success');
       return saved;
     } catch(e) {
@@ -5737,7 +5914,7 @@ function PlanifyApp() {
   const mainContent = () => {
     switch (screen) {
       case 'dashboard': return <DashboardScreen key={session?.role+'-'+(session?.company?.name||'')}
-        data={data} zones={zones} trades={trades}
+        data={data} zones={zones} trades={trades} notifications={notifications}
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
       case 'planning':  return <PlanningScreen  data={data} zones={zones} setZones={setZones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
@@ -5753,14 +5930,37 @@ function PlanifyApp() {
   };
 
   // ── Download planning as PDF / XLSX ───────────────────────────────────
-  function getExportWeeks(mode) {
+  function getExportStartDate(startDate) {
+    var fallback = getMonday(weekOffset);
+    if (!startDate) return fallback;
+    var d = new Date(startDate + 'T00:00:00');
+    return Number.isNaN(d.getTime()) ? fallback : d;
+  }
+
+  function addExportDays(date, count) {
+    var d = new Date(date);
+    d.setDate(d.getDate() + count);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  function exportWeekDaysFrom(startDate, weekIndex) {
+    var first = addExportDays(getExportStartDate(startDate), weekIndex * 7);
+    return Array.from({length:5}, function(_, i){ return addExportDays(first, i); });
+  }
+
+  function exportMultiWeekDaysFrom(startDate, weeks) {
+    return Array.from({length:weeks}, function(_, w){ return exportWeekDaysFrom(startDate, w); }).flat();
+  }
+
+  function getExportWeeks(mode, startDate) {
     if (mode === 'tout') {
-      var now = new Date(); now.setHours(0,0,0,0);
+      var base = getExportStartDate(startDate);
       var maxWeeks = 1;
       zones.forEach(function(z){
         if (z.deadline) {
           var d = new Date(z.deadline+'T00:00:00');
-          var w = Math.ceil((d - now)/(7*24*3600*1000)) + 1;
+          var w = Math.ceil((d - base)/(7*24*3600*1000)) + 1;
           if (w > maxWeeks) maxWeeks = w;
         }
       });
@@ -5769,9 +5969,9 @@ function PlanifyApp() {
     return mode === '3s' ? 3 : mode === '2s' ? 2 : 1;
   }
 
-  function getPlanningExportRows(mode) {
-    var weeks = getExportWeeks(mode);
-    var days = multiWeekDays(weekOffset, weeks);
+  function getPlanningExportRows(mode, startDate) {
+    var weeks = getExportWeeks(mode, startDate);
+    var days = exportMultiWeekDaysFrom(startDate, weeks);
     var first = days[0];
     var last = days[days.length - 1];
     var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
@@ -5805,8 +6005,8 @@ function PlanifyApp() {
     return {rows: rows, first: first, last: last, weeks: weeks};
   }
 
-  function exportPlanning(format, mode) {
-    var pack = getPlanningExportRows(mode);
+  function exportPlanning(format, mode, startDate) {
+    var pack = getPlanningExportRows(mode, startDate);
     var rows = pack.rows;
     var period = dateStr(pack.first).replaceAll('-','') + '_' + dateStr(pack.last).replaceAll('-','');
     var label = mode.toUpperCase();
@@ -5891,7 +6091,7 @@ function PlanifyApp() {
         return [wd < 0 ? '▲' : 'J-' + wd, fmtDate(zone.deadline).slice(0,5)];
       }
 
-      var totalWeeks = getExportWeeks(mode);
+      var totalWeeks = getExportWeeks(mode, startDate);
       var doc = new JSPDF({orientation:'landscape', unit:'pt', format:'a4'});
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
@@ -5910,7 +6110,7 @@ function PlanifyApp() {
       for (var wi = 0; wi < totalWeeks; wi++) {
         if (wi > 0) doc.addPage('a4', 'landscape');
 
-        var days = weekDays(weekOffset + wi);
+        var days = exportWeekDaysFrom(startDate, wi);
         var tasksForWeek = weekTasks(days);
         exported += tasksForWeek.length;
         var periodLabel = fmtDate(dateStr(days[0])) + ' au ' + fmtDate(dateStr(days[days.length - 1]));
