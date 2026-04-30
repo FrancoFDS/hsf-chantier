@@ -941,12 +941,16 @@ function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null,
   const bdr= isDark ? `${c.b}60` : `${c.b}35`;
   const hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
   const ccColor = hasCritical ? (criticalPath.color || '#EA580C') : c.b;
-  const ccBorder = hasCritical ? rgbaCss(ccColor, .38) : bdr;
-  const ccShadow = hasCritical ? ('0 0 0 1px ' + rgbaCss(ccColor, focused ? .26 : .18) + ', inset 0 0 0 1px rgba(255,255,255,.06)') : 'none';
+  const ccBg = hasCritical ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.11)+', '+rgbaCss(ccColor,.11)+'), '+bg) : bg;
+  const ccBorder = hasCritical ? ('1px solid '+rgbaCss(ccColor,.82)) : ('1px solid '+bdr);
+  const ccShadow = hasCritical
+    ? ('0 0 0 2px '+rgbaCss(ccColor,.30)+', 0 0 0 5px '+rgbaCss(ccColor,.08)+', 0 3px 12px '+rgbaCss(ccColor,.12))
+    : 'none';
   return (
     <div onClick={onClick} style={{borderRadius:8,padding:'5px 7px 5px 9px',marginBottom:3,cursor:'pointer',
-      background:bg,borderLeft:`3px solid ${hasCritical?ccColor:c.b}`,border:`1px solid ${ccBorder}`,borderLeftWidth:3,
-      borderLeftColor:hasCritical?ccColor:c.b,boxShadow:ccShadow,transition:'opacity .12s, box-shadow .15s',userSelect:'none',
+      background:ccBg,borderLeft:`4px solid ${hasCritical ? ccColor : c.b}`,border:ccBorder,
+      boxShadow:ccShadow,
+      transition:'opacity .12s, box-shadow .15s, border-color .15s, background .15s',userSelect:'none',position:'relative',
       opacity:dimmed ? .34 : 1,filter:dimmed?'saturate(.65)':'none'}}
       onMouseEnter={e=>{e.currentTarget.style.opacity=dimmed?'.5':'.90';}}
       onMouseLeave={e=>{e.currentTarget.style.opacity=dimmed?'.34':'1';}}>
@@ -960,7 +964,7 @@ function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null,
       <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
       <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}>
         <TaskDependencyBadges iv={iv} data={data} compact />
-        {hasCritical ? <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'1px 5px',borderRadius:20,background:rgbaCss(ccColor,.12),color:ccColor,border:'1px solid '+rgbaCss(ccColor,.28),fontSize:8.5,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CC'} · Critique</span> : null}
+        {hasCritical ? <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'1px 6px',borderRadius:20,background:rgbaCss(ccColor,.16),color:ccColor,border:'1px solid '+rgbaCss(ccColor,.45),fontSize:8.5,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CC'} · chemin critique</span> : null}
       </div>
       {iv.prereq && <div style={{fontSize:'8.5px',marginTop:2,color:'#DC2626',opacity:.85,display:'flex',gap:3,alignItems:'flex-start'}}>
         <span>⚠</span><span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.prereq.slice(0,40)}</span>
@@ -1439,8 +1443,10 @@ function buildZoneCriticalPathMeta(items) {
       var direction = !from || !to || from <= to ? 'forward' : 'reverse';
       links.push({
         key:key, sourceId:source.id, targetId:target.id,
+        sourceZone:source.zone || '', targetZone:target.zone || '',
         sourceCode:source.task_number || source.id, targetCode:target.task_number || target.id,
-        from:from, to:to, rangeStart:rangeStart, rangeEnd:rangeEnd, direction:direction
+        from:from, to:to, rangeStart:rangeStart, rangeEnd:rangeEnd, direction:direction,
+        crossZone:!!(source.zone && target.zone && source.zone !== target.zone)
       });
       adjacency[source.id].add(target.id);
       adjacency[target.id].add(source.id);
@@ -1477,13 +1483,14 @@ function buildZoneCriticalPathMeta(items) {
     var chainId = 'cc_' + (chainIndex + 1);
     var label = 'CC-' + String(chainIndex + 1).padStart(2, '0');
     var codes = comp.map(function(id){ var task = byId.get(id); return task ? (task.task_number || task.id) : id; });
+    var zoneIds = Array.from(new Set(comp.map(function(id){ var task = byId.get(id); return task ? task.zone : ''; }).filter(Boolean)));
     comp.forEach(function(id){
       chainByTask[id] = chainId;
       roles[id] = Object.assign({ linked:true, source:false, target:false, count:0 }, roles[id] || {}, {
         linked:true, chainId:chainId, chainLabel:label, color:color, taskCodes:codes
       });
     });
-    chains.push({ id:chainId, label:label, color:color, taskIds:comp.slice(), taskCodes:codes.slice(), links:[] });
+    chains.push({ id:chainId, label:label, color:color, taskIds:comp.slice(), taskCodes:codes.slice(), zoneIds:zoneIds.slice(), links:[] });
   });
   links = links.map(function(link){
     var chainId = chainByTask[link.sourceId] || chainByTask[link.targetId] || null;
@@ -1503,67 +1510,6 @@ function criticalPathLinksForDay(links, dayStr) {
     return dayStr >= link.rangeStart && dayStr <= link.rangeEnd;
   });
 }
-function CriticalPathOverlay({ links, dayStr, isMulti }) {
-  var maxVisible = isMulti ? 1 : 2;
-  var visible = (links || []).slice(0, maxVisible);
-  if (!visible.length) return null;
-  return (
-    <div style={{position:'absolute',left:0,right:0,top:isMulti?1:2,pointerEvents:'none',zIndex:1}}>
-      {visible.map(function(link, idx){
-        var color = link.color || '#EA580C';
-        var lineBg = rgbaCss(color, .18);
-        var soft = rgbaCss(color, .10);
-        var sourceDay = link.from || link.rangeStart;
-        var targetDay = link.to || link.rangeEnd;
-        var forward = !sourceDay || !targetDay || sourceDay <= targetDay;
-        var startHere = dayStr === sourceDay;
-        var endHere = dayStr === targetDay;
-        var singleDay = sourceDay && targetDay && sourceDay === targetDay;
-        var top = isMulti ? 2 : (5 + idx * 16);
-        var h = isMulti ? 8 : 16;
-        var lineTop = isMulti ? 3 : 8;
-        var lineH = isMulti ? 2 : 3;
-        var startCut = isMulti ? '58%' : '60%';
-        var endCut = isMulti ? '58%' : '60%';
-        var left = 0;
-        var right = 0;
-        if (singleDay) { left = '34%'; right = '34%'; }
-        else if (forward) {
-          if (startHere) left = startCut;
-          if (endHere) right = endCut;
-        } else {
-          if (startHere) right = startCut;
-          if (endHere) left = endCut;
-        }
-        var label = (link.chainLabel || 'CC') + ' · ' + (link.sourceCode || link.sourceId) + ' → ' + (link.targetCode || link.targetId);
-        var sourceDotStyle = forward
-          ? {position:'absolute',right:isMulti?'36%':'38%',top:isMulti?1:5,width:isMulti?6:8,height:isMulti?6:8,borderRadius:'50%',background:'#fff',border:'2px solid '+color,boxShadow:'0 0 0 2px '+lineBg}
-          : {position:'absolute',left:isMulti?'36%':'38%',top:isMulti?1:5,width:isMulti?6:8,height:isMulti?6:8,borderRadius:'50%',background:'#fff',border:'2px solid '+color,boxShadow:'0 0 0 2px '+lineBg};
-        var arrowStyle;
-        if (forward) {
-          arrowStyle = {position:'absolute',left:endHere?(isMulti?'33%':'31%'):'calc(100% - 8px)',top:isMulti?0:4,width:0,height:0,borderTop:(isMulti?4:5)+'px solid transparent',borderBottom:(isMulti?4:5)+'px solid transparent',borderLeft:(isMulti?7:9)+'px solid '+color};
-        } else {
-          arrowStyle = {position:'absolute',right:endHere?(isMulti?'33%':'31%'):'calc(100% - 8px)',top:isMulti?0:4,width:0,height:0,borderTop:(isMulti?4:5)+'px solid transparent',borderBottom:(isMulti?4:5)+'px solid transparent',borderRight:(isMulti?7:9)+'px solid '+color};
-        }
-        return (
-          <div key={link.key} style={{position:'absolute',left:0,right:0,top:top,height:h}}>
-            <div style={{position:'absolute',left:left,right:right,top:lineTop,height:lineH,borderRadius:999,background:color,boxShadow:'0 0 0 2px '+lineBg}}></div>
-            <div style={{position:'absolute',left:left,right:right,top:lineTop + lineH + 1,height:1,borderRadius:999,background:soft}}></div>
-            {startHere && <div style={sourceDotStyle}></div>}
-            {endHere && !singleDay && <div style={arrowStyle}></div>}
-            {singleDay && <div style={{position:'absolute',left:'calc(50% - 10px)',top:isMulti?0:3,padding:isMulti?'0 2px':'1px 4px',borderRadius:999,background:rgbaCss(color,.10),border:'1px solid '+rgbaCss(color,.28),color:color,fontSize:isMulti?5.5:7,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{link.chainLabel || 'CC'}</div>}
-            {startHere && !isMulti && !singleDay && (
-              <div style={{position:'absolute',right:4,top:-2,maxWidth:'calc(70% - 8px)',padding:'1px 5px',borderRadius:999,background:'var(--surface)',border:'1px solid '+rgbaCss(color,.32),color:color,fontSize:7,lineHeight:1.2,fontWeight:900,fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',boxShadow:'var(--shadow)'}}>{label}</div>
-            )}
-          </div>
-        );
-      })}
-      {links.length > maxVisible && <div style={{position:'absolute',right:3,top:isMulti?17:50,fontSize:isMulti?5.5:6.5,fontWeight:900,color:'var(--muted)',fontFamily:"'DM Mono',monospace"}}>+{links.length - maxVisible}</div>}
-    </div>
-  );
-}
-
-
 function planningTaskVisibleOnDay(iv, day, zoneId) {
   if (!iv || iv.zone !== zoneId) return false;
   if (isHoliday(day)) return false;
@@ -3018,6 +2964,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const [showCriticalPath, setShowCriticalPath] = useState(true);
   const [criticalOnly, setCriticalOnly] = useState(false);
   const [pinnedCriticalChainId, setPinnedCriticalChainId] = useState(null);
+  const planningGridRef = useRef(null);
 
   function compactTaskHoverPayload(ev, iv, zone, statusMeta) {
     return {
@@ -3065,28 +3012,53 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   }
   const visibleZones = zoneFilter.length === 0 ? zones : zones.filter(z => zoneFilter.includes(z.id));
   const activeCount = zoneFilter.length;
+  const activeCriticalChainId = pinnedCriticalChainId;
+  const criticalPathMeta = React.useMemo(function(){
+    return buildZoneCriticalPathMeta(filtered);
+  }, [filtered]);
   const criticalPathMetaByZone = React.useMemo(function(){
     var out = {};
+    var globalRoles = (criticalPathMeta && criticalPathMeta.roles) || {};
+    var globalChains = (criticalPathMeta && criticalPathMeta.chains) || [];
+    var globalLinks = (criticalPathMeta && criticalPathMeta.links) || [];
     (zones || []).forEach(function(zone){
-      var zoneItems = filtered.filter(function(iv){ return iv.zone === zone.id; });
-      out[zone.id] = buildZoneCriticalPathMeta(zoneItems);
+      var zoneTaskIds = new Set(filtered.filter(function(iv){ return iv.zone === zone.id; }).map(function(iv){ return iv.id; }));
+      out[zone.id] = {
+        roles:globalRoles,
+        links:globalLinks.filter(function(link){ return link.sourceZone === zone.id || link.targetZone === zone.id; }),
+        chains:globalChains.filter(function(chain){ return (chain.taskIds || []).some(function(id){ return zoneTaskIds.has(id); }); }),
+        chainByTask:(criticalPathMeta && criticalPathMeta.chainByTask) || {}
+      };
     });
     return out;
-  }, [filtered, zones]);
-  const activeCriticalChainId = pinnedCriticalChainId;
+  }, [criticalPathMeta, filtered, zones]);
   const visibleCriticalChains = React.useMemo(function(){
-    var out = [];
-    (visibleZones || []).forEach(function(zone){
-      var meta = criticalPathMetaByZone[zone.id] || { chains:[] };
-      (meta.chains || []).forEach(function(chain){
-        out.push(Object.assign({ zoneId:zone.id, zoneShort:zone.short, zoneName:zone.name }, chain));
+    var visibleZoneIds = new Set((visibleZones || []).map(function(z){ return z.id; }));
+    return ((criticalPathMeta && criticalPathMeta.chains) || []).filter(function(chain){
+      return (chain.zoneIds || []).some(function(zoneId){ return visibleZoneIds.has(zoneId); });
+    }).map(function(chain){
+      var zoneLabels = (chain.zoneIds || []).map(function(zoneId){
+        var z = zones.find(function(item){ return item.id === zoneId; });
+        return z ? z.short : zoneId;
+      }).filter(Boolean);
+      return Object.assign({ zoneShort:zoneLabels.join(' · '), zoneName:zoneLabels.join(' · ') }, chain);
+    });
+  }, [criticalPathMeta, visibleZones, zones]);
+  const activeCriticalChain = visibleCriticalChains.find(function(chain){ return chain.id === activeCriticalChainId; }) || null;
+  const visibleCriticalLinks = React.useMemo(function(){
+    if (!showCriticalPath) return [];
+    var visibleZoneIds = new Set((visibleZones || []).map(function(z){ return z.id; }));
+    return ((criticalPathMeta && criticalPathMeta.links) || []).filter(function(link){
+      if (activeCriticalChainId && link.chainId !== activeCriticalChainId) return false;
+      if (!visibleZoneIds.has(link.sourceZone) || !visibleZoneIds.has(link.targetZone)) return false;
+      return (days || []).some(function(day){
+        var ds = dateStr(day);
+        return ds === link.from || ds === link.to;
       });
     });
-    return out;
-  }, [criticalPathMetaByZone, visibleZones]);
-  const activeCriticalChain = visibleCriticalChains.find(function(chain){ return chain.id === activeCriticalChainId; }) || null;
+  }, [criticalPathMeta, visibleZones, days, showCriticalPath, activeCriticalChainId]);
 
-  function renderPlanningTask(iv, zone, zoneCritical) {
+  function renderPlanningTask(iv, zone, zoneCritical, dayStrForCard) {
     if (isMulti) {
       var _tr = trades.find(function(t){return t.id===iv.trade;});
       var _c = getTC(_tr?_tr.color:'blue');
@@ -3098,12 +3070,20 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
       var ccDimmed = !!(showCriticalPath && activeCriticalChainId && (!criticalInfo || criticalInfo.chainId !== activeCriticalChainId));
       return (
         <div key={iv.id}
+          data-cc-task-id={iv.id}
+          data-cc-day={dayStrForCard || ''}
+          data-cc-zone={zone && zone.id ? zone.id : ''}
+          data-cc-chain-id={ccLinked && criticalInfo ? criticalInfo.chainId : undefined}
           onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, _m));}}
           onMouseMove={function(){}}
           onMouseLeave={function(){setTaskHover(null);}}
           onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
           style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
-            background:_c.bg,borderLeft:'2px solid '+(ccLinked?ccColor:_c.b),border:'1px solid '+(ccLinked?rgbaCss(ccColor,.32):'transparent'),boxShadow:ccLinked?('0 0 0 1px '+rgbaCss(ccColor, ccFocused ? .22 : .14)+' inset'):'none',overflow:'hidden',opacity:ccDimmed ? .28 : 1,filter:ccDimmed?'saturate(.65)':'none'}}>
+            background:ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg,
+            borderLeft:'3px solid '+(ccLinked?ccColor:_c.b),
+            border:'1px solid '+(ccLinked?rgbaCss(ccColor,.82):'transparent'),
+            boxShadow:ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none',
+            overflow:'hidden',opacity:ccDimmed ? .28 : 1,filter:ccDimmed?'saturate(.65)':'none',position:'relative'}}>
           <div style={{display:'flex',alignItems:'center',gap:2}}>
             <span style={{fontSize:weeks===2?7:6.5,fontWeight:700,color:_c.t,
               overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
@@ -3116,12 +3096,16 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             textOverflow:'ellipsis'}}>{iv.task}</div>}
           {taskCanFinishLater(iv)&&<div style={{fontSize:6.2,color:'var(--primary)',fontWeight:800,
             lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
-          {ccLinked ? <div style={{fontSize:6.2,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↗ {criticalInfo.chainLabel || 'CC'} · chemin critique</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:6.2,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↔ lien</div> : null)}
+          {ccLinked ? <div style={{fontSize:6.2,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{criticalInfo.chainLabel || 'CC'} · chemin critique</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:6.2,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null)}
         </div>
       );
     }
     return (
       <div key={iv.id}
+        data-cc-task-id={iv.id}
+        data-cc-day={dayStrForCard || ''}
+        data-cc-zone={zone && zone.id ? zone.id : ''}
+        data-cc-chain-id={showCriticalPath && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].linked ? zoneCritical.roles[iv.id].chainId : undefined}
         onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, STATUS_META[iv.status]||STATUS_META.arealis));}}
         onMouseMove={function(){}}
         onMouseLeave={function(){setTaskHover(null);}}>
@@ -3135,9 +3119,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     );
   }
 
-  function renderAlignedTaskSlot(slot, zone, zoneCritical) {
+  function renderAlignedTaskSlot(slot, zone, zoneCritical, dayStrForCard) {
     if (slot.type !== 'chain') {
-      return <React.Fragment key={slot.key}>{slot.tasks.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical); })}</React.Fragment>;
+      return <React.Fragment key={slot.key}>{slot.tasks.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical, dayStrForCard); })}</React.Fragment>;
     }
     var color = (slot.chain && slot.chain.color) || '#EA580C';
     var empty = !slot.tasks.length;
@@ -3149,11 +3133,11 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           minHeight:planningSlotHeight(isMulti, weeks),
           marginBottom:isMulti?1:3,
           borderRadius:isMulti?3:8,
-          background:empty ? 'transparent' : rgbaCss(color, isMulti ? .035 : .025),
-          outline:empty ? 'none' : '1px solid ' + rgbaCss(color, isMulti ? .08 : .06),
+          background:'transparent',
+          outline:'none',
           pointerEvents:empty?'none':'auto'
         }}>
-        {slot.tasks.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical); })}
+        {slot.tasks.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical, dayStrForCard); })}
       </div>
     );
   }
@@ -3172,17 +3156,12 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',background:'var(--surface)'}}>
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:'1 1 320px'}}>
-              <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-                <span style={{width:10,height:10,borderRadius:'50%',background:'#EA580C',boxShadow:'0 0 0 1px rgba(234,88,12,.18)'}}></span>
-                <span style={{width:24,height:2,borderRadius:999,background:'#EA580C',boxShadow:'0 0 0 1px rgba(234,88,12,.18)'}}></span>
-                <span style={{width:0,height:0,borderTop:'4px solid transparent',borderBottom:'4px solid transparent',borderLeft:'6px solid #EA580C'}}></span>
-              </div>
+              <div style={{width:26,height:16,borderRadius:6,background:'rgba(234,88,12,.12)',border:'2px solid rgba(234,88,12,.65)',boxShadow:'0 0 0 3px rgba(234,88,12,.08)',flexShrink:0}}></div>
               <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.35}}>
-                <b style={{color:'#9A3412'}}>Chemin critique</b> : lien visuel entre tâches liées par prédécesseur / successeur dans une même zone. Les cartes liées sont alignées sur le même couloir. Code affiché : <b>CC</b>. {visibleCriticalChains.length ? (visibleCriticalChains.length + ' chaîne(s) détectée(s).') : 'Aucune chaîne détectée.'}
+                <b style={{color:'#9A3412'}}>Chemin critique</b> : les tâches liées par prédécesseur / successeur sont simplement mises en surbrillance, même entre zones différentes. Aucun trait ni flèche n’est affiché. Code affiché : <b>CC</b>. {visibleCriticalChains.length ? (visibleCriticalChains.length + ' chaîne(s) détectée(s).') : 'Aucune chaîne détectée.'}
               </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-              <span style={{fontSize:10.5,color:'var(--muted)',lineHeight:1.25,maxWidth:260,textAlign:'right'}}>Départ : dernier jour du prédécesseur · Arrivée : premier jour du successeur · Couloir CC aligné</span>
               <button onClick={function(){
                   setShowCriticalPath(function(v){
                     var next = !v;
@@ -3224,13 +3203,14 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           )}
           {showCriticalPath && activeCriticalChain && (
             <div style={{marginTop:8,padding:'7px 9px',borderRadius:'var(--r-sm)',border:'1px solid '+rgbaCss(activeCriticalChain.color,.28),background:rgbaCss(activeCriticalChain.color,.08),fontSize:11,color:'var(--muted)'}}>
-              <b style={{color:activeCriticalChain.color,fontFamily:"'DM Mono',monospace"}}>{activeCriticalChain.label}</b> · Zone {activeCriticalChain.zoneShort} · {activeCriticalChain.taskCodes.join(' → ')}
+              <b style={{color:activeCriticalChain.color,fontFamily:"'DM Mono',monospace"}}>{activeCriticalChain.label}</b> · Zones {activeCriticalChain.zoneShort} · Tâches surlignées : {activeCriticalChain.taskCodes.join(' · ')}
             </div>
           )}
         </div>
 
         {/* TABLE-LAYOUT for guaranteed column alignment */}
-        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
+        <div ref={planningGridRef} style={{position:'relative'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed',position:'relative',zIndex:1}}>
           <colgroup>
             <col style={{width:isMulti?'40px':'58px'}} />
             {days.map((_,i) => <col key={i} />)}
@@ -3351,7 +3331,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
               const rowBg = zone.floor==='R+3' ? 'rgba(33,82,200,.025)' :
                             zone.floor==='R+2' ? 'rgba(13,148,136,.025)' : 'rgba(139,92,246,.025)';
               const zoneCritical = criticalPathMetaByZone[zone.id] || { links:[], roles:{}, chains:[] };
-              const zoneAlignedChains = showCriticalPath ? buildVisibleAlignedCriticalChains(zoneCritical, days, filtered, zone.id, activeCriticalChainId) : [];
 
               return (
                 <tr key={zone.id} style={{
@@ -3392,13 +3371,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                       if (!(role && role.linked)) return false;
                       return !activeCriticalChainId || role.chainId === activeCriticalChainId;
                     }));
-                    const alignedSlots = buildAlignedTaskSlots(shown, zoneCritical, zoneAlignedChains, showCriticalPath);
-                    const cellCriticalLinks = !showCriticalPath ? [] : criticalPathLinksForDay(zoneCritical.links, ds).filter(function(link){
-                      return !activeCriticalChainId || link.chainId === activeCriticalChainId;
-                    });
-                    const hasCriticalPath = showCriticalPath && cellCriticalLinks.length > 0;
-                    const ccCellColor = hasCriticalPath ? (cellCriticalLinks[0].color || '#EA580C') : '#EA580C';
-                    const ccBandH = isMulti ? 12 : Math.min(38, 8 + Math.min(cellCriticalLinks.length, 2) * 15);
 
                     return (
                       <td key={di}
@@ -3406,15 +3378,14 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                         style={{
                           position:'relative',
                           overflow:'hidden',
-                          padding:isMulti?(hasCriticalPath?ccBandH:0):(hasCriticalPath?ccBandH:2),
+                          padding:isMulti?0:2,
                           height:isMulti?'40px':'56px',
                           verticalAlign:'top',
                           borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                          background:hasCriticalPath ? 'linear-gradient(180deg, '+rgbaCss(ccCellColor,.10)+' 0px, '+rgbaCss(ccCellColor,.035)+' '+ccBandH+'px, '+cellBg+' '+ccBandH+'px)' : cellBg,
+                          background:cellBg,
                           cursor:isAdmin&&!holiday?'pointer':'default',
                           transition:'background .12s'}}>
-                        {hasCriticalPath && <CriticalPathOverlay links={cellCriticalLinks} dayStr={ds} isMulti={isMulti} />}
-                        {alignedSlots.map(function(slot){ return renderAlignedTaskSlot(slot, zone, zoneCritical); })}
+                        {shown.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical, ds); })}
                       </td>
                     );
                   })}
@@ -3426,6 +3397,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {taskHover && (
@@ -4589,7 +4561,66 @@ function ChangeRequestPanel({ iv, taskRequests, session, onSubmit, onReview, bus
 }
 
 
-function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, canEditPlanning = true, canChangeStatus = true, changeRequests = [], onSubmitChangeRequest, onReviewChangeRequest, changeRequestBusy = false, canRequestTaskChange = true }) {
+
+function fmtStatusNoteDate(s) {
+  if (!s) return '';
+  try {
+    return new Date(s).toLocaleString('fr-FR', {
+      day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit'
+    });
+  } catch(e) { return s; }
+}
+function normalizeStatusNoteText(v) {
+  return String(v == null ? '' : v).trim().replace(/\s+/g, ' ').toLowerCase();
+}
+function taskStatusNoteItems(iv, history, taskLogs) {
+  if (!iv) return [];
+  var taskId = iv.id;
+  var taskNumber = iv.task_number || '';
+  var eventItems = (history || []).filter(function(ev){
+    return ev && ev.event_type === 'status_change'
+      && ev.note && String(ev.note).trim()
+      && (ev.task_id === taskId || (taskNumber && ev.task_number === taskNumber));
+  }).map(function(ev){
+    return {
+      id: ev.id || ('event_'+ev.created_at+'_'+ev.note),
+      source: 'planning_events',
+      task_id: ev.task_id || taskId,
+      task_number: ev.task_number || taskNumber,
+      created_at: ev.created_at || '',
+      author: ev.actor_name || ev.actor_company || 'Utilisateur',
+      old_status: ev.old_status || '',
+      new_status: ev.new_status || '',
+      note: String(ev.note || '').trim()
+    };
+  });
+
+  var eventNoteTexts = new Set(eventItems.map(function(x){ return normalizeStatusNoteText(x.note); }));
+  var logItems = (taskLogs || []).filter(function(log){
+    var msg = log && log.message ? String(log.message).trim() : '';
+    return msg && log.task_id === taskId && !eventNoteTexts.has(normalizeStatusNoteText(msg));
+  }).map(function(log){
+    var st = STATUS_META[log.type] ? STATUS_META[log.type].label : (log.type || 'Statut');
+    return {
+      id: log.id || ('log_'+log.created_at+'_'+log.message),
+      source: 'task_logs',
+      task_id: log.task_id || taskId,
+      task_number: taskNumber,
+      created_at: log.created_at || '',
+      author: log.author || log.company || 'Utilisateur',
+      old_status: '',
+      new_status: st,
+      note: String(log.message || '').trim()
+    };
+  });
+
+  return eventItems.concat(logItems).sort(function(a,b){
+    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+  }).slice(0, 12);
+}
+
+function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, canEditPlanning = true, canChangeStatus = true, changeRequests = [], history = [], taskLogs = [], onSubmitChangeRequest, onReviewChangeRequest, changeRequestBusy = false, canRequestTaskChange = true }) {
   const iv = data.find(x=>x.id===ivId);
   if (!iv) return null;
   const z  = zones.find(x=>x.id===iv.zone);
@@ -4600,6 +4631,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
   const predecessorTasks = predecessorIds.map(function(id){ return data.find(function(x){ return x.id === id; }); }).filter(Boolean);
   const successorTasks = successorIds.map(function(id){ return data.find(function(x){ return x.id === id; }); }).filter(Boolean);
   const taskRequests = (changeRequests || []).filter(function(r){ return r.task_id === iv.id; });
+  const statusNotes = taskStatusNoteItems(iv, history, taskLogs);
 
   return (
     <SheetModal open={open} onClose={onClose}>
@@ -4682,6 +4714,30 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         borderRadius:'0 6px 6px 0',padding:'8px 12px',marginBottom:10,fontSize:12,color:'var(--text)'}}>
         <b>Notes</b><br/>{iv.notes}
       </div>}
+
+      {statusNotes.length>0&&(
+        <div style={{background:'rgba(37,99,235,.07)',borderLeft:'3px solid #2563EB',
+          borderRadius:'0 6px 6px 0',padding:'9px 12px',marginBottom:10,fontSize:12,color:'var(--text)'}}>
+          <div style={{fontWeight:800,marginBottom:7}}>Notes de statut</div>
+          {statusNotes.map(function(n, idx){
+            return (
+              <div key={n.id || idx} style={{padding:idx?'8px 0 0':'0',marginTop:idx?8:0,
+                borderTop:idx?'1px solid rgba(37,99,235,.18)':'none'}}>
+                <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start',marginBottom:4}}>
+                  <div style={{fontSize:11,fontWeight:800,color:'#2563EB',fontFamily:"'DM Mono',monospace"}}>
+                    {n.new_status ? (n.old_status ? n.old_status+' → '+n.new_status : n.new_status) : 'Statut'}
+                  </div>
+                  <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap'}}>
+                    {fmtStatusNoteDate(n.created_at)}
+                  </div>
+                </div>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>{n.author}</div>
+                <div style={{lineHeight:1.45,whiteSpace:'pre-wrap'}}>{n.note}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <ChangeRequestPanel
         iv={iv}
@@ -5066,12 +5122,15 @@ function TaskLinksPicker({ label, hint, selectedIds, onChange, data, zones, trad
 /* ════════════════════════════════════════════════════════════
    ADD / EDIT MODAL
 ═══════════════════════════════════════════════════════════ */
-function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, companies, onClose, onSave, onDelete }) {
+function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, companies, history = [], taskLogs = [], onUpdateStatusNote, onDeleteStatusNote, onClose, onSave, onDelete }) {
   const existing = editId ? data.find(i=>i.id===editId) : null;
   const [form, setForm] = useState({});
   const [attachments, setAttachments] = useState([]);
   const [confirmDel, setConfirmDel] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [statusNoteEditId, setStatusNoteEditId] = useState(null);
+  const [statusNoteDraft, setStatusNoteDraft] = useState('');
+  const [statusNoteBusyId, setStatusNoteBusyId] = useState(null);
   const companyNames = [...new Set((companies&&companies.length?companies:COMPANIES).map(c=>c.name))].sort();
 
   useEffect(()=>{
@@ -5092,6 +5151,9 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
         company_edit_allowed:false, company_edit_start_min:'', company_edit_end_max:'',
       });
       setAttachments(existing?.attachments||[]);
+      setStatusNoteEditId(null);
+      setStatusNoteDraft('');
+      setStatusNoteBusyId(null);
     }
   }, [open, editId, preZone, preDate]);
 
@@ -5162,6 +5224,47 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
     }
   }
 
+  const statusNotesForEdit = editId && existing ? taskStatusNoteItems(existing, history, taskLogs) : [];
+
+  function startEditStatusNote(note) {
+    setStatusNoteEditId(note.id);
+    setStatusNoteDraft(note.note || '');
+  }
+  function cancelEditStatusNote() {
+    setStatusNoteEditId(null);
+    setStatusNoteDraft('');
+  }
+  async function saveStatusNote(note) {
+    if (!onUpdateStatusNote || !note) return;
+    var nextText = String(statusNoteDraft || '').trim();
+    if (!nextText) {
+      await removeStatusNote(note);
+      return;
+    }
+    setStatusNoteBusyId(note.id);
+    try {
+      await onUpdateStatusNote(note, nextText);
+      setStatusNoteEditId(null);
+      setStatusNoteDraft('');
+    } finally {
+      setStatusNoteBusyId(null);
+    }
+  }
+  async function removeStatusNote(note) {
+    if (!onDeleteStatusNote || !note) return;
+    if (!window.confirm('Supprimer cette note de statut ?')) return;
+    setStatusNoteBusyId(note.id);
+    try {
+      await onDeleteStatusNote(note);
+      if (statusNoteEditId === note.id) {
+        setStatusNoteEditId(null);
+        setStatusNoteDraft('');
+      }
+    } finally {
+      setStatusNoteBusyId(null);
+    }
+  }
+
   const predecessorList = data.filter(i=>i.id!==editId&&i.task_number)
     .sort((a,b)=>(a.task_number||'').localeCompare(b.task_number||''));
 
@@ -5228,6 +5331,54 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
           <Textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)}
             placeholder="Informations complémentaires…" rows={2} />
         </Field>
+
+        {editId && (
+          <div style={{border:'1px solid var(--border)',background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:12,marginBottom:13}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:8}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--muted)',letterSpacing:'.04em',textTransform:'uppercase',fontFamily:"'DM Mono',monospace"}}>Notes de statut</div>
+                <div style={{fontSize:11,color:'var(--xmuted)',marginTop:2}}>Modifier ou supprimer les anciennes notes ajoutées lors d’un changement de statut.</div>
+              </div>
+              <span style={{fontSize:10,fontWeight:900,color:'var(--muted)',fontFamily:"'DM Mono',monospace"}}>{statusNotesForEdit.length}</span>
+            </div>
+            {statusNotesForEdit.length ? statusNotesForEdit.map(function(note){
+              var editing = statusNoteEditId === note.id;
+              var busy = statusNoteBusyId === note.id;
+              return (
+                <div key={note.source+'_'+note.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:10,marginBottom:8}}>
+                  <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start',marginBottom:6}}>
+                    <div style={{fontSize:10,color:'var(--muted)',fontFamily:"'DM Mono',monospace",lineHeight:1.35}}>
+                      <b>{note.new_status || 'Statut'}</b>{note.old_status ? ' · depuis '+note.old_status : ''}<br/>
+                      {fmtStatusNoteDate(note.created_at)} · {note.author || 'Utilisateur'}
+                    </div>
+                    <span style={{fontSize:9,fontWeight:900,color:note.source==='planning_events'?'#2563EB':'#0F766E',background:note.source==='planning_events'?'rgba(37,99,235,.09)':'rgba(15,118,110,.09)',border:'1px solid '+(note.source==='planning_events'?'rgba(37,99,235,.20)':'rgba(15,118,110,.20)'),borderRadius:999,padding:'2px 6px',fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap'}}>
+                      {note.source==='planning_events'?'historique':'log'}
+                    </span>
+                  </div>
+                  {editing ? (
+                    <>
+                      <Textarea value={statusNoteDraft} onChange={function(e){setStatusNoteDraft(e.target.value);}} rows={3} placeholder="Note de statut…" />
+                      <div style={{display:'flex',gap:8,marginTop:8}}>
+                        <button type="button" disabled={busy} onClick={function(){saveStatusNote(note);}} style={{...btnPrimaryStyle,padding:'8px 10px',fontSize:12,opacity:busy ? .7 : 1,cursor:busy?'wait':'pointer'}}>Enregistrer la note</button>
+                        <button type="button" disabled={busy} onClick={cancelEditStatusNote} style={{...btnSecStyle,padding:'8px 10px',fontSize:12}}>Annuler</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{fontSize:13,color:'var(--text)',lineHeight:1.45,whiteSpace:'pre-wrap',marginBottom:8}}>{note.note}</div>
+                      <div style={{display:'flex',gap:8}}>
+                        <button type="button" disabled={busy} onClick={function(){startEditStatusNote(note);}} style={{padding:'7px 9px',borderRadius:'var(--r-sm)',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,fontWeight:800,cursor:busy?'wait':'pointer'}}>Modifier</button>
+                        <button type="button" disabled={busy} onClick={function(){removeStatusNote(note);}} style={{padding:'7px 9px',borderRadius:'var(--r-sm)',border:'1px solid rgba(220,38,38,.35)',background:'rgba(220,38,38,.06)',color:'var(--danger)',fontSize:11,fontWeight:800,cursor:busy?'wait':'pointer'}}>Supprimer</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            }) : (
+              <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.4}}>Aucune note de statut enregistrée pour cette intervention.</div>
+            )}
+          </div>
+        )}
 
         <div style={{border:'1px solid var(--border)',background:'var(--surface-2)',borderRadius:'var(--r-sm)',padding:12,marginBottom:13}}>
           <label style={{display:'flex',alignItems:'flex-start',gap:9,cursor:'pointer'}}>
@@ -5617,6 +5768,7 @@ function PlanifyApp() {
   const [showWeekends, setShowWeekends] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState([]);
+  const [taskLogs, setTaskLogs] = useState([]);
   const [changeRequests, setChangeRequests] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [planningVersion, setPlanningVersion] = useState(null);
@@ -5887,9 +6039,27 @@ function PlanifyApp() {
       planning_version_id:planningVersion&&planningVersion.id?planningVersion.id:null,
       payload:row.payload || {}
     }, row);
+    var fallback = Object.assign({
+      id:'local_event_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      created_at:new Date().toISOString()
+    }, payload);
     return sbFetchSilent('POST','planning_events',payload)
-      .then(function(){ if(historyOpen) loadHistory(); })
-      .catch(function(e){ console.warn('[Planify] event not saved:', e); });
+      .then(function(r){
+        if (!r || !r.json) return fallback;
+        return r.json().catch(function(){ return []; }).then(function(rows){
+          return rows && rows[0] ? rows[0] : fallback;
+        });
+      })
+      .then(function(savedEvent){
+        setHistory(function(prev){
+          var list = prev || [];
+          if (savedEvent && savedEvent.id && list.some(function(e){ return e.id === savedEvent.id; })) return list;
+          return [savedEvent].concat(list).slice(0,300);
+        });
+        if(historyOpen) return loadHistory().then(function(){ return savedEvent; });
+        return savedEvent;
+      })
+      .catch(function(e){ console.warn('[Planify] event not saved:', e); return fallback; });
   }
 
   // ── Load all data from Supabase ──────────────────────────────────────
@@ -5902,10 +6072,11 @@ function PlanifyApp() {
       fetch(SUPA_URL+'/rest/v1/interventions?order=start_date',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/calendar_overrides?order=date',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/task_change_requests?order=created_at.desc&limit=500',{headers:hdrs}),
+      fetch(SUPA_URL+'/rest/v1/task_logs?order=created_at.desc&limit=500',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/notifications?order=created_at.desc&limit=200'+(sess&&sess.role==='company'&&sess.company?('&company=eq.'+encodeURIComponent(sess.company.name)):''),{headers:hdrs}),
     ]).then(function(rs){ return Promise.all(rs.map(function(r){return r.ok?r.json():[];})); })
     .then(function(results){
-      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], crData=results[5], nData=results[6];
+      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], crData=results[5], logData=results[6], nData=results[7];
       if(zData&&zData.length) setZones(zData);
       if(tData&&tData.length) setTrades(tData.map(function(t){
         var loc=TRADES.find(function(lt){return lt.id===t.id;}) || {};
@@ -5920,6 +6091,7 @@ function PlanifyApp() {
         return {date:r.date,label:r.label||'',is_worked:!!r.is_worked,updated_at:r.updated_at||''};
       }));
       setChangeRequests((crData||[]).map(normalizeChangeRequestRow));
+      setTaskLogs(logData || []);
       setNotifications(nData || []);
       return results;
     }).catch(function(e){ console.warn('[Planify] Load failed, using local data:',e); notify('Erreur de mise à jour','error'); throw e; });
@@ -5979,6 +6151,7 @@ function PlanifyApp() {
       .on('postgres_changes', {event:'*', schema:'public', table:'planning_versions'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'planning_events'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'task_change_requests'}, scheduleRealtimeActualiser)
+      .on('postgres_changes', {event:'*', schema:'public', table:'task_logs'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'companies'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'zones'}, scheduleRealtimeActualiser)
       .on('postgres_changes', {event:'*', schema:'public', table:'trades'}, scheduleRealtimeActualiser)
@@ -6025,6 +6198,7 @@ function PlanifyApp() {
     var newMeta = STATUS_META[status] || {label:status || '—'};
     var z = zones.find(function(x){return x.id===iv.zone;}) || null;
     var newUpdatedAt = new Date().toISOString();
+    var trimmedStatusNote = noteText && noteText.trim() ? noteText.trim() : '';
     setBusyKey('status_'+id, true);
 
     try {
@@ -6050,18 +6224,31 @@ function PlanifyApp() {
         zone_name:z?z.name:'',
         old_status:oldMeta.label,
         new_status:newMeta.label,
-        note:noteText&&noteText.trim()?noteText.trim():'',
+        note:trimmedStatusNote,
         message:author+' a modifié le statut de '+(iv.task_number||iv.task)+' : '+oldMeta.label+' → '+newMeta.label,
-        payload:{old_status:oldStatus,new_status:status}
+        payload:{old_status:oldStatus,new_status:status,note:trimmedStatusNote}
       });
 
-      if(noteText&&noteText.trim()) {
+      if(trimmedStatusNote) {
         var logRow = {task_id:id,company:author,author:author,type:status,
-          message:noteText.trim(),photo_url:null,mentioned:['Admin']};
+          message:trimmedStatusNote,photo_url:null,mentioned:['Admin']};
         sbFetchSilent('POST','task_logs',logRow)
-          .then(function(){
+          .then(function(r){
+            if (!r || !r.json) return [];
+            return r.json().catch(function(){ return []; });
+          })
+          .then(function(rows){
+            var savedLog = rows && rows[0] ? rows[0] : Object.assign({
+              id:'local_log_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+              created_at:new Date().toISOString()
+            }, logRow);
+            setTaskLogs(function(prev){
+              var list = prev || [];
+              if (savedLog && savedLog.id && list.some(function(l){ return l.id === savedLog.id; })) return list;
+              return [savedLog].concat(list).slice(0,500);
+            });
             var taskRef = iv?iv.task_number||iv.task.slice(0,30):'';
-            var msg = author+' · '+status+' · '+taskRef;
+            var msg = author+' · '+newMeta.label+' · '+taskRef;
             return sbFetchSilent('POST','notifications',[{company:'Admin',task_id:id,message:msg,read:false}]);
           }).catch(function(){});
       }
@@ -6072,6 +6259,107 @@ function PlanifyApp() {
       throw e;
     } finally {
       setBusyKey('status_'+id, false);
+    }
+  }
+
+
+  function isPersistedDbId(id) {
+    var v = String(id || '');
+    return !!v && !v.startsWith('local_') && !v.startsWith('event_') && !v.startsWith('log_');
+  }
+
+  async function handleUpdateStatusNote(noteItem, newText) {
+    var text = String(newText || '').trim();
+    if (!noteItem || !noteItem.id || !text) throw new Error('Note de statut invalide.');
+    var oldText = String(noteItem.note || '').trim();
+    var oldNorm = normalizeStatusNoteText(oldText);
+    var taskId = noteItem.task_id || '';
+    setBusyKey('status_note_'+noteItem.id, true);
+    try {
+      if (noteItem.source === 'planning_events' && isPersistedDbId(noteItem.id)) {
+        await sbFetchRows('PATCH','planning_events',{note:text},eqFilter('id', noteItem.id));
+      }
+      if (noteItem.source === 'task_logs' && isPersistedDbId(noteItem.id)) {
+        await sbFetchRows('PATCH','task_logs',{message:text},eqFilter('id', noteItem.id));
+      }
+      if (taskId && oldText) {
+        if (noteItem.source !== 'task_logs') {
+          await sbFetchSilent('PATCH','task_logs',{message:text},eqFilter('task_id', taskId)+'&'+eqFilter('message', oldText));
+        }
+        if (noteItem.source !== 'planning_events') {
+          await sbFetchSilent('PATCH','planning_events',{note:text},eqFilter('task_id', taskId)+'&'+eqFilter('note', oldText));
+        }
+      }
+      setHistory(function(prev){
+        return (prev || []).map(function(ev){
+          var sameId = noteItem.source === 'planning_events' && ev.id === noteItem.id;
+          var sameText = taskId && ev.task_id === taskId && normalizeStatusNoteText(ev.note || '') === oldNorm;
+          if (sameId || sameText) return Object.assign({}, ev, {note:text, payload:Object.assign({}, ev.payload || {}, {note:text})});
+          return ev;
+        });
+      });
+      setTaskLogs(function(prev){
+        return (prev || []).map(function(log){
+          var sameId = noteItem.source === 'task_logs' && log.id === noteItem.id;
+          var sameText = taskId && log.task_id === taskId && normalizeStatusNoteText(log.message || '') === oldNorm;
+          if (sameId || sameText) return Object.assign({}, log, {message:text});
+          return log;
+        });
+      });
+      notify('Note de statut modifiée ✓','success');
+      return true;
+    } catch(e) {
+      notify(e.message || 'Erreur modification note','error',4200);
+      throw e;
+    } finally {
+      setBusyKey('status_note_'+noteItem.id, false);
+    }
+  }
+
+  async function handleDeleteStatusNote(noteItem) {
+    if (!noteItem || !noteItem.id) throw new Error('Note de statut introuvable.');
+    var oldText = String(noteItem.note || '').trim();
+    var oldNorm = normalizeStatusNoteText(oldText);
+    var taskId = noteItem.task_id || '';
+    setBusyKey('status_note_'+noteItem.id, true);
+    try {
+      if (noteItem.source === 'planning_events' && isPersistedDbId(noteItem.id)) {
+        await sbFetchRows('PATCH','planning_events',{note:''},eqFilter('id', noteItem.id));
+      }
+      if (noteItem.source === 'task_logs' && isPersistedDbId(noteItem.id)) {
+        await sbFetchRows('PATCH','task_logs',{message:''},eqFilter('id', noteItem.id));
+      }
+      if (taskId && oldText) {
+        if (noteItem.source !== 'task_logs') {
+          await sbFetchSilent('PATCH','task_logs',{message:''},eqFilter('task_id', taskId)+'&'+eqFilter('message', oldText));
+        }
+        if (noteItem.source !== 'planning_events') {
+          await sbFetchSilent('PATCH','planning_events',{note:''},eqFilter('task_id', taskId)+'&'+eqFilter('note', oldText));
+        }
+      }
+      setHistory(function(prev){
+        return (prev || []).map(function(ev){
+          var sameId = noteItem.source === 'planning_events' && ev.id === noteItem.id;
+          var sameText = taskId && ev.task_id === taskId && normalizeStatusNoteText(ev.note || '') === oldNorm;
+          if (sameId || sameText) return Object.assign({}, ev, {note:'', payload:Object.assign({}, ev.payload || {}, {note:''})});
+          return ev;
+        });
+      });
+      setTaskLogs(function(prev){
+        return (prev || []).map(function(log){
+          var sameId = noteItem.source === 'task_logs' && log.id === noteItem.id;
+          var sameText = taskId && log.task_id === taskId && normalizeStatusNoteText(log.message || '') === oldNorm;
+          if (sameId || sameText) return Object.assign({}, log, {message:''});
+          return log;
+        });
+      });
+      notify('Note de statut supprimée ✓','success');
+      return true;
+    } catch(e) {
+      notify(e.message || 'Erreur suppression note','error',4200);
+      throw e;
+    } finally {
+      setBusyKey('status_note_'+noteItem.id, false);
     }
   }
 
@@ -7002,7 +7290,7 @@ function PlanifyApp() {
         data={data} zones={zones} trades={trades} session={session}
         onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit}
         canEditPlanning={canEditPlanning} canChangeStatus={canChangeStatus}
-        changeRequests={changeRequests}
+        changeRequests={changeRequests} history={history} taskLogs={taskLogs}
         onSubmitChangeRequest={handleSubmitTaskChangeRequest}
         onReviewChangeRequest={handleReviewTaskChangeRequest}
         changeRequestBusy={modal?.id ? isBusy('change_request_'+modal.id) : false}
@@ -7011,6 +7299,9 @@ function PlanifyApp() {
         editId={modal?.type==='edit'?modal?.id:null}
         preZone={modal?.zone} preDate={modal?.date}
         data={data} zones={zones} trades={trades} companies={companies}
+        history={history} taskLogs={taskLogs}
+        onUpdateStatusNote={handleUpdateStatusNote}
+        onDeleteStatusNote={handleDeleteStatusNote}
         onClose={closeModal} onSave={handleSave} onDelete={handleDelete} />
       <UserMenuModal open={userMenu} session={session}
         onClose={()=>setUserMenu(false)} onLogout={handleLogout} />
