@@ -1057,9 +1057,34 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
   const [exportOpen, setExportOpen] = React.useState(false);
   const exportRef = React.useRef(null);
   const defaultExportStartDate = start ? dateStr(start) : dateStr(getMonday(weekOffset));
+
+  function exportDateFromStr(value, fallback) {
+    var d = value ? new Date(value + 'T00:00:00') : null;
+    if (!d || Number.isNaN(d.getTime())) d = fallback ? new Date(fallback + 'T00:00:00') : getMonday(weekOffset);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  function exportAddDays(value, count) {
+    var d = exportDateFromStr(value, defaultExportStartDate);
+    d.setDate(d.getDate() + count);
+    d.setHours(0,0,0,0);
+    return dateStr(d);
+  }
+  function exportWeekRangeLabel(offset) {
+    var startD = exportDateFromStr(exportStartDate || defaultExportStartDate, defaultExportStartDate);
+    startD.setDate(startD.getDate() + offset * 7);
+    var endD = new Date(startD);
+    endD.setDate(endD.getDate() + 4);
+    return fmtDate(dateStr(startD)) + ' → ' + fmtDate(dateStr(endD));
+  }
+
   const [exportStartDate, setExportStartDate] = React.useState(defaultExportStartDate);
+  const [exportEndDate, setExportEndDate] = React.useState(exportAddDays(defaultExportStartDate, 25));
+  const [selectedExportWeeks, setSelectedExportWeeks] = React.useState([0]);
   React.useEffect(() => {
     setExportStartDate(defaultExportStartDate);
+    setExportEndDate(exportAddDays(defaultExportStartDate, 25));
+    setSelectedExportWeeks([0]);
   }, [defaultExportStartDate]);
   React.useEffect(() => {
     if (!exportOpen) return;
@@ -1069,12 +1094,38 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [exportOpen]);
-  const exportModes = [
-    {key:'1s', label:'1S'},
-    {key:'2s', label:'2S'},
-    {key:'3s', label:'3S'},
-    {key:'tout', label:'Tout'},
-  ];
+  const exportWeekOptions = React.useMemo(function(){
+    var maxOffset = 11;
+    var base = exportDateFromStr(exportStartDate || defaultExportStartDate, defaultExportStartDate);
+    (zones || []).forEach(function(z){
+      if (!z.deadline) return;
+      var d = new Date(z.deadline + 'T00:00:00');
+      if (Number.isNaN(d.getTime())) return;
+      var off = Math.ceil((d - base) / (7 * 24 * 3600 * 1000));
+      if (off > maxOffset) maxOffset = off;
+    });
+    maxOffset = Math.max(0, Math.min(maxOffset, 20));
+    return Array.from({length:maxOffset + 1}, function(_, offset){
+      return {offset:offset, label:exportWeekRangeLabel(offset)};
+    });
+  }, [exportStartDate, defaultExportStartDate, zones]);
+  function toggleExportWeek(offset) {
+    setSelectedExportWeeks(function(prev){
+      var list = Array.isArray(prev) ? prev.slice() : [];
+      if (list.includes(offset)) list = list.filter(function(x){ return x !== offset; });
+      else list.push(offset);
+      list = Array.from(new Set(list)).sort(function(a,b){ return a-b; });
+      return list.length ? list : [offset];
+    });
+  }
+  function runExport(format, mode, extra) {
+    setExportOpen(false);
+    onExport && onExport(format, mode, Object.assign({
+      startDate:exportStartDate || defaultExportStartDate,
+      endDate:exportEndDate || exportAddDays(exportStartDate || defaultExportStartDate, 25),
+      weekOffsets:selectedExportWeeks
+    }, extra || {}));
+  }
   const statusLabel = planningValidated
     ? 'Validé' + (planningValidUntil ? ' jusqu’au ' + fmtDate(planningValidUntil) : '')
     : planningLocked ? 'Verrouillé' : '';
@@ -1186,37 +1237,97 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             </button>
             {exportOpen && (
               <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:80,
-                width:270,background:'var(--surface)',color:'var(--text)',border:'1px solid var(--border)',
-                borderRadius:'var(--r-sm)',boxShadow:'var(--shadow-lg)',overflow:'hidden'}}>
-                <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',
+                width:390,maxHeight:'72vh',overflowY:'auto',background:'var(--surface)',color:'var(--text)',border:'1px solid var(--border)',
+                borderRadius:'var(--r-sm)',boxShadow:'var(--shadow-lg)'}}>
+                <div style={{padding:'9px 12px',borderBottom:'1px solid var(--border)',
                   fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:800,color:'var(--muted)',
-                  letterSpacing:'.05em',textTransform:'uppercase'}}>Télécharger planning</div>
-                <div style={{padding:'9px 10px',borderBottom:'1px solid var(--border)',background:'var(--surface-2)'}}>
+                  letterSpacing:'.05em',textTransform:'uppercase'}}>Impression / Export planning</div>
+
+                <div style={{padding:'10px 12px',borderBottom:'1px solid var(--border)',background:'var(--surface-2)'}}>
                   <label style={{display:'block',fontSize:10,fontWeight:800,color:'var(--muted)',
                     fontFamily:"'DM Mono',monospace",letterSpacing:'.04em',textTransform:'uppercase',marginBottom:6}}>
-                    1er jour impression / XLSX
+                    1er jour d’impression
                   </label>
                   <input type="date" value={exportStartDate || defaultExportStartDate}
                     onChange={e=>setExportStartDate(e.target.value)}
                     style={{width:'100%',height:34,border:'1px solid var(--border)',borderRadius:7,
                       background:'var(--surface)',color:'var(--text)',padding:'0 9px',fontSize:13,fontWeight:700}} />
                   <div style={{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.35}}>
-                    La vue 1S, 2S, 3S ou Tout démarre à partir de cette date.
+                    Les semaines partent de ce jour. Pour un planning classique, choisissez le lundi de départ.
                   </div>
                 </div>
-                {exportModes.map(m => (
-                  <div key={m.key} style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,
-                    padding:'8px 10px',borderBottom:'1px solid var(--border)'}}>
-                    <div style={{gridColumn:'1 / -1',fontSize:11,fontWeight:700,color:'var(--muted)',
-                      fontFamily:"'DM Mono',monospace"}}>Vue {m.label}</div>
-                    <button onClick={()=>{setExportOpen(false);onExport&&onExport('pdf',m.key,exportStartDate || defaultExportStartDate);}}
-                      style={{padding:'7px 8px',border:'1px solid var(--border)',borderRadius:6,
-                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>PDF</button>
-                    <button onClick={()=>{setExportOpen(false);onExport&&onExport('xlsx',m.key,exportStartDate || defaultExportStartDate);}}
-                      style={{padding:'7px 8px',border:'1px solid var(--border)',borderRadius:6,
+
+                <div style={{padding:'10px 12px',borderBottom:'1px solid var(--border)'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:8}}>
+                    <div style={{fontSize:11,fontWeight:800,color:'var(--text)',fontFamily:"'DM Mono',monospace"}}>
+                      1 page = 1 semaine
+                    </div>
+                    <button onClick={()=>setSelectedExportWeeks(exportWeekOptions.map(function(o){return o.offset;}))}
+                      style={{border:'none',background:'transparent',color:'var(--primary)',fontSize:10,fontWeight:800,cursor:'pointer'}}>Tout cocher</button>
+                  </div>
+                  <div style={{maxHeight:132,overflowY:'auto',border:'1px solid var(--border)',borderRadius:7,background:'var(--surface-2)'}}>
+                    {exportWeekOptions.map(function(opt){
+                      var checked = selectedExportWeeks.includes(opt.offset);
+                      return (
+                        <label key={opt.offset} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 9px',
+                          borderBottom:'1px solid var(--border)',cursor:'pointer',fontSize:11,color:'var(--text)'}}>
+                          <input type="checkbox" checked={checked} onChange={()=>toggleExportWeek(opt.offset)} />
+                          <span style={{fontFamily:"'DM Mono',monospace",fontWeight:800,color:checked?'var(--primary)':'var(--muted)'}}>
+                            S{opt.offset + 1}
+                          </span>
+                          <span>{opt.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:8}}>
+                    <button onClick={()=>runExport('pdf','selected_weeks')}
+                      style={{padding:'8px',border:'1px solid var(--primary)',borderRadius:7,
+                        background:'var(--primary-l)',color:'var(--primary)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · semaines cochées</button>
+                    <button onClick={()=>runExport('xlsx','selected_weeks')}
+                      style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
+                        background:'var(--surface)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX</button>
+                  </div>
+                </div>
+
+                <div style={{padding:'10px 12px',borderBottom:'1px solid var(--border)'}}>
+                  <div style={{fontSize:11,fontWeight:800,color:'var(--text)',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
+                    Pages compactes
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                    <button onClick={()=>runExport('pdf','2s_page')}
+                      style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
+                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · 2 semaines / page</button>
+                    <button onClick={()=>runExport('pdf','3s_page')}
+                      style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
+                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · 3 semaines / page</button>
+                    <button onClick={()=>runExport('xlsx','2s_page')}
+                      style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
+                        background:'var(--surface)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX · 2S</button>
+                    <button onClick={()=>runExport('xlsx','3s_page')}
+                      style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
+                        background:'var(--surface)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX · 3S</button>
+                  </div>
+                </div>
+
+                <div style={{padding:'10px 12px'}}>
+                  <label style={{display:'block',fontSize:10,fontWeight:800,color:'var(--muted)',
+                    fontFamily:"'DM Mono',monospace",letterSpacing:'.04em',textTransform:'uppercase',marginBottom:6}}>
+                    Imprimer jusqu’à une date
+                  </label>
+                  <input type="date" value={exportEndDate}
+                    onChange={e=>setExportEndDate(e.target.value)}
+                    style={{width:'100%',height:34,border:'1px solid var(--border)',borderRadius:7,
+                      background:'var(--surface)',color:'var(--text)',padding:'0 9px',fontSize:13,fontWeight:700}} />
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:8}}>
+                    <button onClick={()=>runExport('pdf','until_date')}
+                      style={{padding:'8px',border:'1px solid var(--primary)',borderRadius:7,
+                        background:'var(--primary-l)',color:'var(--primary)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · jusqu’à date</button>
+                    <button onClick={()=>runExport('xlsx','until_date')}
+                      style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
                         background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX</button>
                   </div>
-                ))}
+                </div>
               </div>
             )}
           </div>
@@ -1717,6 +1828,7 @@ function supaWrite(method, table, body, query) {
 // ── Self-contained helpers (Babel scope) ──────────────────────
 const _HOLIDAYS = new Set([
   '2026-01-01', // Jour de l an
+  '2026-04-06', // Lundi de Paques
   '2026-05-01', // Fete du Travail
   '2026-05-08', // Victoire 1945
   '2026-05-14', // Ascension
@@ -1726,6 +1838,7 @@ const _HOLIDAYS = new Set([
 ]);
 const _HOLIDAY_LABELS = {
   '2026-01-01':'Jour de l’an',
+  '2026-04-06':'Lundi de Pâques',
   '2026-05-01':'Fête du Travail',
   '2026-05-08':'Victoire 1945',
   '2026-05-14':'Ascension',
@@ -1738,10 +1851,19 @@ const _HOLIDAY_LABELS = {
 };
 window.PLANIFY_WORKED_HOLIDAYS = window.PLANIFY_WORKED_HOLIDAYS || new Set();
 function _ds(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function isBaseHoliday(d) { return _HOLIDAYS.has(_ds(d)); }
-function isWorkedHoliday(d) { return !!(window.PLANIFY_WORKED_HOLIDAYS && window.PLANIFY_WORKED_HOLIDAYS.has(_ds(d))); }
+function normalizeDateKey(value) {
+  if (!value) return '';
+  if (value instanceof Date) return _ds(value);
+  var raw = String(value);
+  var m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  var d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? raw.slice(0,10) : _ds(d);
+}
+function isBaseHoliday(d) { return _HOLIDAYS.has(normalizeDateKey(d)); }
+function isWorkedHoliday(d) { return !!(window.PLANIFY_WORKED_HOLIDAYS && window.PLANIFY_WORKED_HOLIDAYS.has(normalizeDateKey(d))); }
 function isHoliday(d) { return isBaseHoliday(d) && !isWorkedHoliday(d); }
-function holidayLabel(d) { return _HOLIDAY_LABELS[_ds(d)] || 'Jour férié'; }
+function holidayLabel(d) { return _HOLIDAY_LABELS[normalizeDateKey(d)] || 'Jour férié'; }
 function workingDaysUntil(ds) {
   if (!ds) return 9999;
   const target = new Date(ds+'T00:00:00'), now = new Date(); now.setHours(0,0,0,0);
@@ -3359,7 +3481,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     const workedHoliday = isWorkedHoliday(day);
                     const isFirstOfWeek = di % daysPerWeek === 0 && di > 0;
                     const isDeadline = zone.deadline && ds === zone.deadline;
-                    const isPast = zone.deadline && ds > zone.deadline;
                     const cellBg = holiday?'#D1D5DB': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                     const cards = (()=>{
                       if(holiday) return [];
@@ -5793,7 +5914,8 @@ function PlanifyApp() {
   useEffect(() => {
     window.PLANIFY_WORKED_HOLIDAYS = new Set((calendarOverrides||[])
       .filter(function(o){return !!o.is_worked;})
-      .map(function(o){return o.date;}));
+      .map(function(o){return normalizeDateKey(o.date);})
+      .filter(Boolean));
   }, [calendarOverrides]);
 
   function notify(message, type = 'success', ms = 2600) {
@@ -6088,8 +6210,8 @@ function PlanifyApp() {
       }));
       if(iData&&iData.length) setData(iData.map(normalizeInterventionRow));
       setCalendarOverrides((calData||[]).map(function(r){
-        return {date:r.date,label:r.label||'',is_worked:!!r.is_worked,updated_at:r.updated_at||''};
-      }));
+        return {date:normalizeDateKey(r.date),label:r.label||'',is_worked:!!r.is_worked,updated_at:r.updated_at||''};
+      }).filter(function(r){ return !!r.date; }));
       setChangeRequests((crData||[]).map(normalizeChangeRequestRow));
       setTaskLogs(logData || []);
       setNotifications(nData || []);
@@ -6112,6 +6234,7 @@ function PlanifyApp() {
   function handleLogout() { setSession(null); setUserMenu(false); setHistoryOpen(false); }
 
   function handleHolidayWorked(ds, label, isWorked) {
+    ds = normalizeDateKey(ds);
     var row = {date:ds,label:label||'',is_worked:!!isWorked,updated_at:new Date().toISOString()};
     setCalendarOverrides(function(prev){
       var found = false;
@@ -6840,7 +6963,9 @@ function PlanifyApp() {
     var fallback = getMonday(weekOffset);
     if (!startDate) return fallback;
     var d = new Date(startDate + 'T00:00:00');
-    return Number.isNaN(d.getTime()) ? fallback : d;
+    if (Number.isNaN(d.getTime())) return fallback;
+    d.setHours(0,0,0,0);
+    return d;
   }
 
   function addExportDays(date, count) {
@@ -6855,34 +6980,74 @@ function PlanifyApp() {
     return Array.from({length:5}, function(_, i){ return addExportDays(first, i); });
   }
 
-  function exportMultiWeekDaysFrom(startDate, weeks) {
-    return Array.from({length:weeks}, function(_, w){ return exportWeekDaysFrom(startDate, w); }).flat();
+  function normalizeExportOptions(rawOptions) {
+    var opts = rawOptions && typeof rawOptions === 'object' ? Object.assign({}, rawOptions) : {startDate:rawOptions};
+    var start = getExportStartDate(opts.startDate);
+    opts.startDate = dateStr(start);
+    var end = opts.endDate ? new Date(opts.endDate + 'T00:00:00') : null;
+    if (!end || Number.isNaN(end.getTime())) end = addExportDays(start, 25);
+    end.setHours(0,0,0,0);
+    if (end < start) end = addExportDays(start, 4);
+    opts.endDate = dateStr(end);
+    opts.weekOffsets = Array.isArray(opts.weekOffsets) ? opts.weekOffsets.map(function(x){ return parseInt(x, 10); }) : [0];
+    opts.weekOffsets = Array.from(new Set(opts.weekOffsets.filter(function(x){ return !Number.isNaN(x) && x >= 0 && x <= 40; }))).sort(function(a,b){ return a-b; });
+    if (!opts.weekOffsets.length) opts.weekOffsets = [0];
+    return opts;
   }
 
-  function getExportWeeks(mode, startDate) {
-    if (mode === 'tout') {
-      var base = getExportStartDate(startDate);
-      var maxWeeks = 1;
-      zones.forEach(function(z){
-        if (z.deadline) {
-          var d = new Date(z.deadline+'T00:00:00');
-          var w = Math.ceil((d - base)/(7*24*3600*1000)) + 1;
-          if (w > maxWeeks) maxWeeks = w;
-        }
-      });
-      return Math.max(1, Math.min(maxWeeks, 16));
+  function daysForWeekOffsets(startDate, offsets) {
+    return (offsets || [0]).map(function(offset){ return exportWeekDaysFrom(startDate, offset); });
+  }
+
+  function daysForCompactWeeks(startDate, weeks) {
+    return [Array.from({length:weeks}, function(_, w){ return exportWeekDaysFrom(startDate, w); }).flat()];
+  }
+
+  function daysUntilExportDate(startDate, endDate) {
+    var start = getExportStartDate(startDate);
+    var end = new Date(endDate + 'T00:00:00');
+    if (Number.isNaN(end.getTime()) || end < start) end = addExportDays(start, 4);
+    end.setHours(0,0,0,0);
+    var pages = [];
+    var pageStart = new Date(start);
+    var guard = 0;
+    while (pageStart <= end && guard < 80) {
+      var days = Array.from({length:5}, function(_, i){ return addExportDays(pageStart, i); })
+        .filter(function(d){ return d <= end; });
+      if (days.length) pages.push(days);
+      pageStart.setDate(pageStart.getDate() + 7);
+      pageStart.setHours(0,0,0,0);
+      guard++;
     }
-    return mode === '3s' ? 3 : mode === '2s' ? 2 : 1;
+    return pages.length ? pages : [exportWeekDaysFrom(startDate, 0)];
   }
 
-  function getPlanningExportRows(mode, startDate) {
-    var weeks = getExportWeeks(mode, startDate);
-    var days = exportMultiWeekDaysFrom(startDate, weeks);
+  function getExportDayPages(mode, rawOptions) {
+    var opts = normalizeExportOptions(rawOptions);
+    if (mode === 'selected_weeks' || mode === '1s') return daysForWeekOffsets(opts.startDate, opts.weekOffsets);
+    if (mode === '2s_page' || mode === '2s') return daysForCompactWeeks(opts.startDate, 2);
+    if (mode === '3s_page' || mode === '3s') return daysForCompactWeeks(opts.startDate, 3);
+    if (mode === 'until_date' || mode === 'tout') return daysUntilExportDate(opts.startDate, opts.endDate);
+    return daysForWeekOffsets(opts.startDate, [0]);
+  }
+
+  function getExportLabel(mode, rawOptions) {
+    var opts = normalizeExportOptions(rawOptions);
+    if (mode === 'selected_weeks' || mode === '1s') return '1S/page';
+    if (mode === '2s_page' || mode === '2s') return '2S/page';
+    if (mode === '3s_page' || mode === '3s') return '3S/page';
+    if (mode === 'until_date' || mode === 'tout') return 'Jusqu’au ' + fmtDate(opts.endDate);
+    return String(mode || 'planning').toUpperCase();
+  }
+
+  function getPlanningExportRows(mode, rawOptions) {
+    var pages = getExportDayPages(mode, rawOptions);
+    var days = pages.flat();
     var first = days[0];
     var last = days[days.length - 1];
     var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
     var rows = source.filter(function(iv){
-      return days.some(function(d){ return isTaskActiveOn(iv, d); });
+      return days.some(function(d){ return isTaskActiveOn(iv, d) && !isHoliday(d); });
     }).sort(function(a,b){
       return (a.start||'').localeCompare(b.start||'') ||
              (a.zone||'').localeCompare(b.zone||'') ||
@@ -6908,15 +7073,16 @@ function PlanifyApp() {
         offDays: (iv.off_days || []).map(fmtDate).join(', '),
       };
     });
-    return {rows: rows, first: first, last: last, weeks: weeks};
+    return {rows: rows, first: first, last: last, pages: pages};
   }
 
-  function exportPlanning(format, mode, startDate) {
-    var pack = getPlanningExportRows(mode, startDate);
+  function exportPlanning(format, mode, exportOptions) {
+    var pack = getPlanningExportRows(mode, exportOptions);
     var rows = pack.rows;
     var period = dateStr(pack.first).replaceAll('-','') + '_' + dateStr(pack.last).replaceAll('-','');
-    var label = mode.toUpperCase();
-    var fileBase = 'planify_hsf_planning_' + label + '_' + period;
+    var label = getExportLabel(mode, exportOptions);
+    var safeLabel = String(label).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'') || 'planning';
+    var fileBase = 'planify_hsf_planning_' + safeLabel + '_' + period;
     var headers = ['Zone','Étage','Entreprise','Lot','N° tâche','Tâche','Statut','Début','Fin','Prérequis / blocage','Impact','Notes','Jours gelés'];
     var body = rows.map(function(r){ return [
       r.zone, r.floor, r.company, r.trade, r.taskNumber, r.task, r.status,
@@ -6945,7 +7111,8 @@ function PlanifyApp() {
         {wch:14},{wch:12},{wch:12},{wch:32},{wch:32},{wch:32},{wch:20}
       ];
       var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Planning '+label);
+      var sheetName = ('Planning ' + safeLabel).replace(/[^A-Za-z0-9 _-]+/g,'_').slice(0,31) || 'Planning';
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
       XLSX.writeFile(wb, fileBase + '.xlsx');
       return;
     }
@@ -6997,7 +7164,8 @@ function PlanifyApp() {
         return [wd < 0 ? '▲' : 'J-' + wd, fmtDate(zone.deadline).slice(0,5)];
       }
 
-      var totalWeeks = getExportWeeks(mode, startDate);
+      var pages = pack.pages && pack.pages.length ? pack.pages : getExportDayPages(mode, exportOptions);
+      var totalPages = pages.length;
       var doc = new JSPDF({orientation:'landscape', unit:'pt', format:'a4'});
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
@@ -7008,15 +7176,16 @@ function PlanifyApp() {
       var tableW = pageW - margin * 2;
       var zoneW = 50;
       var finW = 34;
-      var dayW = (tableW - zoneW - finW) / 5;
       var th = 24;
       var dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
       var exported = 0;
 
-      for (var wi = 0; wi < totalWeeks; wi++) {
+      for (var wi = 0; wi < totalPages; wi++) {
         if (wi > 0) doc.addPage('a4', 'landscape');
 
-        var days = exportWeekDaysFrom(startDate, wi);
+        var days = pages[wi];
+        var dayCount = Math.max(1, days.length);
+        var dayW = (tableW - zoneW - finW) / dayCount;
         var tasksForWeek = weekTasks(days);
         exported += tasksForWeek.length;
         var periodLabel = fmtDate(dateStr(days[0])) + ' au ' + fmtDate(dateStr(days[days.length - 1]));
@@ -7056,7 +7225,7 @@ function PlanifyApp() {
         doc.setFont('helvetica','normal');
         doc.setFontSize(6.7);
         doc.setTextColor(215,215,215);
-        doc.text('Planning ' + label + ' · Semaine ' + (wi + 1) + '/' + totalWeeks + ' · ' + periodLabel, margin + 10, 37);
+        doc.text('Planning ' + label + ' · Page ' + (wi + 1) + '/' + totalPages + ' · ' + periodLabel, margin + 10, 37);
         doc.text(tasksForWeek.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR'), pageW - margin - 125, 37);
 
         var x0 = margin;
@@ -7070,12 +7239,12 @@ function PlanifyApp() {
         // En-tête tableau
         doc.setFillColor(249,248,245);
         doc.rect(x0, y0, zoneW, th, 'F');
-        doc.rect(x0 + zoneW + 5 * dayW, y0, finW, th, 'F');
+        doc.rect(x0 + zoneW + dayCount * dayW, y0, finW, th, 'F');
         doc.setTextColor(90,90,90);
         doc.setFont('helvetica','bold');
         doc.setFontSize(7.5);
         doc.text('ZONE', x0 + 8, y0 + 16);
-        doc.text('FIN', x0 + zoneW + 5 * dayW + 13, y0 + 16);
+        doc.text('FIN', x0 + zoneW + dayCount * dayW + 13, y0 + 16);
 
         days.forEach(function(day, di) {
           var x = x0 + zoneW + di * dayW;
@@ -7135,15 +7304,11 @@ function PlanifyApp() {
             var ds = dateStr(day);
             var holiday = isHoliday(day);
             var isDeadline = zone.deadline && ds === zone.deadline;
-            var isPast = zone.deadline && ds > zone.deadline;
             if (holiday) {
               doc.setFillColor(209,213,219);
               doc.rect(x, y, dayW, rowH, 'F');
             } else if (isDeadline) {
               doc.setFillColor(254,226,226);
-              doc.rect(x, y, dayW, rowH, 'F');
-            } else if (isPast) {
-              doc.setFillColor(254,242,242);
               doc.rect(x, y, dayW, rowH, 'F');
             }
             doc.setDrawColor(228,224,216);
@@ -7215,7 +7380,7 @@ function PlanifyApp() {
           });
 
           // Jalon
-          var dx = x0 + zoneW + 5 * dayW;
+          var dx = x0 + zoneW + dayCount * dayW;
           var dc = hexToRgb(deadlineColor(zone.deadline));
           var dlBg = mixWhite(dc, 0.90);
           doc.setFillColor(dlBg[0], dlBg[1], dlBg[2]);
@@ -7234,7 +7399,7 @@ function PlanifyApp() {
         doc.setDrawColor(200,196,188);
         doc.setLineWidth(0.7);
         doc.line(x0 + zoneW, y0, x0 + zoneW, y0 + tableH);
-        for (var gi = 1; gi <= 5; gi++) {
+        for (var gi = 1; gi <= dayCount; gi++) {
           var gx = x0 + zoneW + gi * dayW;
           doc.line(gx, y0, gx, y0 + tableH);
         }
@@ -7242,8 +7407,8 @@ function PlanifyApp() {
         doc.setTextColor(90,90,90);
         doc.setFont('helvetica','normal');
         doc.setFontSize(6.5);
-        doc.text('1 page = 1 semaine · hauteur des zones adaptée au nombre de tâches · point couleur = statut · JF = jour férié.', margin, pageH - 12);
-        doc.text('Page ' + (wi + 1) + '/' + totalWeeks, pageW - margin - 48, pageH - 12);
+        doc.text('Modes impression : 1S/page, 2S/page, 3S/page ou jusqu’à date · point couleur = statut · JF = jour férié.', margin, pageH - 12);
+        doc.text('Page ' + (wi + 1) + '/' + totalPages, pageW - margin - 48, pageH - 12);
       }
 
       if (!exported) {
