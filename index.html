@@ -1815,6 +1815,1021 @@ Object.assign(window, {
   hdrBtnStyle, btnPrimaryStyle, btnSecStyle, btnDangerStyle,
 });
 </script>
+<!-- ════════════════════════════════════════════════════════════
+     PLANIFY — UX LEVEL 2 POLISH
+     À coller après le script des composants, avant planify-screens.jsx
+════════════════════════════════════════════════════════════ -->
+<style id="planify-ux-level-2">
+:root,
+[data-theme="terrain"]{
+  --bg:#F3F1EB;
+  --surface:#FFFFFF;
+  --surface-2:#FAF9F6;
+  --surface-3:#F0EEE7;
+  --hdr:#111315;
+  --hdr-text:#FFFFFF;
+  --primary:#174EA6;
+  --primary-2:#2563EB;
+  --primary-l:#EEF4FF;
+  --text:#171717;
+  --muted:#6C675F;
+  --xmuted:#A19B91;
+  --border:#E4DFD5;
+  --border-s:#C8C0B3;
+  --danger:#DC2626;
+  --danger-l:#FFF1F1;
+  --warning:#EA580C;
+  --warning-l:#FFF7ED;
+  --success:#149447;
+  --success-l:#ECFDF3;
+  --r:18px;
+  --r-sm:14px;
+  --r-xs:9px;
+  --shadow:0 1px 2px rgba(17,19,21,.05),0 8px 24px rgba(17,19,21,.055);
+  --shadow-md:0 12px 34px rgba(17,19,21,.11);
+  --shadow-lg:0 22px 72px rgba(17,19,21,.22);
+  --focus:0 0 0 4px rgba(37,99,235,.15);
+}
+
+[data-theme="studio"]{
+  --bg:#EFF2FA;
+  --surface:#FFFFFF;
+  --surface-2:#F7F8FC;
+  --surface-3:#EEF2FF;
+  --hdr:#20204A;
+  --hdr-text:#FFFFFF;
+  --primary:#4338CA;
+  --primary-2:#6366F1;
+  --primary-l:#EEF2FF;
+  --text:#101828;
+  --muted:#667085;
+  --xmuted:#98A2B3;
+  --border:#E4E7EC;
+  --border-s:#CBD5E1;
+  --r:20px;
+  --r-sm:15px;
+  --r-xs:10px;
+}
+
+[data-theme="nuit"]{
+  --bg:#0C0D10;
+  --surface:#17181D;
+  --surface-2:#202128;
+  --surface-3:#292A33;
+  --hdr:#090A0D;
+  --hdr-text:#F5F7FA;
+  --primary:#60A5FA;
+  --primary-2:#93C5FD;
+  --primary-l:rgba(96,165,250,.15);
+  --text:#F4F4F5;
+  --muted:#A1A1AA;
+  --xmuted:#71717A;
+  --border:#2A2C34;
+  --border-s:#3A3D46;
+  --danger:#F87171;
+  --danger-l:rgba(248,113,113,.14);
+  --warning:#FB923C;
+  --warning-l:rgba(251,146,60,.14);
+  --success:#34D399;
+  --success-l:rgba(52,211,153,.14);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.28);
+  --shadow-md:0 18px 42px rgba(0,0,0,.34);
+  --shadow-lg:0 28px 88px rgba(0,0,0,.48);
+}
+
+html,
+body{
+  background:
+    radial-gradient(circle at top left, rgba(37,99,235,.10), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(234,88,12,.08), transparent 30%),
+    var(--bg);
+}
+
+body{
+  font-size:14px;
+  letter-spacing:-.01em;
+}
+
+button,
+select,
+input,
+textarea{
+  font-family:'DM Sans',sans-serif;
+}
+
+button{
+  touch-action:manipulation;
+}
+
+button:active{
+  transform:scale(.985);
+}
+
+input,
+select,
+textarea{
+  min-height:44px;
+}
+
+::selection{
+  background:var(--primary-l);
+  color:var(--primary);
+}
+
+::-webkit-scrollbar{
+  width:7px;
+  height:7px;
+}
+
+::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb, var(--border-s) 80%, transparent);
+  border-radius:999px;
+}
+
+@media (max-width: 720px){
+  body{
+    font-size:14px;
+  }
+
+  input,
+  select,
+  textarea,
+  button{
+    font-size:16px;
+  }
+}
+</style>
+
+<script type="text/babel" data-presets="env,react">
+/* ════════════════════════════════════════════════════════════
+   PLANIFY — UX LEVEL 2 COMPONENT OVERRIDES
+   Ne touche pas à la logique métier : uniquement composants visuels.
+════════════════════════════════════════════════════════════ */
+
+var UX2 = {
+  mono:"'DM Mono',monospace",
+  sans:"'DM Sans',sans-serif",
+  cardShadow:'0 1px 2px rgba(17,19,21,.04),0 10px 28px rgba(17,19,21,.07)',
+  activeShadow:'0 14px 36px rgba(17,19,21,.12)',
+  transition:'all .16s cubic-bezier(.2,.8,.2,1)'
+};
+
+function ux2Rgba(hex, alpha){
+  if (typeof rgbaCss === 'function') return rgbaCss(hex, alpha);
+  var clean = String(hex || '#2563EB').replace('#','').trim();
+  if (clean.length === 3) clean = clean.split('').map(function(c){return c+c;}).join('');
+  var r = parseInt(clean.slice(0,2),16) || 37;
+  var g = parseInt(clean.slice(2,4),16) || 99;
+  var b = parseInt(clean.slice(4,6),16) || 235;
+  return 'rgba('+r+','+g+','+b+','+alpha+')';
+}
+
+var StatusBadge = window.StatusBadge = function StatusBadge({ status, size = 'sm', label }) {
+  var m = STATUS_META[status] || STATUS_META.arealis;
+  var fs = size === 'lg' ? 12 : 10.5;
+  var pad = size === 'lg' ? '5px 10px' : '3px 8px';
+
+  return (
+    <span style={{
+      display:'inline-flex',
+      alignItems:'center',
+      gap:6,
+      padding:pad,
+      borderRadius:999,
+      background:m.bg,
+      color:m.text,
+      border:'1px solid '+m.dot+'44',
+      fontSize:fs,
+      fontWeight:800,
+      fontFamily:UX2.mono,
+      lineHeight:1,
+      whiteSpace:'nowrap',
+      boxShadow:'inset 0 0 0 1px rgba(255,255,255,.28)'
+    }}>
+      <span style={{
+        width:size === 'lg' ? 8 : 6,
+        height:size === 'lg' ? 8 : 6,
+        borderRadius:'50%',
+        background:m.dot,
+        boxShadow:'0 0 0 3px '+m.bg,
+        flexShrink:0
+      }} />
+      {label || m.label}
+    </span>
+  );
+};
+
+var TradeBadge = window.TradeBadge = function TradeBadge({ tradeId, trades, size = 'sm' }) {
+  var tr = (trades || []).find(function(t){ return t.id === tradeId; });
+  if (!tr) return null;
+  var c = getTC(tr.color);
+  var pad = size === 'lg' ? '6px 11px' : '4px 9px';
+  var fs  = size === 'lg' ? 12 : 10.5;
+
+  return (
+    <span style={{
+      display:'inline-flex',
+      alignItems:'center',
+      gap:7,
+      padding:pad,
+      borderRadius:999,
+      background:'linear-gradient(180deg, '+c.bg+', rgba(255,255,255,.78))',
+      color:c.t,
+      border:'1px solid '+c.b+'38',
+      fontSize:fs,
+      fontWeight:900,
+      fontFamily:UX2.mono,
+      whiteSpace:'nowrap',
+      boxShadow:'0 1px 2px rgba(0,0,0,.04)'
+    }}>
+      <span style={{
+        width:7,
+        height:7,
+        borderRadius:'50%',
+        background:c.b,
+        boxShadow:'0 0 0 3px '+ux2Rgba(c.b,.12),
+        flexShrink:0
+      }} />
+      {tr.short}
+    </span>
+  );
+};
+
+var StatChip = window.StatChip = function StatChip({ value, label, color, bg, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        position:'relative',
+        overflow:'hidden',
+        background:bg || 'var(--surface)',
+        border:'1px solid var(--border)',
+        borderRadius:'var(--r)',
+        padding:'14px 12px',
+        textAlign:'left',
+        cursor:onClick ? 'pointer' : 'default',
+        boxShadow:'var(--shadow)',
+        transition:UX2.transition,
+        flex:1,
+        minWidth:0
+      }}
+      onMouseEnter={function(e){
+        if(onClick){
+          e.currentTarget.style.transform='translateY(-2px)';
+          e.currentTarget.style.boxShadow='var(--shadow-md)';
+          e.currentTarget.style.borderColor=color || 'var(--primary)';
+        }
+      }}
+      onMouseLeave={function(e){
+        e.currentTarget.style.transform='';
+        e.currentTarget.style.boxShadow='var(--shadow)';
+        e.currentTarget.style.borderColor='var(--border)';
+      }}
+    >
+      <div style={{
+        position:'absolute',
+        top:-24,
+        right:-24,
+        width:68,
+        height:68,
+        borderRadius:'50%',
+        background:ux2Rgba(color || '#2563EB', .10)
+      }} />
+      <div style={{
+        position:'relative',
+        fontSize:28,
+        fontWeight:900,
+        color:color || 'var(--primary)',
+        fontFamily:UX2.mono,
+        lineHeight:1
+      }}>
+        {value}
+      </div>
+      <div style={{
+        position:'relative',
+        fontSize:11,
+        color:'var(--muted)',
+        marginTop:6,
+        fontWeight:800,
+        textTransform:'uppercase',
+        letterSpacing:'.035em'
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+};
+
+var Field = window.Field = function Field({ label, children, hint }) {
+  return (
+    <div style={{marginBottom:16}}>
+      <label style={{
+        display:'flex',
+        alignItems:'baseline',
+        gap:6,
+        fontSize:12,
+        fontWeight:900,
+        color:'var(--text)',
+        marginBottom:7,
+        letterSpacing:'-.01em'
+      }}>
+        <span>{label}</span>
+        {hint && (
+          <span style={{
+            fontWeight:600,
+            color:'var(--xmuted)',
+            fontSize:11
+          }}>
+            {hint}
+          </span>
+        )}
+      </label>
+      {children}
+    </div>
+  );
+};
+
+var Input = window.Input = function Input({ value, onChange, placeholder, type='text', ...rest }) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      style={{
+        width:'100%',
+        minHeight:44,
+        padding:'11px 13px',
+        border:'1px solid var(--border)',
+        borderRadius:'var(--r-sm)',
+        fontSize:14,
+        color:'var(--text)',
+        background:'var(--surface)',
+        fontFamily:UX2.sans,
+        outline:'none',
+        boxShadow:'0 1px 0 rgba(17,19,21,.03)',
+        transition:UX2.transition,
+        ...rest?.style
+      }}
+      onFocus={function(e){
+        e.target.style.borderColor='var(--primary)';
+        e.target.style.boxShadow='var(--focus)';
+      }}
+      onBlur={function(e){
+        e.target.style.borderColor='var(--border)';
+        e.target.style.boxShadow='0 1px 0 rgba(17,19,21,.03)';
+      }}
+      {...rest}
+    />
+  );
+};
+
+var Select = window.Select = function Select({ value, onChange, children, ...rest }) {
+  return (
+    <select
+      value={value}
+      onChange={onChange}
+      style={{
+        width:'100%',
+        minHeight:44,
+        padding:'11px 38px 11px 13px',
+        border:'1px solid var(--border)',
+        borderRadius:'var(--r-sm)',
+        fontSize:14,
+        color:'var(--text)',
+        background:'var(--surface)',
+        fontFamily:UX2.sans,
+        outline:'none',
+        appearance:'none',
+        boxShadow:'0 1px 0 rgba(17,19,21,.03)',
+        transition:UX2.transition,
+        backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='9' viewBox='0 0 13 9'%3E%3Cpath d='M1.5 1.5l5 5 5-5' stroke='%236B6860' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
+        backgroundRepeat:'no-repeat',
+        backgroundPosition:'right 14px center',
+        ...rest?.style
+      }}
+      onFocus={function(e){
+        e.target.style.borderColor='var(--primary)';
+        e.target.style.boxShadow='var(--focus)';
+      }}
+      onBlur={function(e){
+        e.target.style.borderColor='var(--border)';
+        e.target.style.boxShadow='0 1px 0 rgba(17,19,21,.03)';
+      }}
+      {...rest}
+    >
+      {children}
+    </select>
+  );
+};
+
+var Textarea = window.Textarea = function Textarea({ value, onChange, placeholder, rows=3, fixed=false, ...rest }) {
+  return (
+    <textarea
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={rows}
+      style={{
+        width:'100%',
+        minHeight:fixed ? undefined : 92,
+        padding:'11px 13px',
+        border:'1px solid var(--border)',
+        borderRadius:'var(--r-sm)',
+        fontSize:14,
+        color:'var(--text)',
+        background:'var(--surface)',
+        fontFamily:UX2.sans,
+        outline:'none',
+        resize:fixed ? 'none' : 'vertical',
+        lineHeight:1.45,
+        boxShadow:'0 1px 0 rgba(17,19,21,.03)',
+        transition:UX2.transition,
+        ...rest?.style
+      }}
+      onFocus={function(e){
+        e.target.style.borderColor='var(--primary)';
+        e.target.style.boxShadow='var(--focus)';
+      }}
+      onBlur={function(e){
+        e.target.style.borderColor='var(--border)';
+        e.target.style.boxShadow='0 1px 0 rgba(17,19,21,.03)';
+      }}
+      {...rest}
+    />
+  );
+};
+
+var SheetModal = window.SheetModal = function SheetModal({ open, onClose, children, maxH = '92vh' }) {
+  React.useEffect(function(){
+    document.body.style.overflow = open ? 'hidden' : '';
+    return function(){ document.body.style.overflow = ''; };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position:'fixed',
+        inset:0,
+        background:'rgba(8,10,14,.58)',
+        backdropFilter:'blur(10px)',
+        WebkitBackdropFilter:'blur(10px)',
+        zIndex:200,
+        display:'flex',
+        alignItems:'flex-end',
+        justifyContent:'center',
+        padding:'0 10px',
+        animation:'fadeIn .16s'
+      }}
+    >
+      <div
+        onClick={function(e){ e.stopPropagation(); }}
+        style={{
+          background:'var(--surface)',
+          border:'1px solid color-mix(in srgb, var(--border) 80%, transparent)',
+          borderRadius:'26px 26px 0 0',
+          width:'100%',
+          maxWidth:720,
+          maxHeight:maxH,
+          overflowY:'auto',
+          WebkitOverflowScrolling:'touch',
+          padding:'0 18px calc(36px + env(safe-area-inset-bottom))',
+          animation:'slideUp .24s cubic-bezier(.32,.72,0,1)',
+          boxShadow:'var(--shadow-lg)'
+        }}
+      >
+        <div style={{
+          position:'sticky',
+          top:0,
+          zIndex:1,
+          background:'linear-gradient(180deg, var(--surface) 0%, var(--surface) 72%, transparent 100%)',
+          padding:'12px 0 18px'
+        }}>
+          <div style={{
+            width:42,
+            height:5,
+            borderRadius:999,
+            background:'var(--border-s)',
+            margin:'0 auto'
+          }} />
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+var FilterChips = window.FilterChips = function FilterChips({ trades, filter, onFilter }) {
+  var all = [{id:'all', short:'Tous', color:''}].concat(trades || []);
+
+  return (
+    <div style={{
+      display:'flex',
+      gap:8,
+      overflowX:'auto',
+      padding:'2px 0 4px',
+      scrollbarWidth:'none'
+    }}>
+      {all.map(function(tr){
+        var isAll = tr.id === 'all';
+        var active = filter === tr.id;
+        var c = !isAll ? getTC(tr.color) : null;
+        var activeColor = isAll ? 'var(--primary)' : c.b;
+
+        return (
+          <button
+            key={tr.id}
+            onClick={function(){ onFilter(tr.id); }}
+            style={{
+              padding:'7px 13px',
+              borderRadius:999,
+              border:'1px solid '+(active ? activeColor : 'rgba(255,255,255,.18)'),
+              background:active
+                ? (isAll ? '#FFFFFF' : c.bg)
+                : 'rgba(255,255,255,.09)',
+              color:active
+                ? (isAll ? 'var(--primary)' : c.t)
+                : 'rgba(255,255,255,.82)',
+              fontSize:12,
+              fontWeight:active ? 900 : 700,
+              cursor:'pointer',
+              whiteSpace:'nowrap',
+              display:'flex',
+              alignItems:'center',
+              gap:7,
+              transition:UX2.transition,
+              flexShrink:0,
+              boxShadow:active ? '0 8px 20px rgba(0,0,0,.12)' : 'none',
+              fontFamily:UX2.mono
+            }}
+          >
+            {c && (
+              <span style={{
+                width:7,
+                height:7,
+                borderRadius:'50%',
+                background:c.b,
+                boxShadow:'0 0 0 3px '+ux2Rgba(c.b,.14),
+                flexShrink:0
+              }} />
+            )}
+            {tr.short}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+var TaskCard = window.TaskCard = function TaskCard({
+  iv,
+  trades,
+  data = [],
+  isDark,
+  onClick,
+  criticalPath = null,
+  criticalVisible = true,
+  dimmed = false,
+  focused = false
+}) {
+  var tr = (trades || []).find(function(t){ return t.id === iv.trade; });
+  var c  = getTC((tr && tr.color) || 'blue');
+  var m  = STATUS_META[iv.status] || STATUS_META.arealis;
+  var bg = isDark ? c.bgD : c.bg;
+  var hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
+  var ccColor = hasCritical ? (criticalPath.color || '#EA580C') : c.b;
+  var hasPrereq = !!String(iv.prereq || '').trim();
+  var blocked = iv.status === 'bloque';
+
+  var predCount = typeof taskDependencyIds === 'function'
+    ? taskDependencyIds(iv, data, 'predecessor').length
+    : 0;
+  var succCount = typeof taskDependencyIds === 'function'
+    ? taskDependencyIds(iv, data, 'successor').length
+    : 0;
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        position:'relative',
+        overflow:'hidden',
+        borderRadius:12,
+        padding:'8px 9px 8px 10px',
+        marginBottom:5,
+        cursor:'pointer',
+        background:hasCritical
+          ? 'linear-gradient(0deg, '+ux2Rgba(ccColor,.12)+', '+ux2Rgba(ccColor,.12)+'), '+bg
+          : bg,
+        border:'1px solid '+(hasCritical ? ux2Rgba(ccColor,.72) : c.b+'34'),
+        borderLeft:'5px solid '+(hasCritical ? ccColor : c.b),
+        boxShadow:hasCritical
+          ? '0 0 0 2px '+ux2Rgba(ccColor,.18)+', 0 8px 24px '+ux2Rgba(ccColor,.12)
+          : '0 1px 2px rgba(0,0,0,.04)',
+        transition:UX2.transition,
+        userSelect:'none',
+        opacity:dimmed ? .34 : 1,
+        filter:dimmed ? 'saturate(.55)' : 'none'
+      }}
+      onMouseEnter={function(e){
+        e.currentTarget.style.transform='translateY(-1px)';
+        e.currentTarget.style.boxShadow=hasCritical
+          ? '0 0 0 2px '+ux2Rgba(ccColor,.25)+', 0 12px 30px '+ux2Rgba(ccColor,.18)
+          : '0 10px 24px rgba(17,19,21,.10)';
+        e.currentTarget.style.opacity=dimmed ? .52 : 1;
+      }}
+      onMouseLeave={function(e){
+        e.currentTarget.style.transform='';
+        e.currentTarget.style.boxShadow=hasCritical
+          ? '0 0 0 2px '+ux2Rgba(ccColor,.18)+', 0 8px 24px '+ux2Rgba(ccColor,.12)
+          : '0 1px 2px rgba(0,0,0,.04)';
+        e.currentTarget.style.opacity=dimmed ? .34 : 1;
+      }}
+    >
+      <div style={{
+        position:'absolute',
+        top:-28,
+        right:-26,
+        width:72,
+        height:72,
+        borderRadius:'50%',
+        background:ux2Rgba(hasCritical ? ccColor : c.b, .10)
+      }} />
+
+      <div style={{
+        position:'relative',
+        display:'flex',
+        justifyContent:'space-between',
+        alignItems:'center',
+        gap:7,
+        marginBottom:4
+      }}>
+        <span style={{
+          fontFamily:UX2.mono,
+          fontSize:9.5,
+          color:c.t,
+          opacity:.72,
+          fontWeight:900,
+          letterSpacing:'-.02em',
+          overflow:'hidden',
+          whiteSpace:'nowrap',
+          textOverflow:'ellipsis'
+        }}>
+          {typeof normalizeTaskNumber === 'function' ? normalizeTaskNumber(iv.task_number) : iv.task_number}
+        </span>
+
+        <StatusBadge status={iv.status} />
+      </div>
+
+      <div style={{
+        position:'relative',
+        display:'flex',
+        alignItems:'center',
+        gap:6,
+        marginBottom:3
+      }}>
+        <span style={{
+          width:7,
+          height:7,
+          borderRadius:'50%',
+          background:c.b,
+          flexShrink:0,
+          boxShadow:'0 0 0 3px '+ux2Rgba(c.b,.13)
+        }} />
+        <div style={{
+          fontSize:11.5,
+          fontWeight:900,
+          color:c.t,
+          lineHeight:1.15,
+          overflow:'hidden',
+          whiteSpace:'nowrap',
+          textOverflow:'ellipsis'
+        }}>
+          {iv.company}
+        </div>
+      </div>
+
+      <div style={{
+        position:'relative',
+        fontSize:10.5,
+        color:c.t,
+        opacity:.86,
+        lineHeight:1.35,
+        overflow:'hidden',
+        display:'-webkit-box',
+        WebkitLineClamp:2,
+        WebkitBoxOrient:'vertical'
+      }}>
+        {iv.task}
+      </div>
+
+      <div style={{
+        position:'relative',
+        display:'flex',
+        gap:5,
+        flexWrap:'wrap',
+        marginTop:6
+      }}>
+        {typeof TaskDependencyBadges === 'function' && (
+          <TaskDependencyBadges iv={iv} data={data} compact />
+        )}
+
+        {hasCritical && (
+          <span style={{
+            display:'inline-flex',
+            alignItems:'center',
+            gap:5,
+            padding:'2px 7px',
+            borderRadius:999,
+            background:ux2Rgba(ccColor,.16),
+            color:ccColor,
+            border:'1px solid '+ux2Rgba(ccColor,.45),
+            fontSize:8.5,
+            fontWeight:900,
+            fontFamily:UX2.mono,
+            whiteSpace:'nowrap'
+          }}>
+            {criticalPath.chainLabel || 'CC'} · critique
+          </span>
+        )}
+
+        {!hasCritical && (predCount || succCount) ? (
+          <span style={{
+            display:'inline-flex',
+            alignItems:'center',
+            gap:4,
+            padding:'2px 7px',
+            borderRadius:999,
+            background:'rgba(202,138,4,.10)',
+            color:'#92400E',
+            border:'1px solid rgba(202,138,4,.25)',
+            fontSize:8.5,
+            fontWeight:900,
+            fontFamily:UX2.mono,
+            whiteSpace:'nowrap'
+          }}>
+            Lien
+          </span>
+        ) : null}
+      </div>
+
+      {hasPrereq && (
+        <div style={{
+          position:'relative',
+          marginTop:6,
+          display:'flex',
+          alignItems:'flex-start',
+          gap:5,
+          padding:'5px 7px',
+          borderRadius:9,
+          background:blocked ? 'var(--danger-l)' : 'rgba(234,88,12,.10)',
+          color:blocked ? 'var(--danger)' : '#9A3412',
+          border:'1px solid '+(blocked ? 'rgba(220,38,38,.22)' : 'rgba(234,88,12,.18)'),
+          fontSize:9,
+          fontWeight:800,
+          lineHeight:1.25
+        }}>
+          <span style={{flexShrink:0}}>⚠</span>
+          <span style={{
+            overflow:'hidden',
+            whiteSpace:'nowrap',
+            textOverflow:'ellipsis'
+          }}>
+            {String(iv.prereq).slice(0,52)}
+          </span>
+        </div>
+      )}
+
+      {typeof taskCanFinishLater === 'function' && taskCanFinishLater(iv) && (
+        <div style={{position:'relative',marginTop:5}}>
+          <TaskFinishLaterBadge iv={iv} compact />
+        </div>
+      )}
+    </div>
+  );
+};
+
+var ZoneProgressBar = window.ZoneProgressBar = function ZoneProgressBar({ zone, interventions }) {
+  var zivs = (interventions || []).filter(function(i){ return i.zone === zone.id; });
+  var total = zivs.length;
+  var done  = zivs.filter(function(i){ return i.status === 'termine'; }).length;
+  var blocked = zivs.filter(function(i){ return i.status === 'bloque'; }).length;
+  var pct = total ? Math.round(done / total * 100) : 0;
+  var color = blocked ? 'var(--danger)' : pct === 100 ? 'var(--success)' : 'var(--primary)';
+
+  return (
+    <div style={{
+      background:'var(--surface)',
+      border:'1px solid var(--border)',
+      borderRadius:'var(--r-sm)',
+      padding:'11px 12px',
+      marginBottom:9,
+      boxShadow:'0 1px 2px rgba(0,0,0,.035)'
+    }}>
+      <div style={{
+        display:'flex',
+        justifyContent:'space-between',
+        alignItems:'center',
+        gap:10,
+        marginBottom:8
+      }}>
+        <div style={{minWidth:0}}>
+          <div style={{
+            fontSize:12.5,
+            fontWeight:900,
+            color:'var(--text)',
+            overflow:'hidden',
+            whiteSpace:'nowrap',
+            textOverflow:'ellipsis'
+          }}>
+            {zone.name}
+          </div>
+          <div style={{
+            fontSize:10.5,
+            color:'var(--muted)',
+            marginTop:2,
+            fontFamily:UX2.mono,
+            fontWeight:800
+          }}>
+            {total} tâche{total>1?'s':''}{blocked ? ' · '+blocked+' bloquée'+(blocked>1?'s':'') : ''}
+          </div>
+        </div>
+
+        <div style={{
+          fontFamily:UX2.mono,
+          fontSize:12,
+          color:color,
+          fontWeight:900,
+          flexShrink:0
+        }}>
+          {pct}%
+        </div>
+      </div>
+
+      <div style={{
+        height:7,
+        background:'var(--surface-3)',
+        borderRadius:999,
+        overflow:'hidden'
+      }}>
+        <div style={{
+          height:'100%',
+          width:pct+'%',
+          background:color,
+          borderRadius:999,
+          transition:'width .35s cubic-bezier(.2,.8,.2,1)'
+        }} />
+      </div>
+    </div>
+  );
+};
+
+var BottomNav = window.BottomNav = function BottomNav({ screen, onNav, onAdd, isAdmin, canAdd = true }) {
+  var items = [
+    {id:'dashboard', icon:<DashIcon />, label:'Accueil'},
+    {id:'planning', icon:<PlanIcon />, label:'Planning'},
+    null,
+    {id:'list', icon:<ListIcon />, label:'Tâches'},
+    {id:'settings', icon:<SettIcon />, label:'Config', adminOnly:true}
+  ].filter(function(i){ return i === null || !i.adminOnly || isAdmin; });
+
+  var navItems = isAdmin ? items : items.filter(function(i){ return i !== null; });
+
+  return (
+    <nav style={{
+      position:'fixed',
+      bottom:0,
+      left:0,
+      right:0,
+      zIndex:100,
+      padding:'7px 12px max(10px, env(safe-area-inset-bottom))',
+      background:'color-mix(in srgb, var(--surface) 92%, transparent)',
+      backdropFilter:'blur(18px)',
+      WebkitBackdropFilter:'blur(18px)',
+      borderTop:'1px solid color-mix(in srgb, var(--border) 82%, transparent)',
+      boxShadow:'0 -12px 34px rgba(17,19,21,.09)'
+    }}>
+      <div style={{
+        width:'100%',
+        maxWidth:760,
+        margin:'0 auto',
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'space-around',
+        gap:6
+      }}>
+        {navItems.map(function(item){
+          if (item === null) {
+            return (
+              <button
+                key="fab"
+                onClick={canAdd ? onAdd : undefined}
+                disabled={!canAdd}
+                title={canAdd ? 'Ajouter une intervention' : 'Planning verrouillé ou validé'}
+                style={{
+                  width:56,
+                  height:56,
+                  borderRadius:20,
+                  background:canAdd
+                    ? 'linear-gradient(135deg, var(--primary), var(--primary-2))'
+                    : 'var(--border-s)',
+                  color:'#fff',
+                  border:'none',
+                  fontSize:26,
+                  fontWeight:800,
+                  cursor:canAdd ? 'pointer' : 'not-allowed',
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  marginTop:-28,
+                  boxShadow:canAdd
+                    ? '0 16px 34px color-mix(in srgb, var(--primary) 38%, transparent)'
+                    : 'none',
+                  opacity:canAdd ? 1 : .65,
+                  transition:UX2.transition
+                }}
+                onMouseEnter={function(e){
+                  if(canAdd) e.currentTarget.style.transform='translateY(-2px) scale(1.03)';
+                }}
+                onMouseLeave={function(e){
+                  e.currentTarget.style.transform='';
+                }}
+              >
+                +
+              </button>
+            );
+          }
+
+          var active = screen === item.id;
+
+          return (
+            <button
+              key={item.id}
+              onClick={function(){ onNav(item.id); }}
+              style={{
+                flex:1,
+                minWidth:0,
+                height:50,
+                display:'flex',
+                flexDirection:'column',
+                alignItems:'center',
+                justifyContent:'center',
+                gap:4,
+                background:active ? 'var(--primary-l)' : 'transparent',
+                border:'1px solid '+(active ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'transparent'),
+                borderRadius:16,
+                cursor:'pointer',
+                color:active ? 'var(--primary)' : 'var(--muted)',
+                padding:'5px 4px',
+                fontFamily:UX2.sans,
+                fontSize:10.5,
+                fontWeight:active ? 900 : 700,
+                transition:UX2.transition
+              }}
+            >
+              <span style={{
+                width:20,
+                height:20,
+                display:'flex',
+                alignItems:'center',
+                justifyContent:'center'
+              }}>
+                {item.icon}
+              </span>
+              <span style={{
+                overflow:'hidden',
+                whiteSpace:'nowrap',
+                textOverflow:'ellipsis',
+                maxWidth:'100%'
+              }}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+};
+
+Object.assign(window, {
+  StatusBadge,
+  TradeBadge,
+  StatChip,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  SheetModal,
+  FilterChips,
+  TaskCard,
+  ZoneProgressBar,
+  BottomNav
+});
+</script>
 <script type="text/babel" data-presets="env,react">// planify-screens.jsx — All screens, modals, and root App
 // Depends on planify-data.js + planify-components.jsx + tweaks-panel.jsx
 
