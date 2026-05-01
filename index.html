@@ -958,7 +958,12 @@ function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null,
         <span style={{fontFamily:"'DM Mono',monospace",fontSize:'8.5px',color:c.t,opacity:.7,fontWeight:600}}>
           {iv.task_number}
         </span>
-        <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 6px',borderRadius:999,
+          background:m.bg,color:m.text,border:`1px solid ${m.dot}66`,fontSize:8.5,fontWeight:900,
+          fontFamily:"'DM Mono',monospace",lineHeight:1,whiteSpace:'nowrap',flexShrink:0}}>
+          <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0,display:'block'}}></span>
+          {m.label}
+        </span>
       </div>
       <div style={{fontSize:11,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.2}}>{iv.company}</div>
       <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
@@ -3218,8 +3223,12 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             <span style={{fontSize:weeks===2?7:6.5,fontWeight:700,color:_c.t,
               overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
               lineHeight:1.3,flex:1}}>{iv.company}</span>
-            <span style={{width:4,height:4,borderRadius:'50%',
-              background:_m.dot,flexShrink:0}}></span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 4px',borderRadius:999,
+              background:_m.bg,color:_m.text,border:'1px solid '+_m.dot+'55',fontSize:weeks===2?6.2:5.8,
+              fontWeight:900,fontFamily:"'DM Mono',monospace",lineHeight:1,whiteSpace:'nowrap',flexShrink:0}}>
+              <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot,flexShrink:0,display:'block'}}></span>
+              {_m.label}
+            </span>
           </div>
           {weeks===2&&<div style={{fontSize:6.5,color:_c.t,opacity:.7,
             lineHeight:1.2,overflow:'hidden',whiteSpace:'nowrap',
@@ -7236,6 +7245,19 @@ function PlanifyApp() {
       return String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
     }
 
+    function ellipsize(text, maxChars) {
+      var raw = clean(text);
+      if (!maxChars || raw.length <= maxChars) return raw;
+      return raw.slice(0, Math.max(0, maxChars - 1)).replace(/\s+$/,'') + '…';
+    }
+
+    function statusShort(status) {
+      if (status === 'encours') return 'En cours';
+      if (status === 'termine') return 'Terminé';
+      if (status === 'bloque') return 'Bloqué';
+      return 'À faire';
+    }
+
     function drawWrapped(doc, text, x, y, maxW, maxLines, lineH) {
       var raw = clean(text);
       if (!raw) return 0;
@@ -7278,12 +7300,7 @@ function PlanifyApp() {
         var key = code + '|' + (tr ? tr.id : iv.trade);
         if (map[key]) return;
         var col = getTC(tr ? tr.color : 'blue');
-        map[key] = {
-          code: code,
-          company: iv.company || '',
-          trade: tr ? tr.name : '',
-          color: col.b
-        };
+        map[key] = { code:code, company:iv.company || '', trade:tr ? tr.name : '', color:col.b };
       });
       return Object.values(map).sort(function(a,b){ return a.code.localeCompare(b.code); });
     }
@@ -7303,10 +7320,7 @@ function PlanifyApp() {
         var labelTxt = item.code + ' — ' + item.company + (item.trade ? ' / ' + item.trade : '');
         var w = Math.min(maxW, Math.max(72, doc.getTextWidth(labelTxt) + 18));
 
-        if (cx + w > x + maxW) {
-          cx = x;
-          cy += rowH;
-        }
+        if (cx + w > x + maxW) { cx = x; cy += rowH; }
 
         doc.setFillColor(rgb[0], rgb[1], rgb[2]);
         doc.roundedRect(cx, cy - 6, 7, 7, 1, 1, 'F');
@@ -7324,52 +7338,88 @@ function PlanifyApp() {
       doc.setFont('helvetica','normal');
       doc.setFontSize(6);
       doc.setTextColor(90,90,90);
-      doc.text('Statuts : gris = à réaliser · bleu = en cours · vert = terminé · rouge = bloqué · JF = jour férié.', x, cy);
+      doc.text('Statuts : badge gris = à réaliser · badge bleu = en cours · badge vert = terminé · badge rouge = bloqué · JF = jour férié.', x, cy);
 
       return cy + 8;
     }
 
     var pages = pack.pages && pack.pages.length ? pack.pages : getExportDayPages(mode, exportOptions);
     var maxDayCount = Math.max.apply(null, pages.map(function(p){ return p.length; }));
+    var oneWeekMode = !overviewMode && maxDayCount <= 5;
+    var twoWeekMode = !overviewMode && maxDayCount > 5 && maxDayCount <= 10;
+    var readableMode = oneWeekMode || twoWeekMode;
+    var compactMode = !overviewMode && !readableMode;
+
+    function desiredCardHeight() {
+      if (overviewMode) return 8.2;
+      if (oneWeekMode) return 44;
+      if (twoWeekMode) return 38;
+      return 13;
+    }
+
+    function minZoneRowHeight() {
+      if (overviewMode) return 30;
+      if (oneWeekMode) return 58;
+      if (twoWeekMode) return 50;
+      return 28;
+    }
+
+    function computePageNeeds(days) {
+      var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+      var cardH0 = desiredCardHeight();
+      var minRowH0 = minZoneRowHeight();
+      var gap0 = overviewMode ? 0.7 : readableMode ? 3 : 1;
+      var pad0 = overviewMode ? 8 : readableMode ? 12 : 8;
+
+      var needs = zones.map(function(zone){
+        var maxCards = 0;
+        days.forEach(function(day){
+          if (isHoliday(day)) return;
+          var count = source.filter(function(iv){ return iv.zone === zone.id && visibleInDay(iv, day); }).length;
+          if (count > maxCards) maxCards = count;
+        });
+        return Math.max(minRowH0, maxCards ? (maxCards * cardH0 + Math.max(0, maxCards - 1) * gap0 + pad0) : minRowH0);
+      });
+      return {needs:needs, sum:needs.reduce(function(a,b){ return a + b; }, 0)};
+    }
+
+    var pageNeeds = pages.map(computePageNeeds);
+    var largestNeedSum = Math.max.apply(null, pageNeeds.map(function(p){ return p.sum; }));
+
     var baseW = 842;
     var baseH = 595;
+    var headerTop = overviewMode ? 48 : readableMode ? 60 : 42;
+    var legendH = overviewMode ? 72 : 18;
+    var tableHeaderH = overviewMode ? 22 : readableMode ? 32 : 24;
 
     var customW = overviewMode
       ? Math.max(baseW, 118 + maxDayCount * 38 + 44)
-      : baseW;
+      : oneWeekMode ? 940 : twoWeekMode ? 1120 : baseW;
 
     var customH = overviewMode
       ? Math.max(baseH, 110 + zones.length * 48 + 92)
-      : baseH;
+      : readableMode ? Math.max(baseH, headerTop + tableHeaderH + largestNeedSum + legendH + 22) : baseH;
 
     var orientation = customW >= customH ? 'landscape' : 'portrait';
-    var doc = new JSPDF({
-      orientation: orientation,
-      unit: 'pt',
-      format: overviewMode ? [customW, customH] : 'a4'
-    });
+    var doc = new JSPDF({ orientation:orientation, unit:'pt', format:[customW, customH] });
 
     var dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
     var exported = 0;
 
     pages.forEach(function(days, wi) {
-      if (wi > 0) {
-        if (overviewMode) doc.addPage([customW, customH], orientation);
-        else doc.addPage('a4', 'landscape');
-      }
+      if (wi > 0) doc.addPage([customW, customH], orientation);
 
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
 
-      var margin = overviewMode ? 14 : 12;
-      var headerH = overviewMode ? 34 : 30;
-      var top = overviewMode ? 48 : 42;
-      var legendH = overviewMode ? 72 : 14;
-      var bottom = overviewMode ? legendH : 8;
+      var margin = overviewMode ? 14 : readableMode ? 16 : 12;
+      var headerH = overviewMode ? 34 : readableMode ? 40 : 30;
+      var top = overviewMode ? 48 : readableMode ? 60 : 42;
+      var bottom = overviewMode ? legendH : 18;
       var tableW = pageW - margin * 2;
-      var zoneW = overviewMode ? 60 : 50;
-      var finW = overviewMode ? 38 : 34;
-      var th = overviewMode ? 22 : 24;
+      var zoneW = overviewMode ? 60 : oneWeekMode ? 84 : twoWeekMode ? 76 : 50;
+      var finW = overviewMode ? 38 : readableMode ? 48 : 34;
+      var th = tableHeaderH;
       var dayCount = Math.max(1, days.length);
       var dayW = (tableW - zoneW - finW) / dayCount;
 
@@ -7381,25 +7431,10 @@ function PlanifyApp() {
 
       var maxTableH = pageH - top - bottom;
       var availableRowsH = maxTableH - th;
-
-      var minCardH = overviewMode ? 7.4 : 10.5;
-      var minRowH = overviewMode ? 30 : 28;
-
-      var needs = zones.map(function(zone){
-        var maxCards = 0;
-        days.forEach(function(day){
-          if (isHoliday(day)) return;
-          var count = sourceForPage.filter(function(iv){
-            return iv.zone === zone.id && visibleInDay(iv, day);
-          }).length;
-          if (count > maxCards) maxCards = count;
-        });
-        return Math.max(minRowH, maxCards ? (maxCards * minCardH + Math.max(0, maxCards - 1) * 0.8 + 8) : minRowH);
-      });
-
+      var needs = (pageNeeds[wi] && pageNeeds[wi].needs) ? pageNeeds[wi].needs : computePageNeeds(days).needs;
       var needSum = needs.reduce(function(a,b){ return a + b; }, 0) || 1;
-      var scale = needSum > availableRowsH ? availableRowsH / needSum : 1;
-      var rowHeights = needs.map(function(h){ return Math.max(overviewMode ? 22 : 24, h * scale); });
+      var scale = (!readableMode && needSum > availableRowsH) ? availableRowsH / needSum : 1;
+      var rowHeights = needs.map(function(h){ return Math.max(overviewMode ? 22 : compactMode ? 24 : minZoneRowHeight(), h * scale); });
       var tableH = th + rowHeights.reduce(function(a,b){ return a + b; }, 0);
 
       doc.setFillColor(244,242,238);
@@ -7410,33 +7445,31 @@ function PlanifyApp() {
 
       doc.setTextColor(255,255,255);
       doc.setFont('helvetica','bold');
-      doc.setFontSize(overviewMode ? 12 : 11.5);
-      doc.text('Planify — HSF 66 Av. Marceau', margin + 10, 23);
+      doc.setFontSize(overviewMode ? 12 : readableMode ? 14 : 11.5);
+      doc.text('Planify — HSF 66 Av. Marceau', margin + 10, 24);
 
       doc.setFont('helvetica','normal');
-      doc.setFontSize(overviewMode ? 7 : 6.7);
-      doc.setTextColor(215,215,215);
-      doc.text('Planning ' + label + ' · ' + periodLabel, margin + 10, 37);
-
-      var infoTxt = tasksForPage.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR');
-      doc.text(infoTxt, pageW - margin - Math.max(125, doc.getTextWidth(infoTxt) + 8), 37);
+      doc.setFontSize(overviewMode ? 7 : readableMode ? 9 : 6.7);
+      doc.setTextColor(225,225,225);
+      doc.text('Période : ' + periodLabel + ' · ' + tasksForPage.length + ' tâche(s)', margin + 10, readableMode ? 40 : 37);
 
       var x0 = margin;
       var y0 = top;
 
       doc.setFillColor(255,255,255);
-      doc.setDrawColor(200,196,188);
+      doc.setDrawColor(150,145,136);
+      doc.setLineWidth(1);
       doc.roundedRect(x0, y0, tableW, tableH, 6, 6, 'FD');
 
       doc.setFillColor(249,248,245);
       doc.rect(x0, y0, zoneW, th, 'F');
       doc.rect(x0 + zoneW + dayCount * dayW, y0, finW, th, 'F');
 
-      doc.setTextColor(90,90,90);
+      doc.setTextColor(70,70,70);
       doc.setFont('helvetica','bold');
-      doc.setFontSize(overviewMode ? 7 : 7.5);
-      doc.text('ZONE', x0 + 8, y0 + 15);
-      doc.text('FIN', x0 + zoneW + dayCount * dayW + 10, y0 + 15);
+      doc.setFontSize(overviewMode ? 7 : readableMode ? 9 : 7.5);
+      doc.text('ZONE', x0 + 8, y0 + (readableMode ? 20 : 15));
+      doc.text('FIN', x0 + zoneW + dayCount * dayW + 10, y0 + (readableMode ? 20 : 15));
 
       days.forEach(function(day, di) {
         var x = x0 + zoneW + di * dayW;
@@ -7446,61 +7479,58 @@ function PlanifyApp() {
         if (holiday) doc.setFillColor(209,213,219);
         else if (today) doc.setFillColor(238,242,252);
         else doc.setFillColor(249,248,245);
-
         doc.rect(x, y0, dayW, th, 'F');
 
         doc.setFont('helvetica','bold');
-        doc.setFontSize(overviewMode ? 5.5 : 7.5);
-        doc.setTextColor(today ? 33 : 90, today ? 82 : 90, today ? 200 : 90);
-        doc.text(dayNames[day.getDay()].toUpperCase(), x + 4, y0 + 9);
+        doc.setFontSize(overviewMode ? 5.5 : readableMode ? 8.2 : 7.5);
+        doc.setTextColor(today ? 33 : 70, today ? 82 : 70, today ? 200 : 70);
+        doc.text(dayNames[day.getDay()].toUpperCase(), x + 5, y0 + (readableMode ? 12 : 9));
 
         doc.setFont('helvetica','normal');
-        doc.setFontSize(overviewMode ? 5.2 : 7);
-        doc.text(String(day.getDate()).padStart(2,'0') + '/' + String(day.getMonth()+1).padStart(2,'0'), x + 4, y0 + 18);
+        doc.setFontSize(overviewMode ? 5.2 : readableMode ? 8 : 7);
+        doc.text(String(day.getDate()).padStart(2,'0') + '/' + String(day.getMonth()+1).padStart(2,'0'), x + 5, y0 + (readableMode ? 25 : 18));
 
         if (holiday) {
           doc.setFont('helvetica','bold');
           doc.setTextColor(70,70,70);
-          doc.setFontSize(overviewMode ? 5 : 6);
-          doc.text('JF', x + dayW - 12, y0 + 14);
+          doc.setFontSize(overviewMode ? 5 : readableMode ? 7 : 6);
+          doc.text('JF', x + dayW - 15, y0 + (readableMode ? 19 : 14));
         }
       });
 
       var currentY = y0 + th;
+      var rowBoundaries = [y0, y0 + th];
 
       zones.forEach(function(zone, zi) {
         var rowH = rowHeights[zi];
         var y = currentY;
         currentY += rowH;
+        rowBoundaries.push(currentY);
 
         var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
         var fcRgb = hexToRgb(fc);
-        var rowBg = mixWhite(fcRgb, 0.95);
+        var rowBg = mixWhite(fcRgb, overviewMode ? 0.95 : 0.96);
 
         doc.setFillColor(rowBg[0], rowBg[1], rowBg[2]);
         doc.rect(x0, y, tableW, rowH, 'F');
-
-        doc.setDrawColor(228,224,216);
-        doc.setLineWidth(0.5);
-        doc.line(x0, y, x0 + tableW, y);
 
         var zoneBg = mixWhite(fcRgb, 0.88);
         doc.setFillColor(zoneBg[0], zoneBg[1], zoneBg[2]);
         doc.rect(x0, y, zoneW, rowH, 'F');
 
         doc.setDrawColor(fcRgb[0], fcRgb[1], fcRgb[2]);
-        doc.setLineWidth(2);
+        doc.setLineWidth(readableMode ? 3 : 2);
         doc.line(x0 + zoneW - 2, y, x0 + zoneW - 2, y + rowH);
 
         doc.setTextColor(fcRgb[0], fcRgb[1], fcRgb[2]);
         doc.setFont('helvetica','bold');
-        doc.setFontSize(overviewMode ? 6.2 : 7);
-        drawWrapped(doc, zone.short || zone.name, x0 + 6, y + 14, zoneW - 12, 2, 7);
+        doc.setFontSize(overviewMode ? 6.2 : readableMode ? 8.2 : 7);
+        drawWrapped(doc, zone.short || zone.name, x0 + 7, y + (readableMode ? 18 : 14), zoneW - 14, readableMode ? 2 : 2, readableMode ? 9 : 7);
 
         doc.setFont('helvetica','normal');
-        doc.setFontSize(overviewMode ? 5.2 : 6);
-        doc.setTextColor(90,90,90);
-        drawWrapped(doc, zone.floor || '', x0 + 6, y + rowH - 7, zoneW - 12, 1, 6);
+        doc.setFontSize(overviewMode ? 5.2 : readableMode ? 7 : 6);
+        doc.setTextColor(80,80,80);
+        drawWrapped(doc, zone.floor || '', x0 + 7, y + rowH - 9, zoneW - 14, 1, 7);
 
         days.forEach(function(day, di) {
           var x = x0 + zoneW + di * dayW;
@@ -7516,76 +7546,81 @@ function PlanifyApp() {
             doc.rect(x, y, dayW, rowH, 'F');
           }
 
-          doc.setDrawColor(228,224,216);
-          doc.setLineWidth(0.4);
-          doc.line(x, y, x, y + rowH);
-
           var cards = holiday ? [] : sourceForPage.filter(function(iv){
             return iv.zone === zone.id && visibleInDay(iv, day);
           }).sort(function(a,b){ return (a.priority||3)-(b.priority||3); });
 
-          var cardX = x + 1.6;
-          var cardY = y + 2.4;
-          var cardW = dayW - 3.2;
-          var gap = overviewMode ? 0.6 : cards.length > 5 ? 0.6 : 1.1;
-          var availableH = Math.max(8, rowH - 4.5);
-          var cardH = cards.length ? Math.min(overviewMode ? 10 : 22, (availableH - Math.max(0, cards.length - 1) * gap) / cards.length) : 0;
-          cardH = Math.max(overviewMode ? 6.8 : 8.8, cardH);
-
-          var compact = cardH < 13;
-          var ultraCompact = cardH < 10.5;
-          var titleFs = overviewMode ? Math.max(3.8, Math.min(5.2, cardH - 2.2)) : ultraCompact ? 4.2 : compact ? 4.8 : 5.6;
-          var taskFs = ultraCompact ? 3.8 : compact ? 4.3 : 5.0;
-          var lh = overviewMode ? Math.max(4, titleFs + 0.7) : ultraCompact ? 4.2 : compact ? 4.8 : 5.8;
+          var cardX = x + (readableMode ? 3 : 1.6);
+          var cardY = y + (readableMode ? 5 : 2.4);
+          var cardW = dayW - (readableMode ? 6 : 3.2);
+          var gap = overviewMode ? 0.7 : readableMode ? 3 : cards.length > 5 ? 0.6 : 1.1;
+          var availableH = Math.max(8, rowH - (readableMode ? 10 : 4.5));
+          var maxCardH = overviewMode ? 10 : oneWeekMode ? 46 : twoWeekMode ? 40 : 22;
+          var minCardH = overviewMode ? 6.8 : oneWeekMode ? 34 : twoWeekMode ? 30 : 8.8;
+          var cardH = cards.length ? Math.min(maxCardH, (availableH - Math.max(0, cards.length - 1) * gap) / cards.length) : 0;
+          cardH = Math.max(minCardH, cardH);
 
           cards.forEach(function(iv) {
             var tr = trades.find(function(t){ return t.id === iv.trade; });
             var col = getTC(tr ? tr.color : 'blue');
             var rgb = hexToRgb(col.b);
-            var fill = mixWhite(rgb, 0.90);
+            var fill = mixWhite(rgb, overviewMode ? 0.90 : 0.88);
             var st = STATUS_META[iv.status] || STATUS_META.arealis;
             var stRgb = hexToRgb(st.dot);
+            var stFill = mixWhite(stRgb, 0.86);
 
             doc.setFillColor(fill[0], fill[1], fill[2]);
             doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-            doc.setLineWidth(0.4);
-            doc.roundedRect(cardX, cardY, cardW, cardH, 2, 2, 'FD');
+            doc.setLineWidth(readableMode ? 0.9 : 0.4);
+            doc.roundedRect(cardX, cardY, cardW, cardH, readableMode ? 3 : 2, readableMode ? 3 : 2, 'FD');
 
             doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-            doc.rect(cardX, cardY, 2, cardH, 'F');
+            doc.rect(cardX, cardY, readableMode ? 4 : 2, cardH, 'F');
 
-            doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-            doc.setFont('helvetica','bold');
-            doc.setFontSize(titleFs);
+            if (overviewMode) {
+              doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+              doc.setFont('helvetica','bold');
+              doc.setFontSize(Math.max(3.8, Math.min(5.2, cardH - 2.2)));
+              drawWrapped(doc, exportCompanyCode(iv), cardX + 4, cardY + cardH - 2.2, cardW - 9, 1, 4.8);
+              doc.setFillColor(stRgb[0], stRgb[1], stRgb[2]);
+              doc.circle(cardX + cardW - 4.8, cardY + 3.6, 1.1, 'F');
+            } else {
+              var statusLabel = statusShort(iv.status);
+              var statusW = readableMode ? 34 : 24;
+              var statusH = readableMode ? 10 : 7;
 
-            var title = overviewMode
-              ? exportCompanyCode(iv)
-              : (iv.company || '') + (iv.task_number ? ' · ' + iv.task_number : '');
+              doc.setFillColor(stFill[0], stFill[1], stFill[2]);
+              doc.setDrawColor(stRgb[0], stRgb[1], stRgb[2]);
+              doc.setLineWidth(readableMode ? 0.6 : 0.35);
+              doc.roundedRect(cardX + cardW - statusW - 4, cardY + 3, statusW, statusH, 2, 2, 'FD');
+              doc.setTextColor(stRgb[0], stRgb[1], stRgb[2]);
+              doc.setFont('helvetica','bold');
+              doc.setFontSize(readableMode ? 5.6 : 4.4);
+              doc.text(statusLabel, cardX + cardW - statusW - 2.5, cardY + (readableMode ? 10.2 : 8.3));
 
-            drawWrapped(doc, title, cardX + 4, cardY + (overviewMode ? cardH - 2.2 : ultraCompact ? 4.4 : 5.8), cardW - 12, 1, lh);
+              doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+              doc.setFont('helvetica','bold');
+              doc.setFontSize(oneWeekMode ? 8 : twoWeekMode ? 7 : 5.6);
+              var title = clean((iv.company || '') + (iv.task_number ? ' · ' + iv.task_number : ''));
+              drawWrapped(doc, title, cardX + 7, cardY + (readableMode ? 11 : 5.8), Math.max(20, cardW - statusW - 16), 1, readableMode ? 8 : 5.8);
 
-            doc.setFillColor(stRgb[0], stRgb[1], stRgb[2]);
-            doc.circle(cardX + cardW - 4.8, cardY + (overviewMode ? 3.6 : ultraCompact ? 3.8 : 5.2), overviewMode ? 1.1 : ultraCompact ? 1.2 : 1.7, 'F');
-
-            if (!overviewMode) {
-              doc.setTextColor(45,45,45);
+              doc.setTextColor(35,35,35);
               doc.setFont('helvetica','normal');
-              doc.setFontSize(taskFs);
+              doc.setFontSize(oneWeekMode ? 7.1 : twoWeekMode ? 6.4 : 5.0);
+              var taskLines = oneWeekMode ? 3 : twoWeekMode ? 2 : 1;
+              var taskY = cardY + (readableMode ? 22 : 11.2);
+              drawWrapped(doc, iv.task || '', cardX + 7, taskY, cardW - 12, taskLines, oneWeekMode ? 7.9 : twoWeekMode ? 7.1 : 5.7);
 
-              if (ultraCompact) {
-                drawWrapped(doc, iv.task || '', cardX + 4, cardY + cardH - 2.2, cardW - 8, 1, lh);
-              } else {
-                drawWrapped(doc, iv.task || '', cardX + 4, cardY + 11.2, cardW - 8, compact ? 1 : 2, lh);
-              }
-
-              if (!compact && iv.prereq && cardH >= 16) {
+              if (readableMode && iv.prereq && cardH >= 41) {
                 doc.setTextColor(185,28,28);
-                doc.setFontSize(4.2);
-                drawWrapped(doc, '⚠ ' + iv.prereq, cardX + 4, cardY + cardH - 3, cardW - 8, 1, 4.5);
-              } else if (!compact && iv.impact && cardH >= 16) {
+                doc.setFont('helvetica','bold');
+                doc.setFontSize(oneWeekMode ? 5.6 : 5.2);
+                drawWrapped(doc, '⚠ ' + ellipsize(iv.prereq, oneWeekMode ? 52 : 42), cardX + 7, cardY + cardH - 6, cardW - 12, 1, 5.8);
+              } else if (readableMode && iv.impact && cardH >= 41) {
                 doc.setTextColor(146,64,14);
-                doc.setFontSize(4.2);
-                drawWrapped(doc, '↪ ' + iv.impact, cardX + 4, cardY + cardH - 3, cardW - 8, 1, 4.5);
+                doc.setFont('helvetica','bold');
+                doc.setFontSize(oneWeekMode ? 5.6 : 5.2);
+                drawWrapped(doc, '↪ ' + ellipsize(iv.impact, oneWeekMode ? 52 : 42), cardX + 7, cardY + cardH - 6, cardW - 12, 1, 5.8);
               }
             }
 
@@ -7602,31 +7637,36 @@ function PlanifyApp() {
 
         doc.setTextColor(dc[0], dc[1], dc[2]);
         doc.setFont('helvetica','bold');
-        doc.setFontSize(overviewMode ? 6 : 7);
+        doc.setFontSize(overviewMode ? 6 : readableMode ? 8 : 7);
 
         var dl = deadlineTxt(zone);
-        doc.text(dl[0], dx + 7, y + Math.min(17, rowH - 9));
+        doc.text(dl[0], dx + 7, y + Math.min(readableMode ? 22 : 17, rowH - 9));
 
         doc.setFont('helvetica','normal');
-        doc.setFontSize(overviewMode ? 5 : 6);
-        if (dl[1]) doc.text(dl[1], dx + 7, y + Math.min(28, rowH - 3));
+        doc.setFontSize(overviewMode ? 5 : readableMode ? 7 : 6);
+        if (dl[1]) doc.text(dl[1], dx + 7, y + Math.min(readableMode ? 36 : 28, rowH - 3));
       });
 
-      doc.setDrawColor(200,196,188);
-      doc.setLineWidth(0.7);
+      // Grille renforcée : lignes verticales + horizontales bien visibles
+      doc.setDrawColor(readableMode ? 135 : 160, readableMode ? 130 : 155, readableMode ? 122 : 148);
+      doc.setLineWidth(readableMode ? 0.95 : 0.7);
+      doc.line(x0, y0 + th, x0 + tableW, y0 + th);
+      rowBoundaries.forEach(function(gy){ doc.line(x0, gy, x0 + tableW, gy); });
       doc.line(x0 + zoneW, y0, x0 + zoneW, y0 + tableH);
-      for (var gi = 1; gi <= dayCount; gi++) {
+      for (var gi = 0; gi <= dayCount; gi++) {
         var gx = x0 + zoneW + gi * dayW;
         doc.line(gx, y0, gx, y0 + tableH);
       }
+      doc.line(x0 + zoneW + dayCount * dayW, y0, x0 + zoneW + dayCount * dayW, y0 + tableH);
+      doc.line(x0 + tableW, y0, x0 + tableW, y0 + tableH);
 
       if (overviewMode) {
         drawLegend(doc, legendItems(days), margin, pageH - legendH + 8, tableW);
       } else {
-        doc.setTextColor(90,90,90);
+        doc.setTextColor(80,80,80);
         doc.setFont('helvetica','normal');
-        doc.setFontSize(6.5);
-        doc.text('Modes impression : 1S/page, 2S/page, 3S/page ou jusqu’à date · point couleur = statut · JF = jour férié.', margin, pageH - 12);
+        doc.setFontSize(readableMode ? 7 : 6.5);
+        doc.text('Badge statut visible sur chaque tâche · JF = jour férié · Les descriptions sont limitées pour rester dans le jour et la zone.', margin, pageH - 12);
         doc.text('Page ' + (wi + 1) + '/' + pages.length, pageW - margin - 48, pageH - 12);
       }
     });
