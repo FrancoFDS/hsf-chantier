@@ -96,7 +96,7 @@ const TRADES = [
   {id:'tr_5', name:'Peinture',               short:'AMF',         color:'amber'},
   {id:'tr_6', name:'Cloison amovible',       short:'SOAA',        color:'violet'},
   {id:'tr_7', name:'Mobilier',               short:'BENE',        color:'slate'},
-  {id:'tr_8', name:'Vitrophanie',            short:'9ÈM',         color:'orange'},
+  {id:'tr_8', name:'Vitrophanie',            short:'9EME',        color:'orange'},
   {id:'tr_9', name:'Nettoyage',              short:'JEAN',        color:'sky'},
   {id:'tr_10',name:'Papier peint',           short:'SRPM',        color:'pink'},
   {id:'tr_11',name:'Accessoire bureautique', short:'MOVE',        color:'lime'},
@@ -235,7 +235,7 @@ const INTERVENTIONS = [
   {id:'imp_93',trade:'tr_2',company:'BARRE BOUILLET',task:'Installation cuisine + pose crédence',               zone:'z_7',start:'2026-05-08',end:'2026-05-08',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'BAR-009',predecessor_id:null,attachments:[]},
   {id:'imp_94',trade:'tr_5',company:'AM FRANCE',   task:'2ème couche de peinture',                              zone:'z_7',start:'2026-05-18',end:'2026-05-20',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-017',predecessor_id:null,attachments:[]},
   {id:'imp_95',trade:'tr_12',company:'ELPHITEC',    task:'Pose appareillage',                                    zone:'z_7',start:'2026-05-21',end:'2026-05-21',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-038',predecessor_id:null,attachments:[]},
-  {id:'imp_96',trade:'tr_8',company:'9ème sens',   task:'Vitrophanie',                                          zone:'z_7',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'9EM-001',predecessor_id:null,attachments:[]},
+  {id:'imp_96',trade:'tr_8',company:'9ème sens',   task:'Vitrophanie',                                          zone:'z_7',start:'2026-05-28',end:'2026-05-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'9EME-001',predecessor_id:null,attachments:[]},
   {id:'imp_97',trade:'tr_5',company:'AM FRANCE',   task:'Préparation + 1ère couche peinture — plafond & mur',  zone:'z_8',start:'2026-04-27',end:'2026-04-28',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'AMF-018',predecessor_id:null,attachments:[]},
   {id:'imp_98',trade:'tr_4',company:'PROST',       task:'Remanier position boitier de sol',                     zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'PRO-014',predecessor_id:null,attachments:[]},
   {id:'imp_99',trade:'tr_12',company:'ELPHITEC',    task:'Distribution au sol + repositionner boitier',          zone:'z_8',start:'2026-04-29',end:'2026-04-30',status:'arealis',priority:3,prereq:'',notes:'Étage: R+1',task_number:'ELP-039',predecessor_id:null,attachments:[]},
@@ -310,6 +310,10 @@ function genTaskNum(interventions, company, tradeId, tradesList) {
   const nums = existing.map(i => parseInt((i.task_number||'').replace(/[^0-9]/g,''))||0);
   return `${prefix}-${String((nums.length?Math.max(...nums):0)+1).padStart(3,'0')}`;
 }
+function normalizeTaskNumber(num) {
+  if (!num) return '';
+  return String(num).replace(/^9EM-/i, '9EME-');
+}
 const DAYS_FR = ['Lun','Mar','Mer','Jeu','Ven'];
 
 // French public holidays 2026
@@ -341,7 +345,7 @@ Object.assign(window, {
   ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, CHANGE_REQUEST_STATUS_META, TASK_CHANGE_FIELDS, FLOOR_COLORS, DAYS_FR,
   HOLIDAYS_2026, isHoliday, workingDaysUntil,
   getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
-  genId, genTaskNum, daysUntil, deadlineColor,
+  genId, genTaskNum, normalizeTaskNumber, daysUntil, deadlineColor,
 });
 </script>
 <script>
@@ -1927,6 +1931,25 @@ function LoginScreen({ onLogin, companies }) {
   const adminEntry = {id:'__admin__', name:'Responsable de projet', contact:'Franck Fernandes', code:'1234', isAdmin:true};
   const allEntries = [adminEntry, ...(companies&&companies.length?companies:COMPANIES)];
 
+  function getCompanyReferentLabel(co) {
+    if (!co) return '';
+    if (co.isAdmin) return co.contact || 'Franck Fernandes';
+    var direct = String(co.contact || '').trim();
+    if (direct) return direct;
+
+    var tradeId = co.tradeId || co.trade_id || '';
+    var fallback = (COMPANIES || []).find(function(c) {
+      return c.id === co.id || (c.name === co.name && (!tradeId || c.tradeId === tradeId));
+    });
+    if (fallback && fallback.contact) return fallback.contact;
+
+    var contacts = (COMPANIES || [])
+      .filter(function(c) { return c.name === co.name && c.contact; })
+      .map(function(c) { return c.contact; });
+    contacts = Array.from(new Set(contacts));
+    return contacts.length ? contacts.join(' / ') : 'Référent à renseigner';
+  }
+
   function pickCompany(co) { setSelected(co); setPin(''); setError(''); setStep('pin'); }
   function tapDigit(d) {
     if (pin.length >= 4) return;
@@ -1935,9 +1958,10 @@ function LoginScreen({ onLogin, companies }) {
     if (next.length === 4) {
       setTimeout(() => {
         if (next === String(selected.code)) {
+          const referentName = getCompanyReferentLabel(selected);
           const session = selected.isAdmin
             ? {role:'admin', name:'Responsable de projet', company:null}
-            : {role:'company', name:selected.contact, company:selected};
+            : {role:'company', name:referentName, company:Object.assign({}, selected, {contact:referentName})};
           onLogin(session);
         } else { setError('Code incorrect'); setPin(''); }
       }, 150);
@@ -1959,17 +1983,21 @@ function LoginScreen({ onLogin, companies }) {
 
         {step === 'pick' && (
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            {allEntries.map(co => (
+            {allEntries.map(co => {
+              const referentLabel = getCompanyReferentLabel(co);
+              return (
               <button key={co.id} onClick={()=>pickCompany(co)}
                 style={{padding:'10px 8px',background:'var(--surface-2)',border:'1px solid var(--border)',
                   borderRadius:'var(--r-sm)',cursor:'pointer',textAlign:'left',transition:'all .15s',
                   fontFamily:"'DM Sans',sans-serif"}}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--primary)';e.currentTarget.style.background='var(--primary-l)';}}
                 onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--surface-2)';}}>
-                <div style={{fontSize:12,fontWeight:700,color:'var(--text)',marginBottom:2}}>{co.name}</div>
-                <div style={{fontSize:10,color:'var(--muted)',lineHeight:1.3}}>{co.contact}</div>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--text)',marginBottom:3}}>{co.name}</div>
+                <div style={{fontSize:9,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",textTransform:'uppercase',letterSpacing:'.04em',marginBottom:2}}>Référent</div>
+                <div style={{fontSize:10.5,color:'var(--muted)',lineHeight:1.3,fontWeight:700}}>{referentLabel}</div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -6016,6 +6044,7 @@ function PlanifyApp() {
   }
   function normalizeInterventionRow(r) {
     return Object.assign({}, r, {
+      task_number: typeof normalizeTaskNumber === 'function' ? normalizeTaskNumber(r.task_number) : r.task_number,
       start: r.start_date,
       end: r.end_date,
       impact: r.impact || '',
@@ -6220,10 +6249,14 @@ function PlanifyApp() {
       if(tData&&tData.length) setTrades(tData.map(function(t){
         var loc=TRADES.find(function(lt){return lt.id===t.id;}) || {};
         // Supabase reste prioritaire ; le HTML sert uniquement de fallback local.
-        return Object.assign({}, loc, t);
+        var merged = Object.assign({}, loc, t);
+        if (merged.id === 'tr_8') merged.short = '9EME';
+        return merged;
       }));
       if(cData&&cData.length) setCompanies(cData.map(function(c){
-        return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',tradeId:c.trade_id||c.tradeId||'',updated_at:c.updated_at||''};
+        var tradeId = c.trade_id || c.tradeId || '';
+        var loc = COMPANIES.find(function(lc){ return lc.id === c.id || (lc.name === c.name && (!tradeId || lc.tradeId === tradeId)); }) || {};
+        return {id:c.id,name:c.name,contact:c.contact||loc.contact||'',code:c.code||loc.code||'',tradeId:tradeId||loc.tradeId||'',updated_at:c.updated_at||''};
       }));
       if(iData&&iData.length) setData(iData.map(normalizeInterventionRow));
       setCalendarOverrides((calData||[]).map(function(r){
