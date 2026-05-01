@@ -1291,22 +1291,26 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
                 </div>
 
                 <div style={{padding:'10px 12px',borderBottom:'1px solid var(--border)'}}>
-                  <div style={{fontSize:11,fontWeight:800,color:'var(--text)',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:800,color:'var(--text)',fontFamily:"'DM Mono',monospace",marginBottom:6}}>
                     Pages compactes
+                  </div>
+                  <div style={{fontSize:10,color:'var(--muted)',lineHeight:1.35,marginBottom:8}}>
+                    Utilise les semaines cochées ci-dessus. Exemple : coche S1, S3 et S4, puis exporte en 2S/page
+                    pour grouper uniquement ces semaines.
                   </div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
                     <button onClick={()=>runExport('pdf','2s_page')}
                       style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
-                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · 2 semaines / page</button>
+                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · 2S/page cochées</button>
                     <button onClick={()=>runExport('pdf','3s_page')}
                       style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
-                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · 3 semaines / page</button>
+                        background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · 3S/page cochées</button>
                     <button onClick={()=>runExport('xlsx','2s_page')}
                       style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
-                        background:'var(--surface)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX · 2S</button>
+                        background:'var(--surface)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX · 2S cochées</button>
                     <button onClick={()=>runExport('xlsx','3s_page')}
                       style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
-                        background:'var(--surface)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX · 3S</button>
+                        background:'var(--surface)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX · 3S cochées</button>
                   </div>
                 </div>
 
@@ -1319,10 +1323,14 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
                     onChange={e=>setExportEndDate(e.target.value)}
                     style={{width:'100%',height:34,border:'1px solid var(--border)',borderRadius:7,
                       background:'var(--surface)',color:'var(--text)',padding:'0 9px',fontSize:13,fontWeight:700}} />
+                  <div style={{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.35}}>
+                    Le PDF sort une vue globale sur une seule page adaptée au nombre de jours. Les tâches affichent
+                    uniquement le code entreprise, avec légende couleur en bas de page.
+                  </div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:8}}>
                     <button onClick={()=>runExport('pdf','until_date')}
                       style={{padding:'8px',border:'1px solid var(--primary)',borderRadius:7,
-                        background:'var(--primary-l)',color:'var(--primary)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · jusqu’à date</button>
+                        background:'var(--primary-l)',color:'var(--primary)',fontSize:12,fontWeight:800,cursor:'pointer'}}>PDF · vue globale</button>
                     <button onClick={()=>runExport('xlsx','until_date')}
                       style={{padding:'8px',border:'1px solid var(--border)',borderRadius:7,
                         background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer'}}>XLSX</button>
@@ -6975,32 +6983,70 @@ function PlanifyApp() {
     return d;
   }
 
+  function uniqSortedOffsets(values) {
+    var list = Array.isArray(values) ? values : [0];
+    list = list.map(function(x){ return parseInt(x, 10); })
+      .filter(function(x){ return !Number.isNaN(x) && x >= 0 && x <= 80; });
+    list = Array.from(new Set(list)).sort(function(a,b){ return a-b; });
+    return list.length ? list : [0];
+  }
+
   function exportWeekDaysFrom(startDate, weekIndex) {
     var first = addExportDays(getExportStartDate(startDate), weekIndex * 7);
     return Array.from({length:5}, function(_, i){ return addExportDays(first, i); });
   }
 
   function normalizeExportOptions(rawOptions) {
-    var opts = rawOptions && typeof rawOptions === 'object' ? Object.assign({}, rawOptions) : {startDate:rawOptions};
+    var opts = rawOptions && typeof rawOptions === 'object'
+      ? Object.assign({}, rawOptions)
+      : {startDate:rawOptions};
+
     var start = getExportStartDate(opts.startDate);
     opts.startDate = dateStr(start);
+
     var end = opts.endDate ? new Date(opts.endDate + 'T00:00:00') : null;
     if (!end || Number.isNaN(end.getTime())) end = addExportDays(start, 25);
     end.setHours(0,0,0,0);
     if (end < start) end = addExportDays(start, 4);
     opts.endDate = dateStr(end);
-    opts.weekOffsets = Array.isArray(opts.weekOffsets) ? opts.weekOffsets.map(function(x){ return parseInt(x, 10); }) : [0];
-    opts.weekOffsets = Array.from(new Set(opts.weekOffsets.filter(function(x){ return !Number.isNaN(x) && x >= 0 && x <= 40; }))).sort(function(a,b){ return a-b; });
-    if (!opts.weekOffsets.length) opts.weekOffsets = [0];
+
+    opts.weekOffsets = uniqSortedOffsets(opts.weekOffsets);
     return opts;
   }
 
   function daysForWeekOffsets(startDate, offsets) {
-    return (offsets || [0]).map(function(offset){ return exportWeekDaysFrom(startDate, offset); });
+    return uniqSortedOffsets(offsets).map(function(offset){
+      return exportWeekDaysFrom(startDate, offset);
+    });
   }
 
-  function daysForCompactWeeks(startDate, weeks) {
-    return [Array.from({length:weeks}, function(_, w){ return exportWeekDaysFrom(startDate, w); }).flat()];
+  function daysForCompactWeeks(startDate, weeksPerPage, offsets) {
+    var selected = uniqSortedOffsets(offsets);
+    var pages = [];
+    for (var i = 0; i < selected.length; i += weeksPerPage) {
+      var group = selected.slice(i, i + weeksPerPage);
+      var days = group.map(function(offset){
+        return exportWeekDaysFrom(startDate, offset);
+      }).flat();
+      if (days.length) pages.push(days);
+    }
+    return pages.length ? pages : [exportWeekDaysFrom(startDate, 0)];
+  }
+
+  function exportDayHasWeekendTask(day) {
+    var dow = day.getDay();
+    if (dow !== 0 && dow !== 6) return false;
+    var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+    return source.some(function(iv){
+      return inDay(iv, day) && !(iv.off_days || []).includes(dateStr(day));
+    });
+  }
+
+  function shouldIncludeOverviewDay(day) {
+    var dow = day.getDay();
+    if (showWeekends) return true;
+    if (dow !== 0 && dow !== 6) return true;
+    return exportDayHasWeekendTask(day);
   }
 
   function daysUntilExportDate(startDate, endDate) {
@@ -7008,36 +7054,66 @@ function PlanifyApp() {
     var end = new Date(endDate + 'T00:00:00');
     if (Number.isNaN(end.getTime()) || end < start) end = addExportDays(start, 4);
     end.setHours(0,0,0,0);
-    var pages = [];
-    var pageStart = new Date(start);
+
+    var days = [];
+    var cur = new Date(start);
     var guard = 0;
-    while (pageStart <= end && guard < 80) {
-      var days = Array.from({length:5}, function(_, i){ return addExportDays(pageStart, i); })
-        .filter(function(d){ return d <= end; });
-      if (days.length) pages.push(days);
-      pageStart.setDate(pageStart.getDate() + 7);
-      pageStart.setHours(0,0,0,0);
+
+    while (cur <= end && guard < 180) {
+      if (shouldIncludeOverviewDay(cur)) days.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+      cur.setHours(0,0,0,0);
       guard++;
     }
-    return pages.length ? pages : [exportWeekDaysFrom(startDate, 0)];
+
+    return [days.length ? days : exportWeekDaysFrom(startDate, 0)];
   }
 
   function getExportDayPages(mode, rawOptions) {
     var opts = normalizeExportOptions(rawOptions);
-    if (mode === 'selected_weeks' || mode === '1s') return daysForWeekOffsets(opts.startDate, opts.weekOffsets);
-    if (mode === '2s_page' || mode === '2s') return daysForCompactWeeks(opts.startDate, 2);
-    if (mode === '3s_page' || mode === '3s') return daysForCompactWeeks(opts.startDate, 3);
-    if (mode === 'until_date' || mode === 'tout') return daysUntilExportDate(opts.startDate, opts.endDate);
+
+    if (mode === 'selected_weeks' || mode === '1s') {
+      return daysForWeekOffsets(opts.startDate, opts.weekOffsets);
+    }
+
+    if (mode === '2s_page' || mode === '2s') {
+      return daysForCompactWeeks(opts.startDate, 2, opts.weekOffsets);
+    }
+
+    if (mode === '3s_page' || mode === '3s') {
+      return daysForCompactWeeks(opts.startDate, 3, opts.weekOffsets);
+    }
+
+    if (mode === 'until_date' || mode === 'tout') {
+      return daysUntilExportDate(opts.startDate, opts.endDate);
+    }
+
     return daysForWeekOffsets(opts.startDate, [0]);
   }
 
   function getExportLabel(mode, rawOptions) {
     var opts = normalizeExportOptions(rawOptions);
-    if (mode === 'selected_weeks' || mode === '1s') return '1S/page';
-    if (mode === '2s_page' || mode === '2s') return '2S/page';
-    if (mode === '3s_page' || mode === '3s') return '3S/page';
-    if (mode === 'until_date' || mode === 'tout') return 'Jusqu’au ' + fmtDate(opts.endDate);
+    var count = opts.weekOffsets.length;
+
+    if (mode === 'selected_weeks' || mode === '1s') return '1S/page · ' + count + ' sem.';
+    if (mode === '2s_page' || mode === '2s') return '2S/page · semaines cochées';
+    if (mode === '3s_page' || mode === '3s') return '3S/page · semaines cochées';
+    if (mode === 'until_date' || mode === 'tout') return 'Vue globale jusqu’au ' + fmtDate(opts.endDate);
+
     return String(mode || 'planning').toUpperCase();
+  }
+
+  function exportCompanyCode(iv) {
+    var tr = trades.find(function(t){ return t.id === iv.trade; });
+    if (tr && tr.short) return tr.short;
+    if (iv.company) {
+      return String(iv.company)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^A-Za-z0-9]/g,'')
+        .slice(0,8)
+        .toUpperCase();
+    }
+    return 'ENT';
   }
 
   function getPlanningExportRows(mode, rawOptions) {
@@ -7046,6 +7122,7 @@ function PlanifyApp() {
     var first = days[0];
     var last = days[days.length - 1];
     var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+
     var rows = source.filter(function(iv){
       return days.some(function(d){ return isTaskActiveOn(iv, d) && !isHoliday(d); });
     }).sort(function(a,b){
@@ -7056,12 +7133,15 @@ function PlanifyApp() {
       var z = zones.find(function(x){ return x.id === iv.zone; });
       var tr = trades.find(function(x){ return x.id === iv.trade; });
       var st = STATUS_META[iv.status] || STATUS_META.arealis;
+
       return {
         zone: z ? z.name : iv.zone,
         zoneShort: z ? z.short : iv.zone,
         floor: z ? z.floor : '',
         trade: tr ? tr.name : iv.trade,
+        tradeShort: tr ? tr.short : exportCompanyCode(iv),
         company: iv.company || '',
+        companyCode: exportCompanyCode(iv),
         taskNumber: iv.task_number || '',
         task: iv.task || '',
         status: st.label,
@@ -7073,43 +7153,53 @@ function PlanifyApp() {
         offDays: (iv.off_days || []).map(fmtDate).join(', '),
       };
     });
+
     return {rows: rows, first: first, last: last, pages: pages};
   }
 
   function exportPlanning(format, mode, exportOptions) {
     var pack = getPlanningExportRows(mode, exportOptions);
     var rows = pack.rows;
-    var period = dateStr(pack.first).replaceAll('-','') + '_' + dateStr(pack.last).replaceAll('-','');
-    var label = getExportLabel(mode, exportOptions);
-    var safeLabel = String(label).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'') || 'planning';
-    var fileBase = 'planify_hsf_planning_' + safeLabel + '_' + period;
-    var headers = ['Zone','Étage','Entreprise','Lot','N° tâche','Tâche','Statut','Début','Fin','Prérequis / blocage','Impact','Notes','Jours gelés'];
-    var body = rows.map(function(r){ return [
-      r.zone, r.floor, r.company, r.trade, r.taskNumber, r.task, r.status,
-      r.start, r.end, r.prereq, r.impact || '', r.notes, r.offDays
-    ]; });
 
     if (!rows.length) {
       alert('Aucune tâche à exporter sur cette période.');
       return;
     }
 
+    var period = dateStr(pack.first).replaceAll('-','') + '_' + dateStr(pack.last).replaceAll('-','');
+    var label = getExportLabel(mode, exportOptions);
+    var safeLabel = String(label)
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^A-Za-z0-9_-]+/g,'_')
+      .replace(/^_+|_+$/g,'') || 'planning';
+
+    var fileBase = 'planify_hsf_planning_' + safeLabel + '_' + period;
+
+    var headers = ['Zone','Étage','Code entreprise','Entreprise','Lot','N° tâche','Tâche','Statut','Début','Fin','Prérequis / blocage','Impact','Notes','Jours gelés'];
+    var body = rows.map(function(r){ return [
+      r.zone, r.floor, r.companyCode, r.company, r.trade, r.taskNumber, r.task, r.status,
+      r.start, r.end, r.prereq, r.impact || '', r.notes, r.offDays
+    ]; });
+
     if (format === 'xlsx') {
       if (!window.XLSX) {
         alert('La librairie XLSX n’est pas chargée. Vérifiez la connexion internet puis rechargez la page.');
         return;
       }
+
       var aoa = [
         ['Planify — HSF 66 Av. Marceau'],
         ['Vue', label, 'Période', fmtDate(dateStr(pack.first)) + ' au ' + fmtDate(dateStr(pack.last))],
         [],
         headers
       ].concat(body);
+
       var ws = XLSX.utils.aoa_to_sheet(aoa);
       ws['!cols'] = [
-        {wch:26},{wch:8},{wch:18},{wch:16},{wch:12},{wch:52},
+        {wch:26},{wch:8},{wch:16},{wch:18},{wch:18},{wch:12},{wch:52},
         {wch:14},{wch:12},{wch:12},{wch:32},{wch:32},{wch:32},{wch:20}
       ];
+
       var wb = XLSX.utils.book_new();
       var sheetName = ('Planning ' + safeLabel).replace(/[^A-Za-z0-9 _-]+/g,'_').slice(0,31) || 'Planning';
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -7117,248 +7207,371 @@ function PlanifyApp() {
       return;
     }
 
-    if (format === 'pdf') {
-      var JSPDF = window.jspdf && window.jspdf.jsPDF;
-      if (!JSPDF) {
-        alert('La librairie PDF n’est pas chargée. Vérifiez la connexion internet puis rechargez la page.');
-        return;
-      }
+    if (format !== 'pdf') return;
 
-      function hexToRgb(hex) {
-        var h = String(hex || '#999999').replace('#','');
-        if (h.length === 3) h = h.split('').map(function(x){ return x + x; }).join('');
-        var n = parseInt(h, 16);
-        return Number.isNaN(n) ? [153,153,153] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    var JSPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!JSPDF) {
+      alert('La librairie PDF n’est pas chargée. Vérifiez la connexion internet puis rechargez la page.');
+      return;
+    }
+
+    var overviewMode = mode === 'until_date' || mode === 'tout';
+
+    function hexToRgb(hex) {
+      var h = String(hex || '#999999').replace('#','');
+      if (h.length === 3) h = h.split('').map(function(x){ return x + x; }).join('');
+      var n = parseInt(h, 16);
+      return Number.isNaN(n) ? [153,153,153] : [(n>>16)&255,(n>>8)&255,n&255];
+    }
+
+    function mixWhite(rgb, amount) {
+      return [
+        Math.round(rgb[0] + (255 - rgb[0]) * amount),
+        Math.round(rgb[1] + (255 - rgb[1]) * amount),
+        Math.round(rgb[2] + (255 - rgb[2]) * amount)
+      ];
+    }
+
+    function clean(v) {
+      return String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    }
+
+    function drawWrapped(doc, text, x, y, maxW, maxLines, lineH) {
+      var raw = clean(text);
+      if (!raw) return 0;
+      var lines = doc.splitTextToSize(raw, maxW);
+      if (maxLines && lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        lines[lines.length - 1] = lines[lines.length - 1].replace(/\s+$/,'') + '…';
       }
-      function mixWhite(rgb, ratio) {
-        return rgb.map(function(v){ return Math.round(v + (255 - v) * ratio); });
-      }
-      function clean(v) {
-        return String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
-      }
-      function drawWrapped(doc, text, x, y, w, maxLines, lh) {
-        var raw = clean(text);
-        if (!raw) return y;
-        var lines = doc.splitTextToSize(raw, w);
-        if (lines.length > maxLines) {
-          lines = lines.slice(0, maxLines);
-          lines[lines.length - 1] = lines[lines.length - 1].replace(/\s+$/,'') + '…';
+      lines.forEach(function(line, i){
+        doc.text(line, x, y + i * lineH);
+      });
+      return lines.length * lineH;
+    }
+
+    function visibleInDay(iv, day) {
+      if (!inDay(iv, day)) return false;
+      var ds = dateStr(day);
+      if ((iv.off_days || []).includes(ds)) return false;
+      if (isHoliday(day)) return false;
+      return true;
+    }
+
+    function tasksForDays(days) {
+      var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+      return source.filter(function(iv){ return days.some(function(d){ return visibleInDay(iv, d); }); });
+    }
+
+    function deadlineTxt(zone) {
+      if (!zone.deadline) return ['—',''];
+      var wd = workingDaysUntil(zone.deadline);
+      return [wd < 0 ? '▲' : 'J-' + wd, fmtDate(zone.deadline).slice(0,5)];
+    }
+
+    function legendItems(days) {
+      var source = tasksForDays(days);
+      var map = {};
+      source.forEach(function(iv){
+        var tr = trades.find(function(t){ return t.id === iv.trade; });
+        var code = exportCompanyCode(iv);
+        var key = code + '|' + (tr ? tr.id : iv.trade);
+        if (map[key]) return;
+        var col = getTC(tr ? tr.color : 'blue');
+        map[key] = {
+          code: code,
+          company: iv.company || '',
+          trade: tr ? tr.name : '',
+          color: col.b
+        };
+      });
+      return Object.values(map).sort(function(a,b){ return a.code.localeCompare(b.code); });
+    }
+
+    function drawLegend(doc, items, x, y, maxW) {
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      doc.setTextColor(35,35,35);
+      doc.text('LÉGENDE ENTREPRISES', x, y);
+
+      var cx = x;
+      var cy = y + 12;
+      var rowH = 10;
+
+      items.forEach(function(item) {
+        var rgb = hexToRgb(item.color);
+        var labelTxt = item.code + ' — ' + item.company + (item.trade ? ' / ' + item.trade : '');
+        var w = Math.min(maxW, Math.max(72, doc.getTextWidth(labelTxt) + 18));
+
+        if (cx + w > x + maxW) {
+          cx = x;
+          cy += rowH;
         }
-        lines.forEach(function(line, idx){ doc.text(line, x, y + idx * lh); });
-        return y + lines.length * lh;
-      }
-      function visibleInDay(iv, day) {
-        if (!inDay(iv, day)) return false;
-        var ds = dateStr(day);
-        if ((iv.off_days || []).includes(ds)) return false;
-        if (isHoliday(day)) return false;
-        return true;
-      }
-      function weekTasks(days) {
-        var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
-        return source.filter(function(iv){ return days.some(function(d){ return visibleInDay(iv, d); }); });
-      }
-      function deadlineTxt(zone) {
-        if (!zone.deadline) return ['—',''];
-        var wd = workingDaysUntil(zone.deadline);
-        return [wd < 0 ? '▲' : 'J-' + wd, fmtDate(zone.deadline).slice(0,5)];
+
+        doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+        doc.roundedRect(cx, cy - 6, 7, 7, 1, 1, 'F');
+
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(5.8);
+        doc.setTextColor(55,55,55);
+        doc.text(labelTxt, cx + 10, cy);
+
+        cx += w + 8;
+      });
+
+      cy += rowH + 1;
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6);
+      doc.setTextColor(90,90,90);
+      doc.text('Statuts : gris = à réaliser · bleu = en cours · vert = terminé · rouge = bloqué · JF = jour férié.', x, cy);
+
+      return cy + 8;
+    }
+
+    var pages = pack.pages && pack.pages.length ? pack.pages : getExportDayPages(mode, exportOptions);
+    var maxDayCount = Math.max.apply(null, pages.map(function(p){ return p.length; }));
+    var baseW = 842;
+    var baseH = 595;
+
+    var customW = overviewMode
+      ? Math.max(baseW, 118 + maxDayCount * 38 + 44)
+      : baseW;
+
+    var customH = overviewMode
+      ? Math.max(baseH, 110 + zones.length * 48 + 92)
+      : baseH;
+
+    var orientation = customW >= customH ? 'landscape' : 'portrait';
+    var doc = new JSPDF({
+      orientation: orientation,
+      unit: 'pt',
+      format: overviewMode ? [customW, customH] : 'a4'
+    });
+
+    var dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+    var exported = 0;
+
+    pages.forEach(function(days, wi) {
+      if (wi > 0) {
+        if (overviewMode) doc.addPage([customW, customH], orientation);
+        else doc.addPage('a4', 'landscape');
       }
 
-      var pages = pack.pages && pack.pages.length ? pack.pages : getExportDayPages(mode, exportOptions);
-      var totalPages = pages.length;
-      var doc = new JSPDF({orientation:'landscape', unit:'pt', format:'a4'});
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
-      var margin = 12;
-      var headerH = 30;
-      var top = 42;
-      var bottom = 8;
+
+      var margin = overviewMode ? 14 : 12;
+      var headerH = overviewMode ? 34 : 30;
+      var top = overviewMode ? 48 : 42;
+      var legendH = overviewMode ? 72 : 14;
+      var bottom = overviewMode ? legendH : 8;
       var tableW = pageW - margin * 2;
-      var zoneW = 50;
-      var finW = 34;
-      var th = 24;
-      var dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-      var exported = 0;
+      var zoneW = overviewMode ? 60 : 50;
+      var finW = overviewMode ? 38 : 34;
+      var th = overviewMode ? 22 : 24;
+      var dayCount = Math.max(1, days.length);
+      var dayW = (tableW - zoneW - finW) / dayCount;
 
-      for (var wi = 0; wi < totalPages; wi++) {
-        if (wi > 0) doc.addPage('a4', 'landscape');
+      var tasksForPage = tasksForDays(days);
+      exported += tasksForPage.length;
 
-        var days = pages[wi];
-        var dayCount = Math.max(1, days.length);
-        var dayW = (tableW - zoneW - finW) / dayCount;
-        var tasksForWeek = weekTasks(days);
-        exported += tasksForWeek.length;
-        var periodLabel = fmtDate(dateStr(days[0])) + ' au ' + fmtDate(dateStr(days[days.length - 1]));
-        var sourceForWeek = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
-        var maxTableH = pageH - top - bottom;
-        var availableRowsH = maxTableH - th;
-        var minCardH = 10.5;
-        var minRowH = 28;
-        var needs = zones.map(function(zone){
-          var maxCards = 0;
-          days.forEach(function(day){
-            if (isHoliday(day)) return;
-            var count = sourceForWeek.filter(function(iv){ return iv.zone === zone.id && visibleInDay(iv, day); }).length;
-            if (count > maxCards) maxCards = count;
-          });
-          return Math.max(minRowH, maxCards ? (maxCards * minCardH + Math.max(0, maxCards - 1) * 1 + 8) : minRowH);
+      var periodLabel = fmtDate(dateStr(days[0])) + ' au ' + fmtDate(dateStr(days[days.length - 1]));
+      var sourceForPage = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
+
+      var maxTableH = pageH - top - bottom;
+      var availableRowsH = maxTableH - th;
+
+      var minCardH = overviewMode ? 7.4 : 10.5;
+      var minRowH = overviewMode ? 30 : 28;
+
+      var needs = zones.map(function(zone){
+        var maxCards = 0;
+        days.forEach(function(day){
+          if (isHoliday(day)) return;
+          var count = sourceForPage.filter(function(iv){
+            return iv.zone === zone.id && visibleInDay(iv, day);
+          }).length;
+          if (count > maxCards) maxCards = count;
         });
-        var needSum = needs.reduce(function(a,b){ return a + b; }, 0) || 1;
-        var scale = needSum > availableRowsH ? availableRowsH / needSum : 1;
-        var rowHeights = needs.map(function(n){ return Math.max(22, Math.floor(n * scale)); });
-        var usedRowsH = rowHeights.reduce(function(a,b){ return a + b; }, 0);
-        if (usedRowsH < availableRowsH) {
-          var bonus = Math.floor((availableRowsH - usedRowsH) / Math.max(1, zones.length));
-          rowHeights = rowHeights.map(function(h){ return h + bonus; });
-        }
-        var tableH = th + rowHeights.reduce(function(a,b){ return a + b; }, 0);
+        return Math.max(minRowH, maxCards ? (maxCards * minCardH + Math.max(0, maxCards - 1) * 0.8 + 8) : minRowH);
+      });
 
-        // Fond + header sombre type application
-        doc.setFillColor(244,242,238);
-        doc.rect(0, 0, pageW, pageH, 'F');
-        doc.setFillColor(26,26,26);
-        doc.roundedRect(margin, 8, tableW, headerH, 7, 7, 'F');
-        doc.setTextColor(255,255,255);
+      var needSum = needs.reduce(function(a,b){ return a + b; }, 0) || 1;
+      var scale = needSum > availableRowsH ? availableRowsH / needSum : 1;
+      var rowHeights = needs.map(function(h){ return Math.max(overviewMode ? 22 : 24, h * scale); });
+      var tableH = th + rowHeights.reduce(function(a,b){ return a + b; }, 0);
+
+      doc.setFillColor(244,242,238);
+      doc.rect(0, 0, pageW, pageH, 'F');
+
+      doc.setFillColor(26,26,26);
+      doc.roundedRect(margin, 8, tableW, headerH, 7, 7, 'F');
+
+      doc.setTextColor(255,255,255);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(overviewMode ? 12 : 11.5);
+      doc.text('Planify — HSF 66 Av. Marceau', margin + 10, 23);
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(overviewMode ? 7 : 6.7);
+      doc.setTextColor(215,215,215);
+      doc.text('Planning ' + label + ' · ' + periodLabel, margin + 10, 37);
+
+      var infoTxt = tasksForPage.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR');
+      doc.text(infoTxt, pageW - margin - Math.max(125, doc.getTextWidth(infoTxt) + 8), 37);
+
+      var x0 = margin;
+      var y0 = top;
+
+      doc.setFillColor(255,255,255);
+      doc.setDrawColor(200,196,188);
+      doc.roundedRect(x0, y0, tableW, tableH, 6, 6, 'FD');
+
+      doc.setFillColor(249,248,245);
+      doc.rect(x0, y0, zoneW, th, 'F');
+      doc.rect(x0 + zoneW + dayCount * dayW, y0, finW, th, 'F');
+
+      doc.setTextColor(90,90,90);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(overviewMode ? 7 : 7.5);
+      doc.text('ZONE', x0 + 8, y0 + 15);
+      doc.text('FIN', x0 + zoneW + dayCount * dayW + 10, y0 + 15);
+
+      days.forEach(function(day, di) {
+        var x = x0 + zoneW + di * dayW;
+        var holiday = isHoliday(day);
+        var today = isToday(day);
+
+        if (holiday) doc.setFillColor(209,213,219);
+        else if (today) doc.setFillColor(238,242,252);
+        else doc.setFillColor(249,248,245);
+
+        doc.rect(x, y0, dayW, th, 'F');
+
         doc.setFont('helvetica','bold');
-        doc.setFontSize(11.5);
-        doc.text('Planify — HSF 66 Av. Marceau', margin + 10, 23);
+        doc.setFontSize(overviewMode ? 5.5 : 7.5);
+        doc.setTextColor(today ? 33 : 90, today ? 82 : 90, today ? 200 : 90);
+        doc.text(dayNames[day.getDay()].toUpperCase(), x + 4, y0 + 9);
+
         doc.setFont('helvetica','normal');
-        doc.setFontSize(6.7);
-        doc.setTextColor(215,215,215);
-        doc.text('Planning ' + label + ' · Page ' + (wi + 1) + '/' + totalPages + ' · ' + periodLabel, margin + 10, 37);
-        doc.text(tasksForWeek.length + ' tâche(s) · export ' + new Date().toLocaleDateString('fr-FR'), pageW - margin - 125, 37);
+        doc.setFontSize(overviewMode ? 5.2 : 7);
+        doc.text(String(day.getDate()).padStart(2,'0') + '/' + String(day.getMonth()+1).padStart(2,'0'), x + 4, y0 + 18);
 
-        var x0 = margin;
-        var y0 = top;
+        if (holiday) {
+          doc.setFont('helvetica','bold');
+          doc.setTextColor(70,70,70);
+          doc.setFontSize(overviewMode ? 5 : 6);
+          doc.text('JF', x + dayW - 12, y0 + 14);
+        }
+      });
 
-        // Cadre global
-        doc.setFillColor(255,255,255);
-        doc.setDrawColor(200,196,188);
-        doc.roundedRect(x0, y0, tableW, tableH, 6, 6, 'FD');
+      var currentY = y0 + th;
 
-        // En-tête tableau
-        doc.setFillColor(249,248,245);
-        doc.rect(x0, y0, zoneW, th, 'F');
-        doc.rect(x0 + zoneW + dayCount * dayW, y0, finW, th, 'F');
-        doc.setTextColor(90,90,90);
+      zones.forEach(function(zone, zi) {
+        var rowH = rowHeights[zi];
+        var y = currentY;
+        currentY += rowH;
+
+        var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
+        var fcRgb = hexToRgb(fc);
+        var rowBg = mixWhite(fcRgb, 0.95);
+
+        doc.setFillColor(rowBg[0], rowBg[1], rowBg[2]);
+        doc.rect(x0, y, tableW, rowH, 'F');
+
+        doc.setDrawColor(228,224,216);
+        doc.setLineWidth(0.5);
+        doc.line(x0, y, x0 + tableW, y);
+
+        var zoneBg = mixWhite(fcRgb, 0.88);
+        doc.setFillColor(zoneBg[0], zoneBg[1], zoneBg[2]);
+        doc.rect(x0, y, zoneW, rowH, 'F');
+
+        doc.setDrawColor(fcRgb[0], fcRgb[1], fcRgb[2]);
+        doc.setLineWidth(2);
+        doc.line(x0 + zoneW - 2, y, x0 + zoneW - 2, y + rowH);
+
+        doc.setTextColor(fcRgb[0], fcRgb[1], fcRgb[2]);
         doc.setFont('helvetica','bold');
-        doc.setFontSize(7.5);
-        doc.text('ZONE', x0 + 8, y0 + 16);
-        doc.text('FIN', x0 + zoneW + dayCount * dayW + 13, y0 + 16);
+        doc.setFontSize(overviewMode ? 6.2 : 7);
+        drawWrapped(doc, zone.short || zone.name, x0 + 6, y + 14, zoneW - 12, 2, 7);
+
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(overviewMode ? 5.2 : 6);
+        doc.setTextColor(90,90,90);
+        drawWrapped(doc, zone.floor || '', x0 + 6, y + rowH - 7, zoneW - 12, 1, 6);
 
         days.forEach(function(day, di) {
           var x = x0 + zoneW + di * dayW;
+          var ds = dateStr(day);
           var holiday = isHoliday(day);
-          var today = isToday(day);
-          if (holiday) doc.setFillColor(209,213,219);
-          else if (today) doc.setFillColor(238,242,252);
-          else doc.setFillColor(249,248,245);
-          doc.rect(x, y0, dayW, th, 'F');
-          doc.setFont('helvetica','bold');
-          doc.setFontSize(7.5);
-          doc.setTextColor(today ? 33 : 90, today ? 82 : 90, today ? 200 : 90);
-          doc.text(dayNames[day.getDay()].toUpperCase(), x + 8, y0 + 10);
-          doc.setFont('helvetica','normal');
-          doc.setFontSize(7);
-          doc.text(String(day.getDate()).padStart(2,'0') + '/' + String(day.getMonth()+1).padStart(2,'0'), x + 8, y0 + 20);
+          var isDeadline = zone.deadline && ds === zone.deadline;
+
           if (holiday) {
-            doc.setFont('helvetica','bold');
-            doc.setTextColor(70,70,70);
-            doc.text('JF', x + dayW - 18, y0 + 16);
+            doc.setFillColor(209,213,219);
+            doc.rect(x, y, dayW, rowH, 'F');
+          } else if (isDeadline) {
+            doc.setFillColor(254,226,226);
+            doc.rect(x, y, dayW, rowH, 'F');
           }
-        });
 
-        // Lignes zones + cellules
-        var currentY = y0 + th;
-        zones.forEach(function(zone, zi) {
-          var rowH = rowHeights[zi];
-          var y = currentY;
-          currentY += rowH;
-          var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
-          var fcRgb = hexToRgb(fc);
-          var rowBg = mixWhite(fcRgb, 0.95);
-          doc.setFillColor(rowBg[0], rowBg[1], rowBg[2]);
-          doc.rect(x0, y, tableW, rowH, 'F');
           doc.setDrawColor(228,224,216);
-          doc.setLineWidth(0.5);
-          doc.line(x0, y, x0 + tableW, y);
+          doc.setLineWidth(0.4);
+          doc.line(x, y, x, y + rowH);
 
-          // Zone
-          var zoneBg = mixWhite(fcRgb, 0.88);
-          doc.setFillColor(zoneBg[0], zoneBg[1], zoneBg[2]);
-          doc.rect(x0, y, zoneW, rowH, 'F');
-          doc.setDrawColor(fcRgb[0], fcRgb[1], fcRgb[2]);
-          doc.setLineWidth(2);
-          doc.line(x0 + zoneW - 2, y, x0 + zoneW - 2, y + rowH);
-          doc.setTextColor(fcRgb[0], fcRgb[1], fcRgb[2]);
-          doc.setFont('helvetica','bold');
-          doc.setFontSize(7);
-          drawWrapped(doc, zone.short || zone.name, x0 + 6, y + 15, zoneW - 12, 2, 8);
-          doc.setFont('helvetica','normal');
-          doc.setFontSize(6);
-          doc.setTextColor(90,90,90);
-          drawWrapped(doc, zone.floor || '', x0 + 6, y + rowH - 9, zoneW - 12, 1, 7);
+          var cards = holiday ? [] : sourceForPage.filter(function(iv){
+            return iv.zone === zone.id && visibleInDay(iv, day);
+          }).sort(function(a,b){ return (a.priority||3)-(b.priority||3); });
 
-          days.forEach(function(day, di) {
-            var x = x0 + zoneW + di * dayW;
-            var ds = dateStr(day);
-            var holiday = isHoliday(day);
-            var isDeadline = zone.deadline && ds === zone.deadline;
-            if (holiday) {
-              doc.setFillColor(209,213,219);
-              doc.rect(x, y, dayW, rowH, 'F');
-            } else if (isDeadline) {
-              doc.setFillColor(254,226,226);
-              doc.rect(x, y, dayW, rowH, 'F');
-            }
-            doc.setDrawColor(228,224,216);
+          var cardX = x + 1.6;
+          var cardY = y + 2.4;
+          var cardW = dayW - 3.2;
+          var gap = overviewMode ? 0.6 : cards.length > 5 ? 0.6 : 1.1;
+          var availableH = Math.max(8, rowH - 4.5);
+          var cardH = cards.length ? Math.min(overviewMode ? 10 : 22, (availableH - Math.max(0, cards.length - 1) * gap) / cards.length) : 0;
+          cardH = Math.max(overviewMode ? 6.8 : 8.8, cardH);
+
+          var compact = cardH < 13;
+          var ultraCompact = cardH < 10.5;
+          var titleFs = overviewMode ? Math.max(3.8, Math.min(5.2, cardH - 2.2)) : ultraCompact ? 4.2 : compact ? 4.8 : 5.6;
+          var taskFs = ultraCompact ? 3.8 : compact ? 4.3 : 5.0;
+          var lh = overviewMode ? Math.max(4, titleFs + 0.7) : ultraCompact ? 4.2 : compact ? 4.8 : 5.8;
+
+          cards.forEach(function(iv) {
+            var tr = trades.find(function(t){ return t.id === iv.trade; });
+            var col = getTC(tr ? tr.color : 'blue');
+            var rgb = hexToRgb(col.b);
+            var fill = mixWhite(rgb, 0.90);
+            var st = STATUS_META[iv.status] || STATUS_META.arealis;
+            var stRgb = hexToRgb(st.dot);
+
+            doc.setFillColor(fill[0], fill[1], fill[2]);
+            doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
             doc.setLineWidth(0.4);
-            doc.line(x, y, x, y + rowH);
+            doc.roundedRect(cardX, cardY, cardW, cardH, 2, 2, 'FD');
 
-            var source = filter === 'all' ? data : data.filter(function(i){ return i.trade === filter; });
-            var cards = holiday ? [] : source.filter(function(iv){
-              return iv.zone === zone.id && visibleInDay(iv, day);
-            }).sort(function(a,b){ return (a.priority||3)-(b.priority||3); });
+            doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+            doc.rect(cardX, cardY, 2, cardH, 'F');
 
-            var cardX = x + 2;
-            var cardY = y + 3;
-            var cardW = dayW - 4;
-            var gap = cards.length > 5 ? 0.6 : 1.1;
-            var availableH = Math.max(10, rowH - 5);
-            var cardH = cards.length ? Math.min(22, (availableH - Math.max(0, cards.length - 1) * gap) / cards.length) : 0;
-            cardH = Math.max(8.8, cardH);
-            var compact = cardH < 13;
-            var ultraCompact = cardH < 10.5;
-            var titleFs = ultraCompact ? 4.2 : compact ? 4.8 : 5.6;
-            var taskFs = ultraCompact ? 3.8 : compact ? 4.3 : 5.0;
-            var lh = ultraCompact ? 4.2 : compact ? 4.8 : 5.8;
+            doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(titleFs);
 
-            cards.forEach(function(iv) {
-              var tr = trades.find(function(t){ return t.id === iv.trade; });
-              var col = getTC(tr ? tr.color : 'blue');
-              var rgb = hexToRgb(col.b);
-              var fill = mixWhite(rgb, 0.90);
-              var st = STATUS_META[iv.status] || STATUS_META.arealis;
-              var stRgb = hexToRgb(st.dot);
+            var title = overviewMode
+              ? exportCompanyCode(iv)
+              : (iv.company || '') + (iv.task_number ? ' · ' + iv.task_number : '');
 
-              doc.setFillColor(fill[0], fill[1], fill[2]);
-              doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-              doc.setLineWidth(0.45);
-              doc.roundedRect(cardX, cardY, cardW, cardH, 2, 2, 'FD');
-              doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-              doc.rect(cardX, cardY, 2, cardH, 'F');
+            drawWrapped(doc, title, cardX + 4, cardY + (overviewMode ? cardH - 2.2 : ultraCompact ? 4.4 : 5.8), cardW - 12, 1, lh);
 
-              doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-              doc.setFont('helvetica','bold');
-              doc.setFontSize(titleFs);
-              var title = (iv.company || '') + (iv.task_number ? ' · ' + iv.task_number : '');
-              drawWrapped(doc, title, cardX + 4, cardY + (ultraCompact ? 4.4 : 5.8), cardW - 16, 1, lh);
-              doc.setFillColor(stRgb[0], stRgb[1], stRgb[2]);
-              doc.circle(cardX + cardW - 5, cardY + (ultraCompact ? 3.8 : 5.2), ultraCompact ? 1.2 : 1.7, 'F');
+            doc.setFillColor(stRgb[0], stRgb[1], stRgb[2]);
+            doc.circle(cardX + cardW - 4.8, cardY + (overviewMode ? 3.6 : ultraCompact ? 3.8 : 5.2), overviewMode ? 1.1 : ultraCompact ? 1.2 : 1.7, 'F');
 
+            if (!overviewMode) {
               doc.setTextColor(45,45,45);
               doc.setFont('helvetica','normal');
               doc.setFontSize(taskFs);
+
               if (ultraCompact) {
                 drawWrapped(doc, iv.task || '', cardX + 4, cardY + cardH - 2.2, cardW - 8, 1, lh);
               } else {
@@ -7374,49 +7587,56 @@ function PlanifyApp() {
                 doc.setFontSize(4.2);
                 drawWrapped(doc, '↪ ' + iv.impact, cardX + 4, cardY + cardH - 3, cardW - 8, 1, 4.5);
               }
+            }
 
-              cardY += cardH + gap;
-            });
+            cardY += cardH + gap;
           });
-
-          // Jalon
-          var dx = x0 + zoneW + dayCount * dayW;
-          var dc = hexToRgb(deadlineColor(zone.deadline));
-          var dlBg = mixWhite(dc, 0.90);
-          doc.setFillColor(dlBg[0], dlBg[1], dlBg[2]);
-          doc.rect(dx, y, finW, rowH, 'F');
-          doc.setTextColor(dc[0], dc[1], dc[2]);
-          doc.setFont('helvetica','bold');
-          doc.setFontSize(7);
-          var dl = deadlineTxt(zone);
-          doc.text(dl[0], dx + 8, y + 18);
-          doc.setFont('helvetica','normal');
-          doc.setFontSize(6);
-          if (dl[1]) doc.text(dl[1], dx + 8, y + 29);
         });
 
-        // Bordures principales et footer
-        doc.setDrawColor(200,196,188);
-        doc.setLineWidth(0.7);
-        doc.line(x0 + zoneW, y0, x0 + zoneW, y0 + tableH);
-        for (var gi = 1; gi <= dayCount; gi++) {
-          var gx = x0 + zoneW + gi * dayW;
-          doc.line(gx, y0, gx, y0 + tableH);
-        }
+        var dx = x0 + zoneW + dayCount * dayW;
+        var dc = hexToRgb(deadlineColor(zone.deadline));
+        var dlBg = mixWhite(dc, 0.90);
 
+        doc.setFillColor(dlBg[0], dlBg[1], dlBg[2]);
+        doc.rect(dx, y, finW, rowH, 'F');
+
+        doc.setTextColor(dc[0], dc[1], dc[2]);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(overviewMode ? 6 : 7);
+
+        var dl = deadlineTxt(zone);
+        doc.text(dl[0], dx + 7, y + Math.min(17, rowH - 9));
+
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(overviewMode ? 5 : 6);
+        if (dl[1]) doc.text(dl[1], dx + 7, y + Math.min(28, rowH - 3));
+      });
+
+      doc.setDrawColor(200,196,188);
+      doc.setLineWidth(0.7);
+      doc.line(x0 + zoneW, y0, x0 + zoneW, y0 + tableH);
+      for (var gi = 1; gi <= dayCount; gi++) {
+        var gx = x0 + zoneW + gi * dayW;
+        doc.line(gx, y0, gx, y0 + tableH);
+      }
+
+      if (overviewMode) {
+        drawLegend(doc, legendItems(days), margin, pageH - legendH + 8, tableW);
+      } else {
         doc.setTextColor(90,90,90);
         doc.setFont('helvetica','normal');
         doc.setFontSize(6.5);
         doc.text('Modes impression : 1S/page, 2S/page, 3S/page ou jusqu’à date · point couleur = statut · JF = jour férié.', margin, pageH - 12);
-        doc.text('Page ' + (wi + 1) + '/' + totalPages, pageW - margin - 48, pageH - 12);
+        doc.text('Page ' + (wi + 1) + '/' + pages.length, pageW - margin - 48, pageH - 12);
       }
+    });
 
-      if (!exported) {
-        alert('Aucune tâche à exporter sur cette période.');
-        return;
-      }
-      doc.save(fileBase + '.pdf');
+    if (!exported) {
+      alert('Aucune tâche à exporter sur cette période.');
+      return;
     }
+
+    doc.save(fileBase + '.pdf');
   }
 
   return (
