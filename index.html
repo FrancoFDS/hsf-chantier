@@ -70,7 +70,39 @@ const TRADE_COLORS = {
   teal:    {b:'#0D9488',bg:'#F0FDFA',bgD:'rgba(13,148,136,.18)',t:'#134E4A'},
 };
 
-function getTC(colorId) { return TRADE_COLORS[colorId] || TRADE_COLORS.blue; }
+function planifyIsDarkTheme() {
+  try { return document.documentElement.getAttribute('data-theme') === 'nuit'; }
+  catch(e) { return false; }
+}
+function planifyHexToRgb(hex) {
+  var clean = String(hex || '#3B82F6').replace('#','').trim();
+  if (clean.length === 3) clean = clean.split('').map(function(ch){ return ch + ch; }).join('');
+  if (clean.length !== 6) return {r:59,g:130,b:246};
+  return {
+    r:parseInt(clean.slice(0,2),16) || 59,
+    g:parseInt(clean.slice(2,4),16) || 130,
+    b:parseInt(clean.slice(4,6),16) || 246
+  };
+}
+function planifyRgba(hex, alpha) {
+  var rgb = planifyHexToRgb(hex);
+  return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
+}
+function getTC(colorId) {
+  var base = TRADE_COLORS[colorId] || TRADE_COLORS.blue;
+  if (!planifyIsDarkTheme()) return base;
+
+  // Mode sombre : on garde la couleur métier comme accent, mais on force les textes
+  // et les fonds de cartes sur une palette sombre lisible.
+  return Object.assign({}, base, {
+    bg: planifyRgba(base.b, .18),
+    bgD: planifyRgba(base.b, .24),
+    t: '#F8FAFC',
+    text: '#F8FAFC',
+    mutedText: '#CBD5E1',
+    border: planifyRgba(base.b, .58)
+  });
+}
 
 const ZONES = [
   {id:'z_1',name:'R+3 — Sanitaire H/F',    short:'R3-SANI',deadline:'2026-06-04',floor:'R+3'},
@@ -135,6 +167,28 @@ const STATUS_META = {
   termine:{label:'Terminé',   dot:'#16A34A',text:'#065F46',bg:'rgba(22,163,74,.12)', pill:'#16A34A'},
   bloque: {label:'Bloqué',    dot:'#DC2626',text:'#991B1B',bg:'rgba(220,38,38,.12)', pill:'#DC2626'},
 };
+
+function getStatusThemeMeta(status) {
+  var base = STATUS_META[status] || STATUS_META.arealis;
+  if (!planifyIsDarkTheme()) return base;
+  var darkText = {
+    arealis:'#E5E7EB',
+    encours:'#BFDBFE',
+    termine:'#BBF7D0',
+    bloque:'#FECACA'
+  }[status] || '#F8FAFC';
+  var darkBg = {
+    arealis:'rgba(148,163,184,.16)',
+    encours:'rgba(96,165,250,.18)',
+    termine:'rgba(52,211,153,.18)',
+    bloque:'rgba(248,113,113,.18)'
+  }[status] || base.bg;
+  return Object.assign({}, base, {
+    bg:darkBg,
+    text:darkText,
+    border:planifyRgba(base.dot, .45)
+  });
+}
 
 const CHANGE_REQUEST_STATUS_META = {
   pending_admin:     {label:'Tâche modifiée par l’entreprise', short:'Modif. entreprise', dot:'#F97316', text:'#9A3412', bg:'rgba(249,115,22,.12)'},
@@ -355,8 +409,9 @@ function workingDaysUntil(ds) {
 // Expose all globals so Babel-compiled scripts can access them
 Object.assign(window, {
   ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, CHANGE_REQUEST_STATUS_META, TASK_CHANGE_FIELDS, FLOOR_COLORS, DAYS_FR,
+  planifyIsDarkTheme, planifyHexToRgb, planifyRgba,
   HOLIDAYS_2026, isHoliday, workingDaysUntil,
-  getTC, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
+  getTC, getStatusThemeMeta, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
   genId, genTaskNum, normalizeTaskNumber, daysUntil, deadlineColor,
 });
 </script>
@@ -879,7 +934,7 @@ Object.assign(window, {
 
 /* ── STATUS BADGE ─────────────────────────────────────────── */
 function StatusBadge({ status, size = 'md' }) {
-  const m = STATUS_META[status] || STATUS_META.arealis;
+  const m = getStatusThemeMeta(status);
   const pad = size === 'sm' ? '2px 7px' : '3px 10px';
   const fs  = size === 'sm' ? '10px' : '11px';
   return (
@@ -952,7 +1007,7 @@ function ConfirmDialog({ open, message, onConfirm, onCancel }) {
 function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null, criticalVisible = true, dimmed = false, focused = false }) {
   const tr = trades.find(t => t.id === iv.trade);
   const c  = getTC(tr?.color || 'blue');
-  const m  = STATUS_META[iv.status] || STATUS_META.arealis;
+  const m  = getStatusThemeMeta(iv.status);
   const bg = isDark ? c.bgD : c.bg;
   const bdr= isDark ? `${c.b}60` : `${c.b}35`;
   const hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
@@ -2070,7 +2125,7 @@ function ux2Rgba(hex, alpha){
 }
 
 var StatusBadge = window.StatusBadge = function StatusBadge({ status, size = 'sm', label }) {
-  var m = STATUS_META[status] || STATUS_META.arealis;
+  var m = getStatusThemeMeta(status);
   var fs = size === 'lg' ? 12 : 10.5;
   var pad = size === 'lg' ? '5px 10px' : '3px 8px';
 
@@ -2108,6 +2163,7 @@ var TradeBadge = window.TradeBadge = function TradeBadge({ tradeId, trades, size
   var tr = (trades || []).find(function(t){ return t.id === tradeId; });
   if (!tr) return null;
   var c = getTC(tr.color);
+  var isDarkBadge = planifyIsDarkTheme();
   var pad = size === 'lg' ? '6px 11px' : '4px 9px';
   var fs  = size === 'lg' ? 12 : 10.5;
 
@@ -2118,7 +2174,7 @@ var TradeBadge = window.TradeBadge = function TradeBadge({ tradeId, trades, size
       gap:7,
       padding:pad,
       borderRadius:999,
-      background:'linear-gradient(180deg, '+c.bg+', rgba(255,255,255,.78))',
+      background:isDarkBadge ? c.bg : 'linear-gradient(180deg, '+c.bg+', rgba(255,255,255,.78))',
       color:c.t,
       border:'1px solid '+c.b+'38',
       fontSize:fs,
@@ -2482,7 +2538,7 @@ var TaskCard = window.TaskCard = function TaskCard({
 }) {
   var tr = (trades || []).find(function(t){ return t.id === iv.trade; });
   var c  = getTC((tr && tr.color) || 'blue');
-  var m  = STATUS_META[iv.status] || STATUS_META.arealis;
+  var m  = getStatusThemeMeta(iv.status);
   var bg = isDark ? c.bgD : c.bg;
   var hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
   var ccColor = hasCritical ? (criticalPath.color || '#EA580C') : c.b;
@@ -3206,7 +3262,7 @@ function TaskCard2({ iv, zones, trades, onOpenDetail }) {
   var z  = zones.find(function(x){return x.id===iv.zone;});
   var tr = trades.find(function(x){return x.id===iv.trade;});
   var c  = getTC(tr?tr.color:'blue');
-  var m  = STATUS_META[iv.status]||STATUS_META.arealis;
+  var m  = getStatusThemeMeta(iv.status);
   return (
     <div onClick={function(){onOpenDetail(iv.id);}}
       style={{padding:'11px 12px',marginBottom:8,borderRadius:'var(--r-sm)',cursor:'pointer',
@@ -4332,7 +4388,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     if (isMulti) {
       var _tr = trades.find(function(t){return t.id===iv.trade;});
       var _c = getTC(_tr?_tr.color:'blue');
-      var _m = STATUS_META[iv.status]||STATUS_META.arealis;
+      var _m = getStatusThemeMeta(iv.status);
       var criticalInfo = zoneCritical.roles[iv.id] || null;
       var ccLinked = !!(showCriticalPath && criticalInfo && criticalInfo.linked);
       var ccColor = ccLinked ? (criticalInfo.color || '#EA580C') : _c.b;
@@ -4380,7 +4436,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         data-cc-day={dayStrForCard || ''}
         data-cc-zone={zone && zone.id ? zone.id : ''}
         data-cc-chain-id={showCriticalPath && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].linked ? zoneCritical.roles[iv.id].chainId : undefined}
-        onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, STATUS_META[iv.status]||STATUS_META.arealis));}}
+        onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, getStatusThemeMeta(iv.status)));}}
         onMouseMove={function(){}}
         onMouseLeave={function(){setTaskHover(null);}}>
         <TaskCard iv={iv} trades={trades} data={data} isDark={isDark}
@@ -5377,7 +5433,7 @@ function StatusWithNote({ iv, session, onStatusChange }) {
   var [saved, setSaved] = React.useState(false);
   var [saving, setSaving] = React.useState(false);
   var [error, setError] = React.useState('');
-  var m2 = pendingStatus ? (STATUS_META[pendingStatus]||STATUS_META.arealis) : null;
+  var m2 = pendingStatus ? getStatusThemeMeta(pendingStatus) : null;
 
   async function confirm() {
     if (saving || !pendingStatus) return;
@@ -8349,7 +8405,7 @@ function PlanifyApp() {
     }).map(function(iv){
       var z = zones.find(function(x){ return x.id === iv.zone; });
       var tr = trades.find(function(x){ return x.id === iv.trade; });
-      var st = STATUS_META[iv.status] || STATUS_META.arealis;
+      var st = getStatusThemeMeta(iv.status);
 
       return {
         zone: z ? z.name : iv.zone,
@@ -8773,7 +8829,7 @@ function PlanifyApp() {
             var col = getTC(tr ? tr.color : 'blue');
             var rgb = hexToRgb(col.b);
             var fill = mixWhite(rgb, overviewMode ? 0.90 : 0.88);
-            var st = STATUS_META[iv.status] || STATUS_META.arealis;
+            var st = getStatusThemeMeta(iv.status);
             var stRgb = hexToRgb(st.dot);
             var stFill = mixWhite(stRgb, 0.86);
 
