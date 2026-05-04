@@ -1037,7 +1037,7 @@ function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null,
         </span>
       </div>
       <div style={{fontSize:11,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.2}}>{iv.company}</div>
-      <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
+      <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
       <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}>
         <TaskDependencyBadges iv={iv} data={data} compact />
         {hasCritical ? <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'1px 6px',borderRadius:20,background:rgbaCss(ccColor,.16),color:ccColor,border:'1px solid '+rgbaCss(ccColor,.45),fontSize:8.5,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CC'} · chemin critique</span> : null}
@@ -2011,6 +2011,22 @@ textarea{
   color:var(--primary);
 }
 
+
+/* PLANIFY — TYPOGRAPHIE HARMONISÉE
+   DM Sans devient la police principale de lecture. DM Mono reste réservé aux codes, dates et valeurs techniques. */
+:root{
+  --font-ui:'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-code:'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --fz-ui:14px;
+  --fz-small:12px;
+  --fz-xs:10.5px;
+  --fz-task-title:12px;
+  --fz-task-company:12.5px;
+  --fz-zone:10.5px;
+}
+body{font-family:var(--font-ui);font-size:var(--fz-ui);font-optical-sizing:auto;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+button,select,input,textarea{font-family:var(--font-ui);}
+
 ::-webkit-scrollbar{
   width:7px;
   height:7px;
@@ -2558,9 +2574,9 @@ var TaskCard = window.TaskCard = function TaskCard({
       style={{
         position:'relative',
         overflow:'hidden',
-        borderRadius:12,
-        padding:'8px 9px 8px 10px',
-        marginBottom:5,
+        borderRadius:13,
+        padding:'9px 10px 9px 11px',
+        marginBottom:6,
         cursor:'pointer',
         background:hasCritical
           ? 'linear-gradient(0deg, '+ux2Rgba(ccColor,.12)+', '+ux2Rgba(ccColor,.12)+'), '+bg
@@ -2610,7 +2626,7 @@ var TaskCard = window.TaskCard = function TaskCard({
       }}>
         <span style={{
           fontFamily:UX2.mono,
-          fontSize:9.5,
+          fontSize:10,
           color:c.t,
           opacity:.72,
           fontWeight:900,
@@ -2641,7 +2657,7 @@ var TaskCard = window.TaskCard = function TaskCard({
           boxShadow:'0 0 0 3px '+ux2Rgba(c.b,.13)
         }} />
         <div style={{
-          fontSize:11.5,
+          fontSize:'var(--fz-task-company)',
           fontWeight:900,
           color:c.t,
           lineHeight:1.15,
@@ -2655,13 +2671,13 @@ var TaskCard = window.TaskCard = function TaskCard({
 
       <div style={{
         position:'relative',
-        fontSize:10.5,
+        fontSize:'var(--fz-task-title)',
         color:c.t,
-        opacity:.86,
-        lineHeight:1.35,
+        opacity:.94,
+        lineHeight:1.4,
         overflow:'hidden',
         display:'-webkit-box',
-        WebkitLineClamp:2,
+        WebkitLineClamp:3,
         WebkitBoxOrient:'vertical'
       }}>
         {iv.task}
@@ -2688,7 +2704,7 @@ var TaskCard = window.TaskCard = function TaskCard({
             background:ux2Rgba(ccColor,.16),
             color:ccColor,
             border:'1px solid '+ux2Rgba(ccColor,.45),
-            fontSize:8.5,
+            fontSize:9,
             fontWeight:900,
             fontFamily:UX2.mono,
             whiteSpace:'nowrap'
@@ -2707,7 +2723,7 @@ var TaskCard = window.TaskCard = function TaskCard({
             background:'rgba(202,138,4,.10)',
             color:'#92400E',
             border:'1px solid rgba(202,138,4,.25)',
-            fontSize:8.5,
+            fontSize:9,
             fontWeight:900,
             fontFamily:UX2.mono,
             whiteSpace:'nowrap'
@@ -2729,9 +2745,9 @@ var TaskCard = window.TaskCard = function TaskCard({
           background:blocked ? 'var(--danger-l)' : 'rgba(234,88,12,.10)',
           color:blocked ? 'var(--danger)' : '#9A3412',
           border:'1px solid '+(blocked ? 'rgba(220,38,38,.22)' : 'rgba(234,88,12,.18)'),
-          fontSize:9,
+          fontSize:10,
           fontWeight:800,
-          lineHeight:1.25
+          lineHeight:1.3
         }}>
           <span style={{flexShrink:0}}>⚠</span>
           <span style={{
@@ -3337,7 +3353,7 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
           <StatusBadge status={iv.status} size="sm" />
         </div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:3,overflow:'hidden',
-          display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
+          display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
         {iv.prereq&&iv.prereq.trim()&&<div style={{fontSize:10,color:'#DC2626',background:'#FEF2F2',
           padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:2}}>
           ⚠ {iv.prereq}
@@ -4312,8 +4328,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     };
   }
 
-  const zoneColW = isMulti ? '40px' : '58px';
-  const deadlineColW = isMulti ? '28px' : '50px';
+  const zoneColW = isMulti ? '58px' : '86px';
+  const deadlineColW = isMulti ? '34px' : '54px';
   const dayColW = '1fr';
   const gridCols = `${zoneColW} repeat(${days.length}, ${dayColW}) ${deadlineColW}`;
 
@@ -4404,29 +4420,29 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           onMouseMove={function(){}}
           onMouseLeave={function(){setTaskHover(null);}}
           onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
-          style={{borderRadius:3,padding:'2px 3px',marginBottom:1,cursor:'pointer',
+          style={{borderRadius:6,padding:weeks===2?'4px 5px':'3px 4px',marginBottom:2,cursor:'pointer',
             background:ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg,
-            borderLeft:'3px solid '+(ccLinked?ccColor:_c.b),
+            borderLeft:'4px solid '+(ccLinked?ccColor:_c.b),
             border:'1px solid '+(ccLinked?rgbaCss(ccColor,.82):'transparent'),
             boxShadow:ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none',
             overflow:'hidden',opacity:ccDimmed ? .28 : 1,filter:ccDimmed?'saturate(.65)':'none',position:'relative'}}>
-          <div style={{display:'flex',alignItems:'center',gap:2}}>
-            <span style={{fontSize:weeks===2?7:6.5,fontWeight:700,color:_c.t,
+          <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <span style={{fontSize:weeks===2?9:8,fontWeight:800,color:_c.t,fontFamily:UX2.sans,
               overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
-              lineHeight:1.3,flex:1}}>{iv.company}</span>
+              lineHeight:1.15,flex:1}}>{iv.company}</span>
             <span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 4px',borderRadius:999,
-              background:_m.bg,color:_m.text,border:'1px solid '+_m.dot+'55',fontSize:weeks===2?6.2:5.8,
-              fontWeight:900,fontFamily:"'DM Mono',monospace",lineHeight:1,whiteSpace:'nowrap',flexShrink:0}}>
+              background:_m.bg,color:_m.text,border:'1px solid '+_m.dot+'55',fontSize:weeks===2?7.2:6.8,
+              fontWeight:900,fontFamily:UX2.mono,lineHeight:1,whiteSpace:'nowrap',flexShrink:0}}>
               <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot,flexShrink:0,display:'block'}}></span>
               {_m.label}
             </span>
           </div>
-          {weeks===2&&<div style={{fontSize:6.5,color:_c.t,opacity:.7,
-            lineHeight:1.2,overflow:'hidden',whiteSpace:'nowrap',
-            textOverflow:'ellipsis'}}>{iv.task}</div>}
-          {taskCanFinishLater(iv)&&<div style={{fontSize:6.2,color:'var(--primary)',fontWeight:800,
+          {weeks<=3&&<div style={{fontSize:weeks===2?8.2:7.4,color:_c.t,opacity:.88,
+            lineHeight:1.18,overflow:'hidden',whiteSpace:'nowrap',
+            textOverflow:'ellipsis',fontWeight:600}}>{iv.task}</div>}
+          {taskCanFinishLater(iv)&&<div style={{fontSize:weeks===2?7.2:6.6,color:'var(--primary)',fontWeight:800,
             lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
-          {ccLinked ? <div style={{fontSize:6.2,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{criticalInfo.chainLabel || 'CC'} · chemin critique</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:6.2,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null)}
+          {ccLinked ? <div style={{fontSize:weeks===2?7.2:6.6,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{criticalInfo.chainLabel || 'CC'} · chemin critique</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null)}
         </div>
       );
     }
@@ -4618,7 +4634,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     fontWeight:'normal',
                     verticalAlign:'middle'}}>
                     <div style={{fontSize:isMulti?(weeks>3?5.5:weeks===3?6:7):9,
-                      fontWeight:700,fontFamily:"'DM Mono',monospace",
+                      fontWeight:800,fontFamily:UX2.sans,
                       color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)',
                       lineHeight:1.05,whiteSpace:'nowrap'}}>
                       {['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}
@@ -4669,15 +4685,15 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                   background:rowBg}}>
 
                   {/* Zone label */}
-                  <td style={{padding:isMulti?'2px 1px':'5px 3px',
+                  <td style={{padding:isMulti?'4px 3px':'7px 6px',
                     borderRight:'3px solid '+fc,
                     verticalAlign:'middle',textAlign:'center',
-                    minHeight:isMulti?40:56,
-                    height:isMulti?'40px':'56px',
+                    minHeight:isMulti?48:66,
+                    height:isMulti?'48px':'66px',
                     background:`${fc}12`}}>
-                    <span style={{fontSize:isMulti?5.5:8,fontWeight:800,color:fc,lineHeight:1.2,
-                      fontFamily:"'DM Mono',monospace",letterSpacing:'.03em',
-                      textTransform:'uppercase',wordBreak:'break-all',display:'block'}}>
+                    <span style={{fontSize:isMulti?8.5:'var(--fz-zone)',fontWeight:900,color:fc,lineHeight:1.12,
+                      fontFamily:UX2.sans,letterSpacing:'.01em',
+                      textTransform:'uppercase',wordBreak:'normal',overflowWrap:'anywhere',display:'block'}}>
                       {zone.short}
                     </span>
                   </td>
@@ -4707,8 +4723,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                         style={{
                           position:'relative',
                           overflow:'hidden',
-                          padding:isMulti?0:2,
-                          height:isMulti?'40px':'56px',
+                          padding:isMulti?2:3,
+                          height:isMulti?'48px':'66px',
                           verticalAlign:'top',
                           borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                           background:cellBg,
@@ -4735,20 +4751,20 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           left:Math.min(taskHover.x + 14, Math.max(12, window.innerWidth - 300)),
           top:Math.min(taskHover.y + 14, Math.max(12, window.innerHeight - 220)),
           zIndex:9999,
-          width:280,
+          width:320,
           maxWidth:'calc(100vw - 24px)',
           background:'var(--surface)',
           color:'var(--text)',
           border:'1px solid var(--border-s)',
           borderRadius:'var(--r-sm)',
           boxShadow:'var(--shadow-lg)',
-          padding:'10px 12px',
+          padding:'12px 14px',
           pointerEvents:'none',
-          fontSize:11,
-          lineHeight:1.35
+          fontSize:12.5,
+          lineHeight:1.42
         }}>
           <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start',marginBottom:6}}>
-            <div style={{fontSize:12,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis'}}>
+            <div style={{fontSize:13.5,fontWeight:900,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis'}}>
               {taskHover.company}
             </div>
             {taskHover.taskNumber && (
@@ -4757,10 +4773,10 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
               </div>
             )}
           </div>
-          <div style={{fontSize:11,fontWeight:700,color:'var(--text)',marginBottom:6}}>
+          <div style={{fontSize:12.5,fontWeight:800,color:'var(--text)',marginBottom:8,lineHeight:1.38}}>
             {taskHover.task}
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'64px 1fr',gap:'3px 8px',color:'var(--muted)'}}>
+          <div style={{display:'grid',gridTemplateColumns:'78px 1fr',gap:'4px 10px',color:'var(--muted)'}}>
             <span>Statut</span><b style={{color:'var(--text)'}}>{taskHover.status}</b>
             <span>Zone</span><b style={{color:'var(--text)'}}>{taskHover.zone}</b>
             <span>Dates</span><b style={{color:'var(--text)',fontFamily:"'DM Mono',monospace"}}>{taskHover.dates}</b>
