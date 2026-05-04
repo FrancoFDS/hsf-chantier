@@ -10,6 +10,18 @@
 <meta name="theme-color" content="#1A1A1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <script>if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/hsf-chantier/sw.js').catch(function(){});});}</script>
+<script>
+(function(){
+  try {
+    var allowed = ['terrain','studio','nuit'];
+    var saved = localStorage.getItem('planify_theme');
+    var theme = allowed.indexOf(saved) !== -1 ? saved : 'terrain';
+    document.documentElement.setAttribute('data-theme', theme);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'nuit' ? '#090A0D' : '#111315');
+  } catch(e) {}
+})();
+</script>
 <style>:root,[data-theme="terrain"]{--bg:#F4F2EE;--surface:#FFFFFF;--surface-2:#F9F8F5;--hdr:#1A1A1A;--hdr-text:#FFFFFF;--primary:#2152C8;--primary-l:#EEF2FC;--text:#1A1A1A;--muted:#6B6860;--xmuted:#ABA8A0;--border:#E8E4DC;--border-s:#C8C4BB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#16A34A;--success-l:#F0FDF4;--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.10);--shadow-lg:0 8px 32px rgba(0,0,0,.16)}
 [data-theme="nuit"]{--bg:#0D0D10;--surface:#18181C;--surface-2:#1F1F26;--hdr:#0D0D10;--hdr-text:#F1F1F5;--primary:#60A5FA;--primary-l:rgba(96,165,250,.14);--text:#F1F1F5;--muted:#8A8A9A;--xmuted:#55555F;--border:#28282F;--border-s:#38383F;--danger:#F87171;--danger-l:rgba(248,113,113,.12);--success:#34D399;--success-l:rgba(52,211,153,.12);--r:12px;--r-sm:8px;--r-xs:5px}
 [data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px}
@@ -1028,7 +1040,7 @@ function FilterChips({ trades, filter, onFilter }) {
 }
 
 /* ── APP HEADER ───────────────────────────────────────────── */
-function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, notifications = [], viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil, syncing, busyActions = {}, showWeekends = false, onToggleWeekends }) {
+function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, filter, trades, onFilter, zones, data, notifications = [], viewMode, onViewMode, onToday, onRefresh, onExport, onHistory, onToggleLock, onValidatePlanning, onReindexPlanning, planningLocked, planningValidated, planningValidUntil, syncing, busyActions = {}, showWeekends = false, onToggleWeekends, theme = 'terrain', onToggleTheme }) {
   var maxWeeks = 1;
   if (viewMode === 'tout') {
     var nowHdr = new Date(); nowHdr.setHours(0,0,0,0);
@@ -1348,6 +1360,14 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
               </div>
             )}
           </div>
+          <button
+            type="button"
+            className={theme === 'nuit' ? 'planify-theme-toggle planify-theme-toggle--dark' : 'planify-theme-toggle'}
+            onClick={onToggleTheme}
+            title={theme === 'nuit' ? 'Passer en mode clair' : 'Passer en mode sombre'}>
+            <span className="planify-theme-toggle__dot">{theme === 'nuit' ? '☀' : '☾'}</span>
+            {theme === 'nuit' ? 'Clair' : 'Sombre'}
+          </button>
           {session?.role==='admin'&&
             <button onClick={onSettings} style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,width:28,height:28,fontSize:14}}>⚙</button>}
@@ -1944,6 +1964,71 @@ textarea{
 ::-webkit-scrollbar-thumb{
   background:color-mix(in srgb, var(--border-s) 80%, transparent);
   border-radius:999px;
+}
+
+
+.planify-theme-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:26px;
+  padding:0 9px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.08);
+  color:rgba(255,255,255,.82);
+  font-size:10px;
+  font-weight:900;
+  font-family:'DM Mono',monospace;
+  letter-spacing:.02em;
+  cursor:pointer;
+  transition:all .16s cubic-bezier(.2,.8,.2,1);
+}
+.planify-theme-toggle:hover{
+  background:rgba(255,255,255,.14);
+  color:#fff;
+  transform:translateY(-1px);
+}
+.planify-theme-toggle__dot{
+  width:14px;
+  height:14px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10px;
+  line-height:1;
+  background:rgba(255,255,255,.14);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.10);
+}
+.planify-theme-toggle--dark{
+  border-color:rgba(147,197,253,.35);
+  background:rgba(96,165,250,.16);
+  color:#DBEAFE;
+}
+.planify-login-theme-toggle{
+  position:fixed;
+  top:16px;
+  right:16px;
+  z-index:5;
+  min-height:38px;
+  padding:0 13px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.10);
+  color:var(--hdr-text);
+  font-size:12px;
+  font-weight:900;
+  font-family:'DM Mono',monospace;
+  cursor:pointer;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  box-shadow:0 10px 30px rgba(0,0,0,.18);
+}
+[data-theme="nuit"] .planify-login-theme-toggle{
+  background:rgba(96,165,250,.14);
+  border-color:rgba(147,197,253,.30);
+  color:#DBEAFE;
 }
 
 @media (max-width: 720px){
@@ -2937,7 +3022,7 @@ function multiWeekDays(offset = 0, weeks = 1, includeWeekends = false) {
 /* ════════════════════════════════════════════════════════════
    LOGIN SCREEN
 ═══════════════════════════════════════════════════════════ */
-function LoginScreen({ onLogin, companies, loadingCompanies }) {
+function LoginScreen({ onLogin, companies, loadingCompanies, theme = 'terrain', onToggleTheme }) {
   const [step, setStep] = useState('pick'); // pick | pin
   const [selected, setSelected] = useState(null);
   const [pin, setPin] = useState('');
@@ -2986,7 +3071,14 @@ function LoginScreen({ onLogin, companies, loadingCompanies }) {
 
   return (
     <div style={{minHeight:'100vh',background:'var(--hdr)',display:'flex',alignItems:'center',
-      justifyContent:'center',padding:20}}>
+      justifyContent:'center',padding:20,position:'relative'}}>
+      <button
+        type="button"
+        className="planify-login-theme-toggle"
+        onClick={onToggleTheme}
+        title={theme === 'nuit' ? 'Passer en mode clair' : 'Passer en mode sombre'}>
+        {theme === 'nuit' ? '☀ Clair' : '☾ Sombre'}
+      </button>
       <div style={{background:'var(--surface)',borderRadius:20,padding:'28px 22px',
         width:'100%',maxWidth:380,boxShadow:'0 24px 64px rgba(0,0,0,.35)'}}>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--xmuted)',
@@ -6962,10 +7054,38 @@ function PlanifyApp() {
   const realtimeRef = useRef(null);
   const realtimeTimerRef = useRef(null);
 
+  const themeOptions = ['terrain','studio','nuit'];
+  function getInitialTheme() {
+    try {
+      var saved = localStorage.getItem('planify_theme');
+      if (themeOptions.includes(saved)) return saved;
+    } catch(e) {}
+    return themeOptions.includes(tweaks.theme) ? tweaks.theme : 'terrain';
+  }
+  const [appTheme, setAppTheme] = useState(getInitialTheme);
+
+  function applyAppTheme(nextTheme) {
+    var cleanTheme = themeOptions.includes(nextTheme) ? nextTheme : 'terrain';
+    document.documentElement.setAttribute('data-theme', cleanTheme);
+    try { localStorage.setItem('planify_theme', cleanTheme); } catch(e) {}
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', cleanTheme === 'nuit' ? '#090A0D' : '#111315');
+  }
+
+  function handleThemeChange(nextTheme) {
+    var cleanTheme = themeOptions.includes(nextTheme) ? nextTheme : 'terrain';
+    setAppTheme(cleanTheme);
+    setTweak('theme', cleanTheme);
+  }
+
+  function toggleDarkMode() {
+    handleThemeChange(appTheme === 'nuit' ? 'terrain' : 'nuit');
+  }
+
   // Apply theme
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', tweaks.theme);
-  }, [tweaks.theme]);
+    applyAppTheme(appTheme);
+  }, [appTheme]);
 
   useEffect(function(){
     window.PLANIFY_CURRENT_DATA = data || [];
@@ -8035,12 +8155,12 @@ function PlanifyApp() {
 
   if (!session) return (
     <>
-      <LoginScreen onLogin={handleLogin} companies={companies} loadingCompanies={loginCompaniesLoading} />
+      <LoginScreen onLogin={handleLogin} companies={companies} loadingCompanies={loginCompaniesLoading} theme={appTheme} onToggleTheme={toggleDarkMode} />
       <TweaksPanel>
         <TweakSection label="Apparence" />
-        <TweakRadio label="Thème" value={tweaks.theme}
+        <TweakRadio label="Thème" value={appTheme}
           options={['terrain','studio','nuit']}
-          onChange={v => setTweak('theme', v)} />
+          onChange={handleThemeChange} />
       </TweaksPanel>
     </>
   );
@@ -8790,7 +8910,9 @@ function PlanifyApp() {
           planningValidUntil={planningVersion?.valid_until}
           onRefresh={()=>syncAll(true)}
           syncing={isBusy('sync')}
-          busyActions={busy} />
+          busyActions={busy}
+          theme={appTheme}
+          onToggleTheme={toggleDarkMode} />
         <div style={{flex:1,overflow:'hidden',position:'relative'}}>
           {mainContent()}
         </div>
@@ -8835,9 +8957,9 @@ function PlanifyApp() {
 
       <TweaksPanel>
         <TweakSection label="Apparence" />
-        <TweakRadio label="Thème" value={tweaks.theme}
+        <TweakRadio label="Thème" value={appTheme}
           options={['terrain','studio','nuit']}
-          onChange={v => setTweak('theme', v)} />
+          onChange={handleThemeChange} />
       </TweaksPanel>
     </>
   );
