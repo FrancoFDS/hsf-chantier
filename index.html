@@ -4738,6 +4738,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
       var ccFocused = !!(activeCriticalChainId && criticalInfo && criticalInfo.chainId === activeCriticalChainId);
       var ccDimmed = !!(showCriticalPath && activeCriticalChainId && (!criticalInfo || criticalInfo.chainId !== activeCriticalChainId));
       var selectedForMove = selectedTaskSet.has(iv.id);
+      var selectedAsDependencyTarget = !!(dependencyLinkActive && dependencyTargetId === iv.id);
       return (
         <div key={iv.id}
           data-cc-task-id={iv.id}
@@ -4755,9 +4756,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           }}
           style={{borderRadius:6,padding:weeks===2?'4px 26px 4px 5px':'3px 24px 3px 4px',marginBottom:2,cursor:'pointer',
             background:selectedForMove ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary) 12%, transparent)), '+(ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg) : (ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg),
-            borderLeft:'4px solid '+(selectedForMove?'var(--primary)':(ccLinked?ccColor:_c.b)),
-            border:'1px solid '+(selectedForMove?'var(--primary)':(ccLinked?rgbaCss(ccColor,.82):'transparent')),
-            boxShadow:selectedForMove ? '0 0 0 2px color-mix(in srgb, var(--primary) 26%, transparent), 0 6px 18px rgba(0,0,0,.12)' : (ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none'),
+            borderLeft:'4px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':(ccLinked?ccColor:_c.b))),
+            border:'1px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':(ccLinked?rgbaCss(ccColor,.82):'transparent'))),
+            boxShadow:selectedForMove ? '0 0 0 2px color-mix(in srgb, var(--primary) 26%, transparent), 0 6px 18px rgba(0,0,0,.12)' : (selectedAsDependencyTarget ? '0 0 0 2px rgba(124,58,237,.26), 0 8px 20px rgba(124,58,237,.14)' : (ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none')),
             overflow:'hidden',opacity:ccDimmed && !selectedForMove ? .28 : 1,filter:ccDimmed&&!selectedForMove?'saturate(.65)':'none',position:'relative'}}>
           {renderTaskSelectionControl(iv, true)}
           <div style={{display:'flex',alignItems:'center',gap:4}}>
@@ -4776,11 +4777,12 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             textOverflow:'ellipsis',fontWeight:600}}>{iv.task}</div>}
           {taskCanFinishLater(iv)&&<div style={{fontSize:weeks===2?7.2:6.6,color:'var(--primary)',fontWeight:800,
             lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
-          {ccLinked ? <div style={{fontSize:weeks===2?7.2:6.6,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{criticalInfo.chainLabel || 'CC'}</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null)}
+          {selectedAsDependencyTarget ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#7C3AED',fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Cible</div> : (ccLinked ? <div style={{fontSize:weeks===2?7.2:6.6,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>CC</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null))}
         </div>
       );
     }
     var selectedForMove = selectedTaskSet.has(iv.id);
+    var selectedAsDependencyTarget = !!(dependencyLinkActive && dependencyTargetId === iv.id);
     return (
       <div key={iv.id}
         data-cc-task-id={iv.id}
@@ -4790,7 +4792,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, getStatusThemeMeta(iv.status)));}}
         onMouseMove={function(){}}
         onMouseLeave={function(){setTaskHover(null);}}
-        style={{position:'relative',borderRadius:14,outline:selectedForMove?'2px solid var(--primary)':'none',outlineOffset:1,boxShadow:selectedForMove?'0 0 0 5px color-mix(in srgb, var(--primary) 12%, transparent)':'none'}}>
+        style={{position:'relative',borderRadius:14,outline:selectedForMove?'2px solid var(--primary)':(selectedAsDependencyTarget?'2px solid #7C3AED':'none'),outlineOffset:1,boxShadow:selectedForMove?'0 0 0 5px color-mix(in srgb, var(--primary) 12%, transparent)':(selectedAsDependencyTarget?'0 0 0 5px rgba(124,58,237,.13)':'none')}}>
+        {selectedAsDependencyTarget && <div style={{position:'absolute',top:-7,left:8,zIndex:8,borderRadius:999,background:'#7C3AED',color:'#fff',fontFamily:UX2.mono,fontSize:8.5,fontWeight:900,padding:'2px 6px',boxShadow:'0 4px 12px rgba(124,58,237,.25)'}}>Cible</div>}
         {renderTaskSelectionControl(iv, false)}
         <TaskCard iv={iv} trades={trades} data={data} isDark={isDark}
           criticalPath={showCriticalPath ? (zoneCritical.roles[iv.id] || null) : null}
@@ -4930,8 +4933,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                 </div>
                 <div style={{fontSize:10.5,color:'var(--muted)',marginTop:5,fontWeight:700}}>
                   {dependencyLinkActive
-                    ? 'Cliquez une tâche cible, puis validez. Le lien ne sera enregistré qu’après validation.'
-                    : 'Cliquez sur une cellule du planning pour déplacer la sélection, ou créez un lien prédécesseur / successeur.'}
+                    ? 'Cliquez une tâche cible dans le planning, puis utilisez le bouton Valider le lien placé à côté de Annuler sélection.'
+                    : 'Déplacement actif : cliquez sur une cellule zone/date pour déplacer la sélection. Ou créez un lien prédécesseur / successeur.'}
                 </div>
                 <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:7,alignItems:'center'}}>
                   <span style={{fontSize:10.5,color:'var(--muted)',fontWeight:800}}>Sélection :</span>
@@ -4945,36 +4948,30 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                 )}
               </div>
               <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                {!dependencyLinkActive && (
-                  <>
-                    <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_predecessor'); }}
-                      title="La sélection sera ajoutée comme prédécesseur de la tâche cible"
-                      style={{padding:'7px 10px',borderRadius:999,border:'1px solid rgba(234,88,12,.38)',background:'rgba(234,88,12,.10)',color:'#9A3412',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
-                      Sélection = préd.
-                    </button>
-                    <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_successor'); }}
-                      title="La sélection sera ajoutée comme successeur de la tâche cible"
-                      style={{padding:'7px 10px',borderRadius:999,border:'1px solid rgba(124,58,237,.36)',background:'rgba(124,58,237,.10)',color:'#6D28D9',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
-                      Sélection = succ.
-                    </button>
-                  </>
-                )}
+                <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_predecessor'); }}
+                  title="La sélection sera ajoutée comme prédécesseur de la tâche cible"
+                  style={{padding:'7px 10px',borderRadius:999,border:'1px solid '+(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor'?'rgba(234,88,12,.72)':'rgba(234,88,12,.38)'),background:(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor')?'rgba(234,88,12,.18)':'rgba(234,88,12,.10)',color:'#9A3412',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
+                  Sélection = préd.
+                </button>
+                <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_successor'); }}
+                  title="La sélection sera ajoutée comme successeur de la tâche cible"
+                  style={{padding:'7px 10px',borderRadius:999,border:'1px solid '+(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_successor'?'rgba(124,58,237,.72)':'rgba(124,58,237,.36)'),background:(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_successor')?'rgba(124,58,237,.18)':'rgba(124,58,237,.10)',color:'#6D28D9',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
+                  Sélection = succ.
+                </button>
                 {dependencyLinkActive && (
-                  <>
-                    <button onClick={function(e){ e.stopPropagation(); onValidateDependencyLink && onValidateDependencyLink(); }}
-                      disabled={!dependencyTargetId}
-                      title={dependencyTargetId ? 'Enregistrer le lien sélectionné' : 'Cliquez d’abord une tâche cible dans le planning'}
-                      style={{padding:'8px 12px',borderRadius:999,border:'1px solid '+(dependencyTargetId?'var(--primary)':'var(--border)'),background:dependencyTargetId?'var(--primary)':'var(--surface-2)',color:dependencyTargetId?'#fff':'var(--xmuted)',fontSize:11,fontWeight:900,fontFamily:UX2.mono,cursor:dependencyTargetId?'pointer':'not-allowed',opacity:dependencyTargetId?1:.72}}>
-                      Valider le lien
-                    </button>
-                    <button onClick={function(e){ e.stopPropagation(); onCancelDependencyLinkMode && onCancelDependencyLinkMode(); }}
-                      style={{padding:'7px 10px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
-                      Annuler lien
-                    </button>
-                  </>
+                  <button onClick={function(e){ e.stopPropagation(); onCancelDependencyLinkMode && onCancelDependencyLinkMode(); }}
+                    style={{padding:'7px 10px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
+                    Annuler lien
+                  </button>
                 )}
+                <button onClick={function(e){ e.stopPropagation(); onValidateDependencyLink && onValidateDependencyLink(); }}
+                  disabled={!(dependencyLinkActive && dependencyTargetId)}
+                  title={dependencyLinkActive ? (dependencyTargetId ? 'Enregistrer le lien sélectionné' : 'Cliquez d’abord une tâche cible dans le planning') : 'Choisissez d’abord prédécesseur ou successeur, puis une tâche cible'}
+                  style={{padding:'8px 13px',borderRadius:999,border:'1px solid '+(dependencyLinkActive&&dependencyTargetId?'var(--primary)':'var(--border)'),background:dependencyLinkActive&&dependencyTargetId?'var(--primary)':'var(--surface-2)',color:dependencyLinkActive&&dependencyTargetId?'#fff':'var(--xmuted)',fontSize:11,fontWeight:900,fontFamily:UX2.mono,cursor:dependencyLinkActive&&dependencyTargetId?'pointer':'not-allowed',opacity:dependencyLinkActive&&dependencyTargetId?1:.72,boxShadow:dependencyLinkActive&&dependencyTargetId?'0 8px 20px color-mix(in srgb, var(--primary) 22%, transparent)':'none'}}>
+                  Valider le lien
+                </button>
                 <button onClick={function(){ onClearTaskSelection && onClearTaskSelection(); }}
-                  style={{padding:'7px 11px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
+                  style={{padding:'8px 13px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
                   Annuler sélection
                 </button>
               </div>
