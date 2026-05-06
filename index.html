@@ -4453,7 +4453,7 @@ function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
 }
 
 
-function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false, taskClipboard = null, onPasteTask, onClearTaskClipboard }) {
+function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false, taskClipboard = null, onPasteTask, onClearTaskClipboard, selectedTaskIds = [], onToggleTaskSelection, onClearTaskSelection, onMoveSelectedTasks, onWeekChange }) {
   // 'tout' = show all weeks from today to the furthest deadline
   var maxWeeks = 1;
   if (viewMode === 'tout') {
@@ -4475,6 +4475,10 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
   const isAdmin = session?.role === 'admin';
   const pasteTaskActive = !!(isAdmin && taskClipboard && taskClipboard.task);
+  const selectedPlanningIds = Array.isArray(selectedTaskIds) ? selectedTaskIds : [];
+  const selectedTaskSet = new Set(selectedPlanningIds);
+  const moveSelectionActive = !!(isAdmin && selectedPlanningIds.length > 0 && !pasteTaskActive);
+  const selectedTasks = data.filter(function(iv){ return selectedTaskSet.has(iv.id); }).sort(planningTaskSort);
   const fullWeekDays = multiWeekDays(weekOffset, weeks, true);
   const weekendTaskVisible = filtered.some(function(iv){
     return fullWeekDays.some(function(d){
@@ -4585,6 +4589,44 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     });
   }, [criticalPathMeta, visibleZones, days, showCriticalPath, activeCriticalChainId]);
 
+  function renderTaskSelectionControl(iv, compact) {
+    if (!isAdmin) return null;
+    var active = selectedTaskSet.has(iv.id);
+    return (
+      <button
+        type="button"
+        title={active ? 'Retirer de la sélection de déplacement' : 'Sélectionner cette tâche pour la déplacer'}
+        onClick={function(e){
+          e.stopPropagation();
+          setTaskHover(null);
+          if (onToggleTaskSelection) onToggleTaskSelection(iv.id);
+        }}
+        style={{
+          position:'absolute',
+          top:compact ? 3 : 6,
+          right:compact ? 3 : 6,
+          zIndex:6,
+          width:compact ? 17 : 22,
+          height:compact ? 17 : 22,
+          borderRadius:999,
+          border:'1px solid '+(active ? 'var(--primary)' : 'rgba(255,255,255,.72)'),
+          background:active ? 'var(--primary)' : 'rgba(255,255,255,.82)',
+          color:active ? '#fff' : 'var(--muted)',
+          boxShadow:active ? '0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent)' : '0 2px 8px rgba(0,0,0,.12)',
+          fontSize:compact ? 10 : 12,
+          fontWeight:900,
+          fontFamily:UX2.mono,
+          lineHeight:1,
+          cursor:'pointer',
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'center'
+        }}>
+        {active ? '✓' : '+'}
+      </button>
+    );
+  }
+
   function renderPlanningTask(iv, zone, zoneCritical, dayStrForCard) {
     if (isMulti) {
       var _tr = trades.find(function(t){return t.id===iv.trade;});
@@ -4595,6 +4637,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
       var ccColor = ccLinked ? (criticalInfo.color || '#EA580C') : _c.b;
       var ccFocused = !!(activeCriticalChainId && criticalInfo && criticalInfo.chainId === activeCriticalChainId);
       var ccDimmed = !!(showCriticalPath && activeCriticalChainId && (!criticalInfo || criticalInfo.chainId !== activeCriticalChainId));
+      var selectedForMove = selectedTaskSet.has(iv.id);
       return (
         <div key={iv.id}
           data-cc-task-id={iv.id}
@@ -4605,12 +4648,13 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           onMouseMove={function(){}}
           onMouseLeave={function(){setTaskHover(null);}}
           onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
-          style={{borderRadius:6,padding:weeks===2?'4px 5px':'3px 4px',marginBottom:2,cursor:'pointer',
-            background:ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg,
-            borderLeft:'4px solid '+(ccLinked?ccColor:_c.b),
-            border:'1px solid '+(ccLinked?rgbaCss(ccColor,.82):'transparent'),
-            boxShadow:ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none',
-            overflow:'hidden',opacity:ccDimmed ? .28 : 1,filter:ccDimmed?'saturate(.65)':'none',position:'relative'}}>
+          style={{borderRadius:6,padding:weeks===2?'4px 26px 4px 5px':'3px 24px 3px 4px',marginBottom:2,cursor:'pointer',
+            background:selectedForMove ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary) 12%, transparent)), '+(ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg) : (ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg),
+            borderLeft:'4px solid '+(selectedForMove?'var(--primary)':(ccLinked?ccColor:_c.b)),
+            border:'1px solid '+(selectedForMove?'var(--primary)':(ccLinked?rgbaCss(ccColor,.82):'transparent')),
+            boxShadow:selectedForMove ? '0 0 0 2px color-mix(in srgb, var(--primary) 26%, transparent), 0 6px 18px rgba(0,0,0,.12)' : (ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none'),
+            overflow:'hidden',opacity:ccDimmed && !selectedForMove ? .28 : 1,filter:ccDimmed&&!selectedForMove?'saturate(.65)':'none',position:'relative'}}>
+          {renderTaskSelectionControl(iv, true)}
           <div style={{display:'flex',alignItems:'center',gap:4}}>
             <span style={{fontSize:weeks===2?9:8,fontWeight:800,color:_c.t,fontFamily:UX2.sans,
               overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
@@ -4631,6 +4675,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         </div>
       );
     }
+    var selectedForMove = selectedTaskSet.has(iv.id);
     return (
       <div key={iv.id}
         data-cc-task-id={iv.id}
@@ -4639,7 +4684,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         data-cc-chain-id={showCriticalPath && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].linked ? zoneCritical.roles[iv.id].chainId : undefined}
         onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, getStatusThemeMeta(iv.status)));}}
         onMouseMove={function(){}}
-        onMouseLeave={function(){setTaskHover(null);}}>
+        onMouseLeave={function(){setTaskHover(null);}}
+        style={{position:'relative',borderRadius:14,outline:selectedForMove?'2px solid var(--primary)':'none',outlineOffset:1,boxShadow:selectedForMove?'0 0 0 5px color-mix(in srgb, var(--primary) 12%, transparent)':'none'}}>
+        {renderTaskSelectionControl(iv, false)}
         <TaskCard iv={iv} trades={trades} data={data} isDark={isDark}
           criticalPath={showCriticalPath ? (zoneCritical.roles[iv.id] || null) : null}
           criticalVisible={showCriticalPath}
@@ -4677,7 +4724,17 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const floorOf = id => zones.find(z=>z.id===id)?.floor||'';
 
   return (
-    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
+    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100,position:'relative'}}>
+      {onWeekChange && (
+        <>
+          <button type="button" aria-label="Semaine précédente" title="Semaine précédente"
+            onClick={function(e){ e.stopPropagation(); onWeekChange(-1); }}
+            style={{position:'fixed',left:8,top:'50%',zIndex:85,width:34,height:54,borderRadius:'0 18px 18px 0',border:'1px solid var(--border-s)',borderLeft:'none',background:'color-mix(in srgb, var(--surface) 88%, transparent)',color:'var(--primary)',boxShadow:'var(--shadow-md)',fontSize:25,fontWeight:900,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',opacity:.86}}>‹</button>
+          <button type="button" aria-label="Semaine suivante" title="Semaine suivante"
+            onClick={function(e){ e.stopPropagation(); onWeekChange(1); }}
+            style={{position:'fixed',right:8,top:'50%',zIndex:85,width:34,height:54,borderRadius:'18px 0 0 18px',border:'1px solid var(--border-s)',borderRight:'none',background:'color-mix(in srgb, var(--surface) 88%, transparent)',color:'var(--primary)',boxShadow:'var(--shadow-md)',fontSize:25,fontWeight:900,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',opacity:.86}}>›</button>
+        </>
+      )}
       <div style={{background:'var(--surface)',
         border:isMulti?'none':'1px solid var(--border)',
         margin:isMulti?0:'0 8px',
@@ -4749,6 +4806,20 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
               <button onClick={function(){ onClearTaskClipboard && onClearTaskClipboard(); }}
                 style={{padding:'6px 10px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
                 Annuler collage
+              </button>
+            </div>
+          )}
+
+          {moveSelectionActive && (
+            <div style={{marginTop:8,padding:'10px 12px',borderRadius:'var(--r-sm)',border:'1px solid color-mix(in srgb, var(--primary) 34%, transparent)',background:'var(--primary-l)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+              <div style={{fontSize:12,color:'var(--text)',lineHeight:1.35,fontWeight:800}}>
+                Déplacement actif : <span style={{fontFamily:UX2.mono,color:'var(--primary)'}}>{selectedPlanningIds.length} tâche{selectedPlanningIds.length>1?'s':''}</span>
+                <span style={{fontWeight:600,color:'var(--muted)'}}> · Cliquez sur une cellule de destination. L’ordre est conservé et les jours non ouvrés sont évités.</span>
+                {selectedTasks.length > 0 && <div style={{fontSize:10.5,color:'var(--muted)',marginTop:3,fontFamily:UX2.mono}}>1ère tâche déplacée : {selectedTasks[0].task_number || selectedTasks[0].task}</div>}
+              </div>
+              <button onClick={function(){ onClearTaskSelection && onClearTaskSelection(); }}
+                style={{padding:'7px 11px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
+                Annuler sélection
               </button>
             </div>
           )}
@@ -4918,7 +4989,13 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
 
                     return (
                       <td key={di}
-                        onClick={function(){if(!isAdmin||holiday)return;if(pasteTaskActive&&onPasteTask){onPasteTask(zone.id,ds);}else{onOpenAdd(zone.id,ds);}}}
+                        onClick={function(){
+                          if(!isAdmin) return;
+                          if(moveSelectionActive && onMoveSelectedTasks){ onMoveSelectedTasks(selectedPlanningIds, zone.id, ds); return; }
+                          if(holiday) return;
+                          if(pasteTaskActive&&onPasteTask){onPasteTask(zone.id,ds);}else{onOpenAdd(zone.id,ds);}
+                        }}
+                        title={moveSelectionActive ? 'Déplacer la sélection vers '+zone.short+' le '+fmtDate(ds) : ''}
                         style={{
                           position:'relative',
                           overflow:'hidden',
@@ -4926,8 +5003,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                           height:isMulti?'48px':'66px',
                           verticalAlign:'top',
                           borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                          background:cellBg,
-                          cursor:isAdmin&&!holiday?'pointer':'default',
+                          background:moveSelectionActive ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 5%, transparent), color-mix(in srgb, var(--primary) 5%, transparent)), '+cellBg : cellBg,
+                          cursor:isAdmin&&(moveSelectionActive||!holiday)?'pointer':'default',
                           transition:'background .12s'}}>
                         {shown.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical, ds); })}
                       </td>
@@ -7421,6 +7498,7 @@ function PlanifyApp() {
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
   const [taskClipboard, setTaskClipboard] = useState(null);
   const [zoneClipboard, setZoneClipboard] = useState(null);
+  const [selectedPlanningTaskIds, setSelectedPlanningTaskIds] = useState([]);
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
   const [showWeekends, setShowWeekends] = useState(false);
@@ -7900,6 +7978,24 @@ function PlanifyApp() {
   const canEditPlanning = isAdmin && !planningLocked && !planningValidated;
   const canChangeStatus = !planningValidated;
 
+  function togglePlanningTaskSelection(taskId) {
+    if (!canEditPlanning) {
+      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour déplacer les tâches.' : 'Planning verrouillé : déplacement indisponible.');
+      return;
+    }
+    setTaskClipboard(null);
+    setSelectedPlanningTaskIds(function(prev){
+      var list = Array.isArray(prev) ? prev.slice() : [];
+      if (list.includes(taskId)) return list.filter(function(id){ return id !== taskId; });
+      return list.concat([taskId]);
+    });
+  }
+  function clearPlanningTaskSelection() { setSelectedPlanningTaskIds([]); }
+
+  useEffect(function(){
+    if (screen !== 'planning' && selectedPlanningTaskIds.length) setSelectedPlanningTaskIds([]);
+  }, [screen]);
+
 
   function dateToUtcMs(value) {
     var ds = normalizeDateKey(value || dateStr(new Date()));
@@ -7917,6 +8013,24 @@ function PlanifyApp() {
   }
   function diffDaysStr(fromDate, toDate) {
     return Math.round((dateToUtcMs(toDate) - dateToUtcMs(fromDate)) / (24 * 3600 * 1000));
+  }
+  function isWeekendDateStr(ds) {
+    var d = new Date(normalizeDateKey(ds) + 'T00:00:00');
+    var dow = d.getDay();
+    return dow === 0 || dow === 6;
+  }
+  function isNonWorkingDateStr(ds) {
+    var d = new Date(normalizeDateKey(ds) + 'T00:00:00');
+    return isWeekendDateStr(ds) || isHoliday(d);
+  }
+  function nextWorkingDateStr(ds) {
+    var current = normalizeDateKey(ds || dateStr(new Date()));
+    var guard = 0;
+    while (isNonWorkingDateStr(current) && guard < 30) {
+      current = addDaysStr(current, 1);
+      guard += 1;
+    }
+    return current;
   }
   function daysBetweenStr(start, end) {
     return Math.max(0, diffDaysStr(start || dateStr(new Date()), end || start || dateStr(new Date())));
@@ -8183,6 +8297,83 @@ function PlanifyApp() {
       notify('Zone collée : 1ère tâche au '+fmtDate(startDate)+' ✓','success',3600);
     } catch(e) {
       notify('Erreur lors du collage de la zone','error',4200);
+    }
+  }
+
+  async function moveSelectedPlanningTasks(ids, targetZoneId, targetDate) {
+    if (!canEditPlanning) { alert('Planning verrouillé ou validé : déplacement indisponible.'); return; }
+    var cleanIds = uniqueTaskIds((ids || []).filter(Boolean));
+    if (!cleanIds.length) return;
+    var selected = cleanIds.map(function(id){ return data.find(function(iv){ return iv.id === id; }); }).filter(Boolean);
+    if (!selected.length) { setSelectedPlanningTaskIds([]); return; }
+
+    selected.sort(function(a,b){
+      var as = taskStartKey(a), bs = taskStartKey(b);
+      if (as !== bs) return as.localeCompare(bs);
+      var ae = taskEndKey(a), be = taskEndKey(b);
+      if (ae !== be) return ae.localeCompare(be);
+      return planningTaskSort(a,b);
+    });
+
+    var anchorStart = taskStartKey(selected[0]);
+    var requestedTarget = normalizeDateKey(targetDate || dateStr(new Date()));
+    var shiftedCount = 0;
+    var nowIso = new Date().toISOString();
+
+    var moved = selected.map(function(src){
+      var originalStart = taskStartKey(src);
+      var originalEnd = taskEndKey(src);
+      var offset = diffDaysStr(anchorStart, originalStart);
+      var duration = Math.max(0, diffDaysStr(originalStart, originalEnd));
+      var candidateStart = addDaysStr(requestedTarget, offset);
+      var newStart = nextWorkingDateStr(candidateStart);
+      if (newStart !== candidateStart) shiftedCount += 1;
+      var candidateEnd = addDaysStr(newStart, duration);
+      var newEnd = nextWorkingDateStr(candidateEnd);
+      if (newEnd !== candidateEnd) shiftedCount += 1;
+      var next = Object.assign({}, src, {
+        zone:targetZoneId,
+        start:newStart,
+        end:newEnd,
+        off_days:weekendOffDaysBetween(newStart, newEnd),
+        updated_at:nowIso,
+        _expected_updated_at:src.updated_at || ''
+      });
+      return next;
+    });
+
+    setBusyKey('planning_move', true);
+    try {
+      var savedRows = [];
+      for (var i = 0; i < moved.length; i += 1) {
+        var row = interventionToSupabaseRow(moved[i], nowIso);
+        var rows = await sbFetchRows('PATCH','interventions',row,conflictQuery(moved[i].id, moved[i]._expected_updated_at || ''));
+        if (moved[i]._expected_updated_at && (!rows || !rows.length)) {
+          await syncAll(false).catch(function(){});
+          throw new Error('Une tâche sélectionnée a été modifiée par un autre utilisateur. Actualisez puis réessayez.');
+        }
+        savedRows.push(rows && rows[0] ? normalizeInterventionRow(rows[0]) : Object.assign({}, moved[i], {updated_at:nowIso}));
+      }
+      setData(function(prev){
+        return (prev || []).map(function(iv){
+          var s = savedRows.find(function(row){ return row.id === iv.id; });
+          return s || iv;
+        });
+      });
+      var targetZone = zones.find(function(z){ return z.id === targetZoneId; });
+      await addPlanningEvent({
+        event_type:'tasks_moved',
+        zone_id:targetZoneId,
+        zone_name:targetZone ? targetZone.name : '',
+        message:'Déplacement planning : '+savedRows.length+' tâche'+(savedRows.length>1?'s':'')+' vers '+(targetZone ? targetZone.short : targetZoneId)+' à partir du '+fmtDate(requestedTarget),
+        payload:{task_ids:savedRows.map(function(t){ return t.id; }),target_zone_id:targetZoneId,target_date:requestedTarget,shifted_non_working_count:shiftedCount}
+      });
+      setSelectedPlanningTaskIds([]);
+      notify('Tâche'+(savedRows.length>1?'s':'')+' déplacée'+(savedRows.length>1?'s':'')+(shiftedCount?' · jours non ouvrés évités':'')+' ✓','success',3600);
+    } catch(e) {
+      notify(e.message || 'Erreur lors du déplacement','error',4600);
+    } finally {
+      setBusyKey('planning_move', false);
     }
   }
 
@@ -8830,7 +9021,8 @@ function PlanifyApp() {
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
       case 'planning':  return <PlanningScreen  data={data} zones={zones} setZones={setZones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
-        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} taskClipboard={taskClipboard} onPasteTask={pasteTaskFromClipboard} onClearTaskClipboard={function(){setTaskClipboard(null);}} />;
+        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} taskClipboard={taskClipboard} onPasteTask={pasteTaskFromClipboard} onClearTaskClipboard={function(){setTaskClipboard(null);}}
+        selectedTaskIds={selectedPlanningTaskIds} onToggleTaskSelection={togglePlanningTaskSelection} onClearTaskSelection={clearPlanningTaskSelection} onMoveSelectedTasks={moveSelectedPlanningTasks} onWeekChange={function(delta){setWeekOffset(function(w){return w+delta;});}} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
