@@ -105,18 +105,34 @@ function getTC(colorId) {
 }
 
 const ZONES = [
-  {id:'z_1',name:'R+3 — Sanitaire H/F',    short:'R3-SANI',deadline:'2026-06-04',floor:'R+3'},
-  {id:'z_2',name:'R+3 — Bureaux + circ.', short:'R3-BUR', deadline:'2026-06-04',floor:'R+3'},
-  {id:'z_3',name:'R+3 — Tisanerie',        short:'R3-TIS', deadline:'2026-06-04',floor:'R+3'},
-  {id:'z_4',name:'R+3 — LT VDI',           short:'R3-VDI', deadline:'2026-06-04',floor:'R+3'},
-  {id:'z_5',name:'R+2 — Tisanerie',        short:'R2-TIS', deadline:'2026-05-29',floor:'R+2'},
-  {id:'z_6',name:'R+1 — Tisanerie',        short:'R1-TIS', deadline:'2026-05-29',floor:'R+1'},
-  {id:'z_7',name:'R+1 — Cafétéria',        short:'R1-CAF', deadline:'2026-05-29',floor:'R+1'},
-  {id:'z_8',name:'R+1 — Lounge',           short:'R1-LGE', deadline:'2026-05-29',floor:'R+1'},
+    {id:'z_1',name:'R+3 — Sanitaire H/F',    short:'R3-SANI',deadline:'2026-06-04',floor:'R+3',floor_color:'#2152C8'},
+    {id:'z_2',name:'R+3 — Bureaux + circ.', short:'R3-BUR', deadline:'2026-06-04',floor:'R+3',floor_color:'#2152C8'},
+    {id:'z_3',name:'R+3 — Tisanerie',        short:'R3-TIS', deadline:'2026-06-04',floor:'R+3',floor_color:'#2152C8'},
+    {id:'z_4',name:'R+3 — LT VDI',           short:'R3-VDI', deadline:'2026-06-04',floor:'R+3',floor_color:'#2152C8'},
+    {id:'z_5',name:'R+2 — Tisanerie',        short:'R2-TIS', deadline:'2026-05-29',floor:'R+2',floor_color:'#0D9488'},
+    {id:'z_6',name:'R+1 — Tisanerie',        short:'R1-TIS', deadline:'2026-05-29',floor:'R+1',floor_color:'#8B5CF6'},
+    {id:'z_7',name:'R+1 — Cafétéria',        short:'R1-CAF', deadline:'2026-05-29',floor:'R+1',floor_color:'#8B5CF6'},
+    {id:'z_8',name:'R+1 — Lounge',           short:'R1-LGE', deadline:'2026-05-29',floor:'R+1',floor_color:'#8B5CF6'},
 ];
 
 // Floor accent colors
 const FLOOR_COLORS = {'R+3':'#2152C8','R+2':'#0D9488','R+1':'#8B5CF6'};
+
+function normalizeFloorColorValue(color) {
+  var value = String(color || '').trim();
+  return /^#[0-9A-Fa-f]{6}$/.test(value) ? value.toUpperCase() : '';
+}
+function getZoneFloorColor(zoneOrFloor, zonesList) {
+  var zone = typeof zoneOrFloor === 'object' && zoneOrFloor ? zoneOrFloor : null;
+  var floor = zone ? String(zone.floor || '') : String(zoneOrFloor || '');
+  var direct = zone ? normalizeFloorColorValue(zone.floor_color) : '';
+  if (direct) return direct;
+  var match = (zonesList || []).find(function(z){
+    return String(z.floor || '') === floor && normalizeFloorColorValue(z.floor_color);
+  });
+  if (match) return normalizeFloorColorValue(match.floor_color);
+  return FLOOR_COLORS[floor] || '#9CA3AF';
+}
 
 function daysUntil(dateStr) {
   const d = new Date(dateStr+'T00:00:00'), now = new Date();
@@ -410,7 +426,7 @@ function workingDaysUntil(ds) {
 
 // Expose all globals so Babel-compiled scripts can access them
 Object.assign(window, {
-  ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, CHANGE_REQUEST_STATUS_META, TASK_CHANGE_FIELDS, FLOOR_COLORS, DAYS_FR,
+  ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, CHANGE_REQUEST_STATUS_META, TASK_CHANGE_FIELDS, FLOOR_COLORS, getZoneFloorColor, normalizeFloorColorValue, DAYS_FR,
   planifyIsDarkTheme, planifyHexToRgb, planifyRgba,
   HOLIDAYS_2026, isHoliday, workingDaysUntil,
   getTC, getStatusThemeMeta, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
@@ -4174,7 +4190,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
                     padding:'9px 10px',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
                     background:'var(--surface-2)',marginBottom:7,cursor:'pointer'}}>
                   <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
-                    <span style={{width:8,height:8,borderRadius:'50%',background:FLOOR_COLORS[item.z.floor]||'#9CA3AF',display:'inline-block'}}></span>
+                    <span style={{width:8,height:8,borderRadius:'50%',background:getZoneFloorColor(item.z, zones),display:'inline-block'}}></span>
                     <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{item.z.name}</span>
                   </div>
                   <div style={{display:'flex',gap:8,alignItems:'center',fontFamily:"'DM Mono',monospace",fontSize:10,flexShrink:0}}>
@@ -4210,7 +4226,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
                   onMouseLeave={function(e){e.currentTarget.style.background='transparent';}}>
                   <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                     <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,display:'inline-block',
-                      background:FLOOR_COLORS[z.floor]||'#9CA3AF'}}></span>
+                      background:getZoneFloorColor(z, zones)}}></span>
                     <span style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</span>
                     {enc>0&&<span style={{fontSize:10,color:'#2563EB',fontWeight:700}}>▶ {enc}</span>}
                     {bloc>0&&<span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>⚠ {bloc}</span>}
@@ -4331,7 +4347,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
             var p=zivs.length?Math.round(done/zivs.length*100):0;
             var wdv=workingDaysUntil(z.deadline);
             var dc=z.deadline?(wdv<0?'#DC2626':wdv<5?'#DC2626':wdv<15?'#EA580C':'#16A34A'):'var(--xmuted)';
-            var fc=FLOOR_COLORS[z.floor]||'#9CA3AF';
+            var fc=getZoneFloorColor(z, zones);
             var isOpen = openZoneId === z.id;
             return (
               <div key={z.id} style={{marginBottom:12}}>
@@ -4874,7 +4890,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     </div>
                     {zones.map(z => {
                       const checked = zoneFilter.length===0||zoneFilter.includes(z.id);
-                      const fc = FLOOR_COLORS[z.floor]||'#9CA3AF';
+                      const fc = getZoneFloorColor(z, zones);
                       return (
                         <div key={z.id} onClick={function(e){e.preventDefault();e.stopPropagation();toggleZone(z.id);}}
                           style={{display:'flex',alignItems:'center',gap:10,
@@ -4952,10 +4968,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             {visibleZones.map((zone, zi) => {
               const prevZone = visibleZones[zi - 1];
               const floorChange = zi > 0 && prevZone?.floor !== zone.floor;
-              const fc  = FLOOR_COLORS[zone.floor] || '#9CA3AF';
+              const fc  = getZoneFloorColor(zone, zones);
               const dc  = deadlineColor(zone.deadline);
-              const rowBg = zone.floor==='R+3' ? 'rgba(33,82,200,.025)' :
-                            zone.floor==='R+2' ? 'rgba(13,148,136,.025)' : 'rgba(139,92,246,.025)';
+              const rowBg = rgbaCss(fc, .025);
               const zoneCritical = criticalPathMetaByZone[zone.id] || { links:[], roles:{}, chains:[] };
 
               return (
@@ -5364,6 +5379,20 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
     var first = list[0].deadline || '';
     return list.every(function(z){return (z.deadline||'')===first;}) ? first : '';
   }
+  function floorColorValue(floor) {
+    return getZoneFloorColor(floor, zones);
+  }
+  function setFloorColor(floor, color) {
+    var nextColor = normalizeFloorColorValue(color) || '#9CA3AF';
+    setZones(function(prev){
+      return (prev || []).map(function(z){
+        return z.floor === floor ? Object.assign({}, z, {floor_color:nextColor}) : z;
+      });
+    });
+    (zones || []).filter(function(z){ return z.floor === floor; }).forEach(function(z){
+      supaWrite('PATCH','zones',{floor_color:nextColor},'id=eq.'+z.id);
+    });
+  }
 
   function slugCompanyId(name) {
     return String(name||'entreprise')
@@ -5384,9 +5413,10 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
     return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',trade_id:c.tradeId||null};
   }
   function saveZone(z) {
-    setZones(prev => prev.map(x => x.id===z.id ? z : x));
+    var savedZone = Object.assign({}, z, {floor_color:normalizeFloorColorValue(z.floor_color) || floorColorValue(z.floor)});
+    setZones(prev => prev.map(x => x.id===savedZone.id ? savedZone : x));
     setEditingZone(null);
-    supaWrite('PATCH','zones',{name:z.name,short:z.short,floor:z.floor,deadline:z.deadline||null},'id=eq.'+z.id);
+    supaWrite('PATCH','zones',{name:savedZone.name,short:savedZone.short,floor:savedZone.floor,deadline:savedZone.deadline||null,floor_color:savedZone.floor_color},'id=eq.'+savedZone.id);
   }
   function saveTrade(t) {
     setTrades(prev => prev.map(x => x.id===t.id ? t : x));
@@ -5415,6 +5445,7 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
       name: String(newZone.name || '').trim(),
       short: String(newZone.short || '').trim(),
       floor: floorValue,
+      floor_color: floorColorValue(floorValue),
       deadline: newZone.deadline || null,
       display_order: currentOrders.length ? Math.max.apply(null, currentOrders) + 10 : 10
     };
@@ -5467,6 +5498,35 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
 
       {tab==='zones' && (
         <div>
+          {floorList.length > 0 && (
+            <div style={{background:'var(--surface)',border:'1px solid var(--border)',
+              borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,boxShadow:'var(--shadow)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:900,color:'var(--text)'}}>Couleurs par niveau</div>
+                  <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>La couleur choisie s’applique au texte des zones dans le planning.</div>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8}}>
+                {floorList.map(function(floor){
+                  var fc = floorColorValue(floor);
+                  var count = (zones || []).filter(function(z){ return z.floor === floor; }).length;
+                  return (
+                    <label key={floor} style={{display:'flex',alignItems:'center',gap:10,
+                      border:'1px solid var(--border)',borderRadius:'var(--r-xs)',padding:'8px 10px',
+                      background:'var(--surface-2)',cursor:'pointer'}}>
+                      <input type="color" value={fc} onChange={function(e){ setFloorColor(floor, e.target.value); }}
+                        style={{width:36,height:30,border:'none',background:'transparent',padding:0,cursor:'pointer'}} />
+                      <div style={{minWidth:0}}>
+                        <div style={{fontFamily:UX2.mono,fontSize:12,fontWeight:900,color:fc}}>{floor}</div>
+                        <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{count} zone{count>1?'s':''}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {zoneClipboard && zoneClipboard.zone && (
             <div style={{background:'var(--primary-l)',border:'1px solid rgba(96,165,250,.35)',borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,boxShadow:'var(--shadow)'}}>
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,marginBottom:10}}>
@@ -5512,8 +5572,12 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                     style={{flex:1,minWidth:160,...inputSt}} placeholder="Nom complet" />
                   <input value={editingZone.short || ''} onChange={e=>setEditingZone({...editingZone,short:e.target.value})}
                     style={{width:92,...inputSt}} placeholder="Court" />
-                  <input value={editingZone.floor || ''} onChange={e=>setEditingZone({...editingZone,floor:e.target.value})}
+                  <input value={editingZone.floor || ''} onChange={e=>setEditingZone({...editingZone,floor:e.target.value,floor_color:floorColorValue(e.target.value)})}
                     style={{width:78,...inputSt}} placeholder="Niveau" />
+                  <input type="color" value={normalizeFloorColorValue(editingZone.floor_color) || floorColorValue(editingZone.floor)}
+                    onChange={e=>setFloorColor(editingZone.floor, e.target.value)}
+                    title="Couleur du niveau"
+                    style={{width:44,height:38,border:'1px solid var(--border)',borderRadius:'var(--r-xs)',background:'var(--surface-2)',padding:3,cursor:'pointer'}} />
                   <input type="date" value={editingZone.deadline || ''} onChange={e=>setEditingZone({...editingZone,deadline:e.target.value})}
                     style={{width:142,...inputSt}} />
                   <button onClick={()=>saveZone(editingZone)} style={miniBtn}>✓</button>
@@ -5522,7 +5586,10 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
               ) : (
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:7}}>
+                      <span style={{width:8,height:8,borderRadius:'50%',background:getZoneFloorColor(z, zones),flexShrink:0}}></span>
+                      <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
+                    </div>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>
                       {z.short}{z.floor ? ' · ' + z.floor : ''}{z.deadline ? ' · fin ' + fmtDate(z.deadline) : ''}
                     </div>
@@ -5741,10 +5808,13 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
             </div>
             {floorList.map(function(floor){
               return (
-                <div key={floor} style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:10,
+                <div key={floor} style={{display:'grid',gridTemplateColumns:'44px 70px 1fr',gap:10,
                   alignItems:'center',marginBottom:8}}>
+                  <input type="color" value={floorColorValue(floor)} onChange={function(e){setFloorColor(floor,e.target.value);}}
+                    title={'Couleur '+floor}
+                    style={{width:34,height:30,border:'1px solid var(--border)',borderRadius:'var(--r-xs)',background:'var(--surface-2)',padding:2,cursor:'pointer'}} />
                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:800,
-                    color:FLOOR_COLORS[floor]||'var(--text)'}}>{floor}</div>
+                    color:getZoneFloorColor(floor, zones)}}>{floor}</div>
                   <input type="date" value={floorDeadlineValue(floor)}
                     onChange={function(e){setFloorDeadline(floor,e.target.value);}}
                     style={{width:'100%',padding:'8px 10px',border:'1px solid var(--border)',
@@ -6797,7 +6867,7 @@ function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, z
             </thead>
             <tbody>
               {(zones || []).map(function(zone){
-                var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
+                var fc = getZoneFloorColor(zone, zones);
                 return <tr key={zone.id} style={{borderBottom:'1px solid var(--border)'}}>
                   <td style={{padding:'8px 6px',borderRight:'3px solid '+fc,background:fc+'12',verticalAlign:'top',position:'sticky',left:0,zIndex:4}}>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:fc}}>{zone.short}</div>
@@ -8268,6 +8338,7 @@ function PlanifyApp() {
         name:String(nz.name || '').trim(),
         short:String(nz.short || '').trim(),
         floor:String(nz.floor || '').trim(),
+        floor_color:getZoneFloorColor({floor:String(nz.floor || '').trim(),floor_color:(zoneClipboard.zone && zoneClipboard.zone.floor_color) || ''}, zones),
         deadline:nz.deadline || null,
         display_order:currentOrders.length ? Math.max.apply(null, currentOrders) + 10 : 10
       };
@@ -9634,7 +9705,7 @@ function PlanifyApp() {
         currentY += rowH;
         rowBoundaries.push(currentY);
 
-        var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
+        var fc = getZoneFloorColor(zone, zones);
         var fcRgb = hexToRgb(fc);
         var rowBg = mixWhite(fcRgb, overviewMode ? 0.95 : 0.96);
 
