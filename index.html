@@ -5273,9 +5273,30 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
     supaWrite('PATCH','companies',companyRow(co),'id=eq.'+co.id);
   }
   function addZone() {
-    if (!newZone?.name||!newZone?.short) return;
-    setZones(prev=>[...prev,{id:'z_'+genId(),name:newZone.name,short:newZone.short}]);
+    if (!newZone?.name || !newZone?.short) return;
+
+    var floorValue = String(newZone.floor || '').trim();
+    if (!floorValue) { alert('Le niveau de la zone est requis. Exemple : R+3, R+2, R+1.'); return; }
+
+    var currentOrders = (zones || []).map(function(z) {
+      return Number(z.display_order || 0);
+    }).filter(function(n) { return !Number.isNaN(n); });
+
+    var zone = {
+      id: 'z_' + genId(),
+      name: String(newZone.name || '').trim(),
+      short: String(newZone.short || '').trim(),
+      floor: floorValue,
+      deadline: newZone.deadline || null,
+      display_order: currentOrders.length ? Math.max.apply(null, currentOrders) + 10 : 10
+    };
+
+    setZones(function(prev) {
+      return [].concat(prev || [], [zone]);
+    });
     setNewZone(null);
+
+    supaWrite('POST', 'zones', zone);
   }
   function addTrade() {
     if (!newTrade?.name||!newTrade?.short) return;
@@ -5314,10 +5335,14 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
               borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
               {editingZone?.id===z.id ? (
                 <div style={{display:'flex',flexWrap:'wrap',gap:7,alignItems:'center'}}>
-                  <input value={editingZone.name} onChange={e=>setEditingZone({...editingZone,name:e.target.value})}
-                    style={{flex:1,minWidth:120,...inputSt}} placeholder="Nom complet" />
-                  <input value={editingZone.short} onChange={e=>setEditingZone({...editingZone,short:e.target.value})}
-                    style={{width:80,...inputSt}} placeholder="Court" />
+                  <input value={editingZone.name || ''} onChange={e=>setEditingZone({...editingZone,name:e.target.value})}
+                    style={{flex:1,minWidth:160,...inputSt}} placeholder="Nom complet" />
+                  <input value={editingZone.short || ''} onChange={e=>setEditingZone({...editingZone,short:e.target.value})}
+                    style={{width:92,...inputSt}} placeholder="Court" />
+                  <input value={editingZone.floor || ''} onChange={e=>setEditingZone({...editingZone,floor:e.target.value})}
+                    style={{width:78,...inputSt}} placeholder="Niveau" />
+                  <input type="date" value={editingZone.deadline || ''} onChange={e=>setEditingZone({...editingZone,deadline:e.target.value})}
+                    style={{width:142,...inputSt}} />
                   <button onClick={()=>saveZone(editingZone)} style={miniBtn}>✓</button>
                   <button onClick={()=>setEditingZone(null)} style={miniBtn}>✕</button>
                 </div>
@@ -5325,7 +5350,9 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>{z.short}</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>
+                      {z.short}{z.floor ? ' · ' + z.floor : ''}{z.deadline ? ' · fin ' + fmtDate(z.deadline) : ''}
+                    </div>
                   </div>
                   <button onClick={()=>setEditingZone(z)} style={miniBtn}>✎</button>
                 </div>
@@ -5336,9 +5363,13 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
             <div style={{background:'var(--surface)',border:'1px solid var(--primary)',borderRadius:'var(--r-sm)',
               padding:'11px 13px',marginBottom:7,display:'flex',flexWrap:'wrap',gap:7,alignItems:'center'}}>
               <input value={newZone.name||''} onChange={e=>setNewZone({...newZone,name:e.target.value})}
-                style={{flex:1,minWidth:120,...inputSt}} placeholder="Nom complet" autoFocus />
+                style={{flex:1,minWidth:160,...inputSt}} placeholder="Nom complet" autoFocus />
               <input value={newZone.short||''} onChange={e=>setNewZone({...newZone,short:e.target.value})}
-                style={{width:80,...inputSt}} placeholder="Court (ex: R3-TIS)" />
+                style={{width:92,...inputSt}} placeholder="Court" />
+              <input value={newZone.floor||''} onChange={e=>setNewZone({...newZone,floor:e.target.value})}
+                style={{width:78,...inputSt}} placeholder="Niveau" />
+              <input type="date" value={newZone.deadline||''} onChange={e=>setNewZone({...newZone,deadline:e.target.value})}
+                style={{width:142,...inputSt}} />
               <button onClick={addZone} style={{...miniBtn,background:'var(--primary)',color:'#fff',border:'none'}}>Ajouter</button>
               <button onClick={()=>setNewZone(null)} style={miniBtn}>✕</button>
             </div>
