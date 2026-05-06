@@ -4446,7 +4446,7 @@ function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
 }
 
 
-function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false }) {
+function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false, taskClipboard = null, onPasteTask, onClearTaskClipboard }) {
   // 'tout' = show all weeks from today to the furthest deadline
   var maxWeeks = 1;
   if (viewMode === 'tout') {
@@ -4464,6 +4464,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const isDark = document.documentElement.getAttribute('data-theme') === 'nuit';
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
   const isAdmin = session?.role === 'admin';
+  const pasteTaskActive = !!(isAdmin && taskClipboard && taskClipboard.task);
   const fullWeekDays = multiWeekDays(weekOffset, weeks, true);
   const weekendTaskVisible = filtered.some(function(iv){
     return fullWeekDays.some(function(d){
@@ -4728,6 +4729,20 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           )}
         </div>
 
+
+          {pasteTaskActive && (
+            <div style={{marginTop:8,padding:'9px 10px',borderRadius:'var(--r-sm)',border:'1px solid rgba(96,165,250,.35)',background:'var(--primary-l)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+              <div style={{fontSize:12,color:'var(--text)',lineHeight:1.35,fontWeight:700}}>
+                Mode collage actif : <span style={{fontFamily:UX2.mono,color:'var(--primary)'}}>{taskClipboard.task.task_number || 'Tâche copiée'}</span>
+                <span style={{fontWeight:500,color:'var(--muted)'}}> · Cliquez sur une cellule du planning pour coller la tâche dans cette zone à cette date.</span>
+              </div>
+              <button onClick={function(){ onClearTaskClipboard && onClearTaskClipboard(); }}
+                style={{padding:'6px 10px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
+                Annuler collage
+              </button>
+            </div>
+          )}
+
         {/* TABLE-LAYOUT for guaranteed column alignment */}
         <div ref={planningGridRef} style={{position:'relative'}}>
         <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed',position:'relative',zIndex:1}}>
@@ -4893,7 +4908,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
 
                     return (
                       <td key={di}
-                        onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
+                        onClick={function(){if(!isAdmin||holiday)return;if(pasteTaskActive&&onPasteTask){onPasteTask(zone.id,ds);}else{onOpenAdd(zone.id,ds);}}}
                         style={{
                           position:'relative',
                           overflow:'hidden',
@@ -5194,7 +5209,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
 /* ════════════════════════════════════════════════════════════
    SETTINGS SCREEN
 ═══════════════════════════════════════════════════════════ */
-function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies, calendarOverrides, onSetHolidayWorked }) {
+function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies, data = [], zoneClipboard = null, onCopyZone, onClearZoneClipboard, onPasteZone, onMoveZone, calendarOverrides, onSetHolidayWorked }) {
   const [tab, setTab] = useState('zones');
   const [editingZone, setEditingZone] = useState(null);
   const [editingTrade, setEditingTrade] = useState(null);
@@ -5202,6 +5217,7 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
   const [newZone, setNewZone] = useState(null);
   const [newTrade, setNewTrade] = useState(null);
   const [newCompany, setNewCompany] = useState(null);
+  const [zonePaste, setZonePaste] = useState({targetZoneId:'', startDate:dateStr(new Date()), newName:'', newShort:'', newFloor:'', newDeadline:''});
   const PALETTE = Object.keys(TRADE_COLORS);
   const holidayDates = Array.from(_HOLIDAYS).sort();
   function overrideFor(ds) {
@@ -5212,6 +5228,21 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
     return !!(o && o.is_worked);
   }
   const floorList = [...new Set((zones||[]).map(function(z){return z.floor;}).filter(Boolean))].sort();
+  useEffect(function(){
+    if (!zoneClipboard || !zoneClipboard.zone) return;
+    setZonePaste(function(prev){
+      return Object.assign({}, prev, {
+        targetZoneId: prev.targetZoneId || ((zones || []).find(function(z){ return z.id !== zoneClipboard.zone.id; }) || {}).id || '',
+        newName: prev.newName || (zoneClipboard.zone.name + ' — copie'),
+        newShort: prev.newShort || ((zoneClipboard.zone.short || 'ZONE') + '-C'),
+        newFloor: prev.newFloor || (zoneClipboard.zone.floor || ''),
+        newDeadline: prev.newDeadline || (zoneClipboard.zone.deadline || '')
+      });
+    });
+  }, [zoneClipboard]);
+  function setZonePasteField(key, value) {
+    setZonePaste(function(prev){ return Object.assign({}, prev, {[key]:value}); });
+  }
   function setFloorDeadline(floor, deadline) {
     setZones(function(prev){
       return prev.map(function(z){
@@ -5330,6 +5361,42 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
 
       {tab==='zones' && (
         <div>
+          {zoneClipboard && zoneClipboard.zone && (
+            <div style={{background:'var(--primary-l)',border:'1px solid rgba(96,165,250,.35)',borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,boxShadow:'var(--shadow)'}}>
+              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:900,color:'var(--primary)',fontFamily:UX2.mono,marginBottom:3}}>Zone copiée</div>
+                  <div style={{fontSize:13,fontWeight:800,color:'var(--text)'}}>{zoneClipboard.zone.name}</div>
+                  <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{zoneClipboard.tasks?.length || 0} tâche{(zoneClipboard.tasks?.length || 0)>1?'s':''} à recopier</div>
+                </div>
+                <button onClick={onClearZoneClipboard} style={miniBtn}>Annuler</button>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                <label style={{fontSize:11,color:'var(--muted)',fontWeight:800}}>Date de départ
+                  <input type="date" value={zonePaste.startDate || dateStr(new Date())} onChange={function(e){setZonePasteField('startDate', e.target.value);}} style={{marginTop:4,width:'100%',...inputSt}} />
+                </label>
+                <label style={{fontSize:11,color:'var(--muted)',fontWeight:800}}>Zone existante
+                  <select value={zonePaste.targetZoneId || ''} onChange={function(e){setZonePasteField('targetZoneId', e.target.value);}} style={{marginTop:4,width:'100%',...inputSt}}>
+                    <option value="">Choisir une zone…</option>
+                    {(zones || []).map(function(z){ return <option key={z.id} value={z.id}>{z.short} — {z.name}</option>; })}
+                  </select>
+                </label>
+              </div>
+              <button onClick={function(){ onPasteZone && onPasteZone({mode:'existing', targetZoneId:zonePaste.targetZoneId, startDate:zonePaste.startDate}); }}
+                style={{...miniBtn,width:'100%',background:'var(--surface)',marginBottom:10}}>Coller les tâches dans la zone sélectionnée</button>
+              <div style={{borderTop:'1px solid var(--border)',paddingTop:10}}>
+                <div style={{fontSize:11,fontWeight:900,color:'var(--muted)',fontFamily:UX2.mono,marginBottom:7}}>Ou créer une nouvelle zone avec ces tâches</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:7,alignItems:'center'}}>
+                  <input value={zonePaste.newName || ''} onChange={function(e){setZonePasteField('newName', e.target.value);}} style={{...inputSt}} placeholder="Nom nouvelle zone" />
+                  <input value={zonePaste.newShort || ''} onChange={function(e){setZonePasteField('newShort', e.target.value);}} style={{...inputSt}} placeholder="Code" />
+                  <input value={zonePaste.newFloor || ''} onChange={function(e){setZonePasteField('newFloor', e.target.value);}} style={{...inputSt}} placeholder="Niveau" />
+                  <input type="date" value={zonePaste.newDeadline || ''} onChange={function(e){setZonePasteField('newDeadline', e.target.value);}} style={{...inputSt}} />
+                </div>
+                <button onClick={function(){ onPasteZone && onPasteZone({mode:'new', startDate:zonePaste.startDate, newZone:{name:zonePaste.newName, short:zonePaste.newShort, floor:zonePaste.newFloor, deadline:zonePaste.newDeadline}}); }}
+                  style={{...miniBtn,width:'100%',background:'var(--primary)',color:'#fff',border:'none',marginTop:8}}>Créer la zone + coller les tâches</button>
+              </div>
+            </div>
+          )}
           {zones.map((z,i)=>(
             <div key={z.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
               borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
@@ -5354,6 +5421,11 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                       {z.short}{z.floor ? ' · ' + z.floor : ''}{z.deadline ? ' · fin ' + fmtDate(z.deadline) : ''}
                     </div>
                   </div>
+                  <button onClick={function(){ onMoveZone && onMoveZone(z.id, -1); }} disabled={i===0}
+                    title="Monter la zone" style={{...miniBtn,opacity:i===0 ? .35 : 1,cursor:i===0?'not-allowed':'pointer'}}>↑</button>
+                  <button onClick={function(){ onMoveZone && onMoveZone(z.id, 1); }} disabled={i===(zones||[]).length-1}
+                    title="Descendre la zone" style={{...miniBtn,opacity:i===(zones||[]).length-1 ? .35 : 1,cursor:i===(zones||[]).length-1?'not-allowed':'pointer'}}>↓</button>
+                  <button onClick={function(){ onCopyZone && onCopyZone(z.id); }} style={miniBtn}>Copier</button>
                   <button onClick={()=>setEditingZone(z)} style={miniBtn}>✎</button>
                 </div>
               )}
@@ -6170,7 +6242,7 @@ function taskStatusNoteItems(iv, history, taskLogs) {
   }).slice(0, 12);
 }
 
-function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, canEditPlanning = true, canChangeStatus = true, changeRequests = [], history = [], taskLogs = [], onSubmitChangeRequest, onReviewChangeRequest, changeRequestBusy = false, canRequestTaskChange = true }) {
+function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, onCopyTask, canEditPlanning = true, canChangeStatus = true, changeRequests = [], history = [], taskLogs = [], onSubmitChangeRequest, onReviewChangeRequest, changeRequestBusy = false, canRequestTaskChange = true }) {
   const iv = data.find(x=>x.id===ivId);
   if (!iv) return null;
   const z  = zones.find(x=>x.id===iv.zone);
@@ -6196,7 +6268,15 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         </div>
         <StatusBadge status={iv.status} />
       </div>
-      <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
+      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
+        {session?.role==='admin' && canEditPlanning && (
+          <button onClick={function(){ onCopyTask && onCopyTask(iv.id); }}
+            style={{padding:'7px 10px',borderRadius:999,border:'1px solid var(--primary)',background:'var(--primary-l)',color:'var(--primary)',fontSize:11,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
+            Copier la tâche
+          </button>
+        )}
+      </div>
 
       {/* Task */}
       <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
@@ -7314,6 +7394,8 @@ function PlanifyApp() {
   const [loginCompaniesLoading, setLoginCompaniesLoading] = useState(false);
   const [calendarOverrides, setCalendarOverrides] = useState([]);
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
+  const [taskClipboard, setTaskClipboard] = useState(null);
+  const [zoneClipboard, setZoneClipboard] = useState(null);
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
   const [showWeekends, setShowWeekends] = useState(false);
@@ -7793,6 +7875,170 @@ function PlanifyApp() {
   const canEditPlanning = isAdmin && !planningLocked && !planningValidated;
   const canChangeStatus = !planningValidated;
 
+
+  function addDaysStr(baseDate, amount) {
+    var d = new Date((baseDate || dateStr(new Date())) + 'T00:00:00');
+    d.setDate(d.getDate() + Number(amount || 0));
+    return dateStr(d);
+  }
+  function daysBetweenStr(start, end) {
+    var s = new Date((start || dateStr(new Date())) + 'T00:00:00');
+    var e = new Date((end || start || dateStr(new Date())) + 'T00:00:00');
+    return Math.max(0, Math.round((e - s) / (24 * 3600 * 1000)));
+  }
+  function interventionToSupabaseRow(cleanIv, newUpdatedAt) {
+    return {
+      id:cleanIv.id, trade:cleanIv.trade, company:cleanIv.company, task:cleanIv.task,
+      zone:cleanIv.zone, start_date:cleanIv.start, end_date:cleanIv.end||cleanIv.start,
+      status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
+      prereq:cleanIv.prereq||'', prereq_company:(cleanIv.prereq&&String(cleanIv.prereq).trim())?(cleanIv.prereq_company||''):'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
+      task_number:cleanIv.task_number||null, predecessor_id:(normalizeTaskLinkIds(cleanIv.predecessor_ids)[0]||null),
+      predecessor_ids:normalizeTaskLinkIds(cleanIv.predecessor_ids), successor_ids:normalizeTaskLinkIds(cleanIv.successor_ids),
+      off_days:cleanIv.off_days||[],
+      company_edit_allowed: !!cleanIv.company_edit_allowed,
+      company_edit_start_min: cleanIv.company_edit_allowed ? (cleanIv.company_edit_start_min || null) : null,
+      company_edit_end_max: cleanIv.company_edit_allowed ? (cleanIv.company_edit_end_max || null) : null,
+      updated_at:newUpdatedAt || new Date().toISOString()
+    };
+  }
+  function makeTaskCopy(source, targetZoneId, targetDate, existingTasks, alreadyDrafted) {
+    var duration = daysBetweenStr(source.start, source.end || source.start);
+    var endDate = addDaysStr(targetDate, duration);
+    var pool = (existingTasks || data || []).concat(alreadyDrafted || []);
+    return Object.assign({}, source, {
+      id:genId(),
+      zone:targetZoneId,
+      start:targetDate,
+      end:endDate,
+      status:'arealis',
+      task_number:genTaskNum(pool, source.company, source.trade, trades),
+      predecessor_id:null,
+      predecessor_ids:[],
+      successor_ids:[],
+      off_days:weekendOffDaysBetween(targetDate, endDate),
+      updated_at:null,
+      _expected_updated_at:''
+    });
+  }
+  function copyTaskToClipboard(id) {
+    if (!canEditPlanning) { alert('Planning verrouillé ou validé : copie indisponible.'); return; }
+    var task = data.find(function(iv){ return iv.id === id; });
+    if (!task) return;
+    setTaskClipboard({task:Object.assign({}, task), copiedAt:new Date().toISOString()});
+    notify('Tâche copiée. Cliquez une cellule du planning pour la coller.','success',3200);
+    setScreen('planning');
+    closeModal();
+  }
+  async function pasteTaskFromClipboard(targetZoneId, targetDate) {
+    if (!taskClipboard || !taskClipboard.task) return;
+    if (!canEditPlanning) { alert('Planning verrouillé ou validé : collage indisponible.'); return; }
+    var draft = makeTaskCopy(taskClipboard.task, targetZoneId, targetDate, data, []);
+    try {
+      var saved = await handleSave(draft);
+      setTaskClipboard(null);
+      setModal({type:'edit', id:saved.id});
+      notify('Tâche collée. Ajustez les données si besoin.','success',3200);
+    } catch(e) {}
+  }
+  function copyZoneToClipboard(zoneId) {
+    if (!canEditPlanning) { alert('Planning verrouillé ou validé : copie indisponible.'); return; }
+    var zone = zones.find(function(z){ return z.id === zoneId; });
+    if (!zone) return;
+    var tasks = data.filter(function(iv){ return iv.zone === zoneId; }).sort(planningTaskSort);
+    setZoneClipboard({zone:Object.assign({}, zone), tasks:tasks.map(function(t){ return Object.assign({}, t); }), copiedAt:new Date().toISOString()});
+    notify('Zone copiée avec '+tasks.length+' tâche'+(tasks.length>1?'s':'')+'.','success',3200);
+  }
+  function clearZoneClipboard() {
+    setZoneClipboard(null);
+  }
+  async function moveZone(zoneId, direction) {
+    if (!isAdmin) return;
+    var ordered = (zones || []).slice().sort(function(a,b){ return Number(a.display_order || 0) - Number(b.display_order || 0); });
+    var idx = ordered.findIndex(function(z){ return z.id === zoneId; });
+    var nextIdx = idx + direction;
+    if (idx < 0 || nextIdx < 0 || nextIdx >= ordered.length) return;
+    var tmp = ordered[idx]; ordered[idx] = ordered[nextIdx]; ordered[nextIdx] = tmp;
+    var normalized = ordered.map(function(z, i){ return Object.assign({}, z, {display_order:(i + 1) * 10}); });
+    setZones(normalized);
+    await Promise.all(normalized.map(function(z){ return sbFetchSilent('PATCH','zones',{display_order:z.display_order},eqFilter('id', z.id)); }));
+    notify('Ordre des zones sauvegardé ✓','success',1800);
+  }
+  async function pasteZoneFromClipboard(opts) {
+    if (!zoneClipboard || !zoneClipboard.zone) return;
+    if (!canEditPlanning) { alert('Planning verrouillé ou validé : collage indisponible.'); return; }
+    opts = opts || {};
+    var targetZoneId = opts.targetZoneId || '';
+    var targetZone = null;
+    var startDate = opts.startDate || dateStr(new Date());
+    if (opts.mode === 'new') {
+      var nz = opts.newZone || {};
+      if (!String(nz.name || '').trim() || !String(nz.short || '').trim() || !String(nz.floor || '').trim()) {
+        alert('Nom, code court et niveau sont requis pour créer une nouvelle zone.'); return;
+      }
+      var currentOrders = (zones || []).map(function(z){ return Number(z.display_order || 0); }).filter(function(n){ return !Number.isNaN(n); });
+      targetZone = {
+        id:'z_' + genId(),
+        name:String(nz.name || '').trim(),
+        short:String(nz.short || '').trim(),
+        floor:String(nz.floor || '').trim(),
+        deadline:nz.deadline || null,
+        display_order:currentOrders.length ? Math.max.apply(null, currentOrders) + 10 : 10
+      };
+      targetZoneId = targetZone.id;
+      setZones(function(prev){ return (prev || []).concat([targetZone]); });
+      await sbFetchRows('POST','zones',targetZone).catch(function(e){ throw e; });
+    } else {
+      if (!targetZoneId) { alert('Choisissez une zone de destination.'); return; }
+      targetZone = zones.find(function(z){ return z.id === targetZoneId; });
+      if (!targetZone) { alert('Zone de destination introuvable.'); return; }
+    }
+    var sourceTasks = (zoneClipboard.tasks || []).slice().sort(planningTaskSort);
+    if (!sourceTasks.length) {
+      setZoneClipboard(null);
+      notify('Zone créée / sélectionnée. Aucune tâche à copier.','success',2600);
+      setScreen('planning');
+      return;
+    }
+    var minStart = sourceTasks.reduce(function(min, t){ return !min || String(t.start) < String(min) ? t.start : min; }, '');
+    var shift = Math.round((new Date(startDate + 'T00:00:00') - new Date((minStart || startDate) + 'T00:00:00')) / (24 * 3600 * 1000));
+    var idMap = {};
+    var drafts = [];
+    sourceTasks.forEach(function(src){
+      var ns = addDaysStr(src.start || minStart || startDate, shift);
+      var ne = addDaysStr(src.end || src.start || minStart || startDate, shift);
+      var draft = makeTaskCopy(src, targetZoneId, ns, data, drafts);
+      draft.end = ne;
+      draft.off_days = weekendOffDaysBetween(draft.start, draft.end);
+      idMap[src.id] = draft.id;
+      drafts.push(draft);
+    });
+    drafts = drafts.map(function(draft, index){
+      var src = sourceTasks[index];
+      var pred = normalizeTaskLinkIds(src.predecessor_ids || src.predecessor_id).filter(function(id){ return !!idMap[id]; }).map(function(id){ return idMap[id]; });
+      var succ = normalizeTaskLinkIds(src.successor_ids).filter(function(id){ return !!idMap[id]; }).map(function(id){ return idMap[id]; });
+      return Object.assign({}, draft, {predecessor_ids:pred, successor_ids:succ, predecessor_id:pred[0] || null});
+    });
+    var nowIso = new Date().toISOString();
+    var rows = drafts.map(function(d){ return interventionToSupabaseRow(d, nowIso); });
+    try {
+      var savedRows = await sbFetchRows('POST','interventions',rows);
+      var saved = savedRows && savedRows.length ? savedRows.map(normalizeInterventionRow) : drafts.map(function(d){ return Object.assign({}, d, {updated_at:nowIso}); });
+      setData(function(prev){ return (prev || []).concat(saved); });
+      await addPlanningEvent({
+        event_type:'zone_duplicated',
+        zone_id:targetZoneId,
+        zone_name:targetZone ? targetZone.name : '',
+        message:'Zone copiée : '+zoneClipboard.zone.short+' → '+(targetZone ? targetZone.short : targetZoneId)+' · '+saved.length+' tâche'+(saved.length>1?'s':''),
+        payload:{source_zone:zoneClipboard.zone,target_zone:targetZone,tasks_count:saved.length}
+      });
+      setZoneClipboard(null);
+      setScreen('planning');
+      notify('Zone collée avec '+saved.length+' tâche'+(saved.length>1?'s':'')+' ✓','success',3600);
+    } catch(e) {
+      notify('Erreur lors du collage de la zone','error',4200);
+    }
+  }
+
   function openDetail(id)           { setModal({type:'detail', id}); }
   function openAdd(zone,date) {
     if (!canEditPlanning) {
@@ -8210,19 +8456,7 @@ function PlanifyApp() {
     var cleanIv = Object.assign({}, iv);
     delete cleanIv._expected_updated_at;
     var newUpdatedAt = new Date().toISOString();
-    var row = {
-      id:cleanIv.id, trade:cleanIv.trade, company:cleanIv.company, task:cleanIv.task,
-      zone:cleanIv.zone, start_date:cleanIv.start, end_date:cleanIv.end||cleanIv.start,
-      status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
-      prereq:cleanIv.prereq||'', prereq_company:(cleanIv.prereq&&String(cleanIv.prereq).trim())?(cleanIv.prereq_company||''):'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
-      task_number:cleanIv.task_number||null, predecessor_id:(normalizeTaskLinkIds(cleanIv.predecessor_ids)[0]||null),
-      predecessor_ids:normalizeTaskLinkIds(cleanIv.predecessor_ids), successor_ids:normalizeTaskLinkIds(cleanIv.successor_ids),
-      off_days:cleanIv.off_days||[],
-      company_edit_allowed: !!cleanIv.company_edit_allowed,
-      company_edit_start_min: cleanIv.company_edit_allowed ? (cleanIv.company_edit_start_min || null) : null,
-      company_edit_end_max: cleanIv.company_edit_allowed ? (cleanIv.company_edit_end_max || null) : null,
-      updated_at:newUpdatedAt
-    };
+    var row = interventionToSupabaseRow(cleanIv, newUpdatedAt);
 
     setBusyKey('task_save', true);
     try {
@@ -8449,12 +8683,15 @@ function PlanifyApp() {
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
       case 'planning':  return <PlanningScreen  data={data} zones={zones} setZones={setZones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
-        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} />;
+        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} taskClipboard={taskClipboard} onPasteTask={pasteTaskFromClipboard} onClearTaskClipboard={function(){setTaskClipboard(null);}} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
       case 'settings':  return <SettingsScreen  zones={zones} trades={trades} companies={companies}
         setZones={setZones} setTrades={setTrades} setCompanies={setCompanies}
+        data={data} zoneClipboard={zoneClipboard}
+        onCopyZone={copyZoneToClipboard} onClearZoneClipboard={clearZoneClipboard}
+        onPasteZone={pasteZoneFromClipboard} onMoveZone={moveZone}
         calendarOverrides={calendarOverrides} onSetHolidayWorked={handleHolidayWorked} />;
       default:          return null;
     }
@@ -9200,7 +9437,7 @@ function PlanifyApp() {
       {/* Modals */}
       <DetailModal open={modal?.type==='detail'} ivId={modal?.id}
         data={data} zones={zones} trades={trades} session={session}
-        onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit}
+        onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit} onCopyTask={copyTaskToClipboard}
         canEditPlanning={canEditPlanning} canChangeStatus={canChangeStatus}
         changeRequests={changeRequests} history={history} taskLogs={taskLogs}
         onSubmitChangeRequest={handleSubmitTaskChangeRequest}
