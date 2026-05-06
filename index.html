@@ -4531,7 +4531,7 @@ function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
 }
 
 
-function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false, taskClipboard = null, onPasteTask, onClearTaskClipboard, selectedTaskIds = [], onToggleTaskSelection, onClearTaskSelection, onMoveSelectedTasks, onWeekChange }) {
+function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false, taskClipboard = null, onPasteTask, onClearTaskClipboard, selectedTaskIds = [], onToggleTaskSelection, onClearTaskSelection, onMoveSelectedTasks, dependencyLinkMode = null, onStartDependencyLinkMode, onCancelDependencyLinkMode, onChooseDependencyTarget, onWeekChange }) {
   // 'tout' = show all weeks from today to the furthest deadline
   var maxWeeks = 1;
   if (viewMode === 'tout') {
@@ -4556,6 +4556,12 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const selectedPlanningIds = Array.isArray(selectedTaskIds) ? selectedTaskIds : [];
   const selectedTaskSet = new Set(selectedPlanningIds);
   const moveSelectionActive = !!(isAdmin && selectedPlanningIds.length > 0 && !pasteTaskActive);
+  const dependencyTargetActive = !!(moveSelectionActive && dependencyLinkMode && dependencyLinkMode.type);
+  const dependencyModeLabel = dependencyLinkMode && dependencyLinkMode.type === 'selection_as_predecessor'
+    ? 'La sélection devient prédécesseur de la tâche cible'
+    : dependencyLinkMode && dependencyLinkMode.type === 'selection_as_successor'
+      ? 'La sélection devient successeur de la tâche cible'
+      : '';
   const selectedTasks = data.filter(function(iv){ return selectedTaskSet.has(iv.id); }).sort(planningTaskSort);
   const fullWeekDays = multiWeekDays(weekOffset, weeks, true);
   const weekendTaskVisible = false;
@@ -4668,7 +4674,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     return (
       <button
         type="button"
-        title={active ? 'Retirer de la sélection de déplacement' : 'Sélectionner cette tâche pour la déplacer'}
+        title={active ? 'Retirer de la sélection' : 'Sélectionner cette tâche'}
         onClick={function(e){
           e.stopPropagation();
           setTaskHover(null);
@@ -4720,7 +4726,12 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, _m));}}
           onMouseMove={function(){}}
           onMouseLeave={function(){setTaskHover(null);}}
-          onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
+          onClick={function(e){
+            e.stopPropagation();
+            setTaskHover(null);
+            if (dependencyTargetActive && onChooseDependencyTarget) { onChooseDependencyTarget(iv.id); return; }
+            onOpenDetail(iv.id);
+          }}
           style={{borderRadius:6,padding:weeks===2?'4px 26px 4px 5px':'3px 24px 3px 4px',marginBottom:2,cursor:'pointer',
             background:selectedForMove ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary) 12%, transparent)), '+(ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg) : (ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg),
             borderLeft:'4px solid '+(selectedForMove?'var(--primary)':(ccLinked?ccColor:_c.b)),
@@ -4765,7 +4776,12 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           criticalVisible={showCriticalPath}
           dimmed={!!(showCriticalPath && activeCriticalChainId && (!(zoneCritical.roles[iv.id]) || zoneCritical.roles[iv.id].chainId !== activeCriticalChainId))}
           focused={!!(showCriticalPath && activeCriticalChainId && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].chainId === activeCriticalChainId)}
-          onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}} />
+          onClick={function(e){
+            e.stopPropagation();
+            setTaskHover(null);
+            if (dependencyTargetActive && onChooseDependencyTarget) { onChooseDependencyTarget(iv.id); return; }
+            onOpenDetail(iv.id);
+          }} />
       </div>
     );
   }
@@ -4885,15 +4901,41 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
 
           {moveSelectionActive && (
             <div style={{marginTop:8,padding:'10px 12px',borderRadius:'var(--r-sm)',border:'1px solid color-mix(in srgb, var(--primary) 34%, transparent)',background:'var(--primary-l)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
-              <div style={{fontSize:12,color:'var(--text)',lineHeight:1.35,fontWeight:800}}>
-                Déplacement actif : <span style={{fontFamily:UX2.mono,color:'var(--primary)'}}>{selectedPlanningIds.length} tâche{selectedPlanningIds.length>1?'s':''}</span>
-                <span style={{fontWeight:600,color:'var(--muted)'}}> · Cliquez sur une cellule de destination. L’ordre est conservé et les jours non ouvrés sont évités.</span>
-                {selectedTasks.length > 0 && <div style={{fontSize:10.5,color:'var(--muted)',marginTop:3,fontFamily:UX2.mono}}>1ère tâche déplacée : {selectedTasks[0].task_number || selectedTasks[0].task}</div>}
+              <div style={{fontSize:12,color:'var(--text)',lineHeight:1.35,fontWeight:800,minWidth:240,flex:'1 1 320px'}}>
+                {dependencyTargetActive ? 'Liaison active' : 'Sélection planning'} : <span style={{fontFamily:UX2.mono,color:'var(--primary)'}}>{selectedPlanningIds.length} tâche{selectedPlanningIds.length>1?'s':''}</span>
+                {dependencyTargetActive ? (
+                  <span style={{fontWeight:600,color:'var(--muted)'}}> · {dependencyModeLabel}. Cliquez maintenant sur la tâche cible dans le planning.</span>
+                ) : (
+                  <span style={{fontWeight:600,color:'var(--muted)'}}> · Cliquez sur une cellule pour déplacer, ou choisissez un lien prédécesseur/successeur.</span>
+                )}
+                {selectedTasks.length > 0 && <div style={{fontSize:10.5,color:'var(--muted)',marginTop:3,fontFamily:UX2.mono}}>1ère tâche sélectionnée : {selectedTasks[0].task_number || selectedTasks[0].task}</div>}
               </div>
-              <button onClick={function(){ onClearTaskSelection && onClearTaskSelection(); }}
-                style={{padding:'7px 11px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
-                Annuler sélection
-              </button>
+              <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                {!dependencyTargetActive && (
+                  <>
+                    <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_predecessor'); }}
+                      title="La sélection sera ajoutée comme prédécesseur de la tâche que vous cliquerez ensuite"
+                      style={{padding:'7px 10px',borderRadius:999,border:'1px solid rgba(234,88,12,.38)',background:'rgba(234,88,12,.10)',color:'#9A3412',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
+                      Sélection = préd.
+                    </button>
+                    <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_successor'); }}
+                      title="La sélection sera ajoutée comme successeur de la tâche que vous cliquerez ensuite"
+                      style={{padding:'7px 10px',borderRadius:999,border:'1px solid rgba(124,58,237,.36)',background:'rgba(124,58,237,.10)',color:'#6D28D9',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
+                      Sélection = succ.
+                    </button>
+                  </>
+                )}
+                {dependencyTargetActive && (
+                  <button onClick={function(e){ e.stopPropagation(); onCancelDependencyLinkMode && onCancelDependencyLinkMode(); }}
+                    style={{padding:'7px 10px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
+                    Annuler lien
+                  </button>
+                )}
+                <button onClick={function(){ onClearTaskSelection && onClearTaskSelection(); }}
+                  style={{padding:'7px 11px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
+                  Annuler sélection
+                </button>
+              </div>
             </div>
           )}
 
@@ -5067,6 +5109,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                       <td key={di}
                         onClick={function(){
                           if(!isAdmin) return;
+                          if(dependencyTargetActive) return;
                           if(moveSelectionActive && onMoveSelectedTasks){ onMoveSelectedTasks(selectedPlanningIds, zone.id, ds); return; }
                           if(pasteTaskActive&&onPasteTask){onPasteTask(zone.id,ds); return;}
                           if(nonWorkingDay) return;
@@ -7668,6 +7711,7 @@ function PlanifyApp() {
   const [taskClipboard, setTaskClipboard] = useState(null);
   const [zoneClipboard, setZoneClipboard] = useState(null);
   const [selectedPlanningTaskIds, setSelectedPlanningTaskIds] = useState([]);
+  const [planningDependencyMode, setPlanningDependencyMode] = useState(null);
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
   const [showWeekends, setShowWeekends] = useState(false);
@@ -8180,17 +8224,43 @@ function PlanifyApp() {
       return;
     }
     setTaskClipboard(null);
+    setPlanningDependencyMode(null);
     setSelectedPlanningTaskIds(function(prev){
       var list = Array.isArray(prev) ? prev.slice() : [];
       if (list.includes(taskId)) return list.filter(function(id){ return id !== taskId; });
       return list.concat([taskId]);
     });
   }
-  function clearPlanningTaskSelection() { setSelectedPlanningTaskIds([]); }
+  function clearPlanningTaskSelection() {
+    setSelectedPlanningTaskIds([]);
+    setPlanningDependencyMode(null);
+  }
 
   useEffect(function(){
-    if (screen !== 'planning' && selectedPlanningTaskIds.length) setSelectedPlanningTaskIds([]);
+    if (screen !== 'planning' && selectedPlanningTaskIds.length) {
+      setSelectedPlanningTaskIds([]);
+      setPlanningDependencyMode(null);
+    }
   }, [screen]);
+
+  useEffect(function(){
+    if (!selectedPlanningTaskIds.length && planningDependencyMode) setPlanningDependencyMode(null);
+  }, [selectedPlanningTaskIds.length, planningDependencyMode]);
+
+  function startPlanningDependencyMode(type) {
+    if (!canEditPlanning) {
+      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour modifier les liens.' : 'Planning verrouillé : modification des liens indisponible.');
+      return;
+    }
+    if (!selectedPlanningTaskIds.length) { alert('Sélectionnez d’abord une ou plusieurs tâches dans le planning.'); return; }
+    setTaskClipboard(null);
+    setPlanningDependencyMode({type:type});
+    notify(type === 'selection_as_predecessor' ? 'Cliquez la tâche cible : la sélection deviendra prédécesseur.' : 'Cliquez la tâche cible : la sélection deviendra successeur.', 'info', 3600);
+  }
+
+  function cancelPlanningDependencyMode() {
+    setPlanningDependencyMode(null);
+  }
 
 
   function dateToUtcMs(value) {
@@ -8550,6 +8620,90 @@ function PlanifyApp() {
       notify('Zone collée : 1ère tâche au '+fmtDate(effectiveStartDate)+(shiftedNonWorking?' · jours non ouvrés évités':'')+' ✓','success',4200);
     } catch(e) {
       notify('Erreur lors du collage de la zone','error',4200);
+    }
+  }
+
+  async function choosePlanningDependencyTarget(targetTaskId) {
+    if (!canEditPlanning) { alert('Planning verrouillé ou validé : modification des liens indisponible.'); return; }
+    if (!planningDependencyMode || !planningDependencyMode.type) return;
+    var cleanIds = uniqueTaskIds((selectedPlanningTaskIds || []).filter(Boolean));
+    if (!cleanIds.length) { setPlanningDependencyMode(null); return; }
+    if (cleanIds.includes(targetTaskId)) {
+      alert('La tâche cible ne peut pas faire partie de la sélection. Retirez-la de la sélection puis recommencez.');
+      return;
+    }
+    var target = data.find(function(iv){ return iv.id === targetTaskId; });
+    var selected = cleanIds.map(function(id){ return data.find(function(iv){ return iv.id === id; }); }).filter(Boolean);
+    if (!target || !selected.length) return;
+
+    selected.sort(function(a,b){ return planningTaskSort(a,b); });
+
+    var byId = {};
+    function draftFor(task) {
+      if (!byId[task.id]) byId[task.id] = Object.assign({}, task, {_expected_updated_at:task.updated_at || ''});
+      return byId[task.id];
+    }
+    function addPred(task, predId) {
+      var d = draftFor(task);
+      d.predecessor_ids = uniqueTaskIds(normalizeTaskLinkIds(d.predecessor_ids || d.predecessor_id).concat([predId]));
+      d.predecessor_id = d.predecessor_ids[0] || null;
+    }
+    function addSucc(task, succId) {
+      var d = draftFor(task);
+      d.successor_ids = uniqueTaskIds(normalizeTaskLinkIds(d.successor_ids).concat([succId]));
+    }
+
+    if (planningDependencyMode.type === 'selection_as_predecessor') {
+      selected.forEach(function(src){
+        addPred(target, src.id);
+        addSucc(src, target.id);
+      });
+    } else if (planningDependencyMode.type === 'selection_as_successor') {
+      selected.forEach(function(src){
+        addPred(src, target.id);
+        addSucc(target, src.id);
+      });
+    } else {
+      return;
+    }
+
+    var nowIso = new Date().toISOString();
+    var drafts = Object.keys(byId).map(function(id){
+      return Object.assign({}, byId[id], {updated_at:nowIso});
+    });
+
+    setBusyKey('planning_dependency', true);
+    try {
+      var savedRows = [];
+      for (var i = 0; i < drafts.length; i += 1) {
+        var row = interventionToSupabaseRow(drafts[i], nowIso);
+        var rows = await sbFetchRows('PATCH','interventions',row,conflictQuery(drafts[i].id, drafts[i]._expected_updated_at || ''));
+        if (drafts[i]._expected_updated_at && (!rows || !rows.length)) {
+          await syncAll(false).catch(function(){});
+          throw new Error('Une tâche liée a été modifiée par un autre utilisateur. Actualisez puis réessayez.');
+        }
+        savedRows.push(rows && rows[0] ? normalizeInterventionRow(rows[0]) : Object.assign({}, drafts[i], {updated_at:nowIso}));
+      }
+      setData(function(prev){
+        return (prev || []).map(function(iv){
+          var updated = savedRows.find(function(row){ return row.id === iv.id; });
+          return updated || iv;
+        });
+      });
+      await addPlanningEvent({
+        event_type:'task_dependencies_updated',
+        message:(planningDependencyMode.type === 'selection_as_predecessor'
+          ? 'Lien planning : '+selected.length+' tâche'+(selected.length>1?'s':'')+' ajoutée'+(selected.length>1?'s':'')+' en prédécesseur de '+(target.task_number || target.task)
+          : 'Lien planning : '+selected.length+' tâche'+(selected.length>1?'s':'')+' ajoutée'+(selected.length>1?'s':'')+' en successeur de '+(target.task_number || target.task)),
+        payload:{mode:planningDependencyMode.type,target_task_id:target.id,selected_task_ids:selected.map(function(t){ return t.id; })}
+      });
+      setPlanningDependencyMode(null);
+      setSelectedPlanningTaskIds([]);
+      notify('Lien prédécesseur / successeur enregistré ✓','success',3200);
+    } catch(e) {
+      notify(e.message || 'Erreur lors de la création du lien','error',4600);
+    } finally {
+      setBusyKey('planning_dependency', false);
     }
   }
 
@@ -9274,7 +9428,9 @@ function PlanifyApp() {
       case 'planning':  return <PlanningScreen  data={data} zones={zones} setZones={setZones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
         onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} taskClipboard={taskClipboard} onPasteTask={pasteTaskFromClipboard} onClearTaskClipboard={function(){setTaskClipboard(null);}}
-        selectedTaskIds={selectedPlanningTaskIds} onToggleTaskSelection={togglePlanningTaskSelection} onClearTaskSelection={clearPlanningTaskSelection} onMoveSelectedTasks={moveSelectedPlanningTasks} onWeekChange={function(delta){setWeekOffset(function(w){return w+delta;});}} />;
+        selectedTaskIds={selectedPlanningTaskIds} onToggleTaskSelection={togglePlanningTaskSelection} onClearTaskSelection={clearPlanningTaskSelection} onMoveSelectedTasks={moveSelectedPlanningTasks}
+        dependencyLinkMode={planningDependencyMode} onStartDependencyLinkMode={startPlanningDependencyMode} onCancelDependencyLinkMode={cancelPlanningDependencyMode} onChooseDependencyTarget={choosePlanningDependencyTarget}
+        onWeekChange={function(delta){setWeekOffset(function(w){return w+delta;});}} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
