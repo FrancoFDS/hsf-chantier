@@ -1131,13 +1131,8 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
   }
   const weeks = viewMode === 'tout' ? maxWeeks : viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const fullDaysForWeekend = multiWeekDays(weekOffset, weeks, true);
-  const weekendTaskVisible = (data||[]).some(function(iv){
-    return fullDaysForWeekend.some(function(d){
-      var dow = d.getDay();
-      return (dow === 0 || dow === 6) && inDay(iv,d) && !(iv.off_days||[]).includes(dateStr(d));
-    });
-  });
-  const headerIncludeWeekends = !!showWeekends || weekendTaskVisible;
+  const weekendTaskVisible = false;
+  const headerIncludeWeekends = !!showWeekends;
   const days  = multiWeekDays(weekOffset, weeks, headerIncludeWeekends);
   const start = days[0], end = days[days.length - 1];
 
@@ -3240,12 +3235,58 @@ const _HOLIDAY_LABELS = {
   '2026-12-25':'Noël'
 };
 window.PLANIFY_WORKED_HOLIDAYS = window.PLANIFY_WORKED_HOLIDAYS || new Set();
+const DEFAULT_WORKING_WEEKDAYS = [1,2,3,4,5]; // 0=dimanche, 1=lundi, ... 6=samedi
+window.PLANIFY_WORKING_WEEKDAYS = window.PLANIFY_WORKING_WEEKDAYS || new Set(DEFAULT_WORKING_WEEKDAYS);
 const PLANNING_DEFAULT_END_DATE = '2026-10-31'; // Planning disponible jusqu'à fin octobre 2026
+
+function normalizeWorkingWeekdays(days) {
+  var arr = Array.isArray(days) ? days : DEFAULT_WORKING_WEEKDAYS;
+  var clean = Array.from(new Set(arr.map(function(d){ return Number(d); })
+    .filter(function(d){ return Number.isInteger(d) && d >= 0 && d <= 6; })))
+    .sort(function(a,b){ return a-b; });
+  return clean.length ? clean : DEFAULT_WORKING_WEEKDAYS.slice();
+}
+function getConfiguredWorkingWeekdays() {
+  if (window.PLANIFY_WORKING_WEEKDAYS instanceof Set) {
+    return normalizeWorkingWeekdays(Array.from(window.PLANIFY_WORKING_WEEKDAYS));
+  }
+  return DEFAULT_WORKING_WEEKDAYS.slice();
+}
+function dayOfWeekFromKey(ds) {
+  var key = normalizeDateKey(ds);
+  var p = key.split('-').map(function(n){ return parseInt(n, 10); });
+  if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) return 1;
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
+}
+function isConfiguredWorkingWeekday(value) {
+  return getConfiguredWorkingWeekdays().includes(dayOfWeekFromKey(value));
+}
+function isNonWorkingCalendarDate(value) {
+  var key = normalizeDateKey(value);
+  return !isConfiguredWorkingWeekday(key) || isHoliday(key);
+}
+function nextConfiguredWorkingDate(value) {
+  var current = normalizeDateKey(value || dateStr(new Date()));
+  var guard = 0;
+  while (isNonWorkingCalendarDate(current) && guard < 180) {
+    current = addCalendarDaysKey(current, 1);
+    guard += 1;
+  }
+  return current;
+}
+function addCalendarDaysKey(baseDate, amount) {
+  var key = normalizeDateKey(baseDate || dateStr(new Date()));
+  var p = key.split('-').map(function(n){ return parseInt(n, 10); });
+  if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) return dateStr(new Date());
+  var d = new Date(Date.UTC(p[0], p[1] - 1, p[2] + Number(amount || 0)));
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+}
 function _ds(d) {
   if (!(d instanceof Date)) d = new Date(d);
   if (Number.isNaN(d.getTime())) return '';
-  // Dates chantier en clé pure YYYY-MM-DD, sans décalage de fuseau.
-  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+  // Dates chantier en clé pure YYYY-MM-DD, sans conversion UTC.
+  // Correction critique : un Date local au 14/07 ne doit pas devenir 13/07 ou 15/07.
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function normalizeDateKey(value) {
   if (!value) return '';
@@ -3292,9 +3333,20 @@ function weekendOffDaysBetween(start, end) {
   }
   return out;
 }
-function multiWeekDays(offset = 0, weeks = 1, includeWeekends = false) {
-  return Array.from({length: weeks}, (_, w) => weekDays(offset + w, includeWeekends)).flat();
+function weekDays(offset = 0, includeAllDays = false) {
+  var m = getMonday(offset);
+  var all = Array.from({length:7}, function(_,i){ var d = new Date(m); d.setDate(m.getDate()+i); return d; });
+  if (includeAllDays) return all;
+  return all.filter(function(d){ return isConfiguredWorkingWeekday(dateStr(d)); });
 }
+function multiWeekDays(offset = 0, weeks = 1, includeAllDays = false) {
+  return Array.from({length: weeks}, function(_, w){ return weekDays(offset + w, includeAllDays); }).flat();
+}
+Object.assign(window, {
+  DEFAULT_WORKING_WEEKDAYS, normalizeWorkingWeekdays, getConfiguredWorkingWeekdays,
+  isConfiguredWorkingWeekday, isNonWorkingCalendarDate, nextConfiguredWorkingDate,
+  weekDays, multiWeekDays
+});
 // ─────────────────────────────────────────────────────────────
 
 
@@ -4506,13 +4558,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const moveSelectionActive = !!(isAdmin && selectedPlanningIds.length > 0 && !pasteTaskActive);
   const selectedTasks = data.filter(function(iv){ return selectedTaskSet.has(iv.id); }).sort(planningTaskSort);
   const fullWeekDays = multiWeekDays(weekOffset, weeks, true);
-  const weekendTaskVisible = filtered.some(function(iv){
-    return fullWeekDays.some(function(d){
-      var dow = d.getDay();
-      return (dow === 0 || dow === 6) && inDay(iv,d) && !(iv.off_days||[]).includes(dateStr(d));
-    });
-  });
-  const includeWeekends = (isAdmin && !!showWeekends) || weekendTaskVisible;
+  const weekendTaskVisible = false;
+  const includeWeekends = !!showWeekends;
   const days = multiWeekDays(weekOffset, weeks, includeWeekends);
   const daysPerWeek = includeWeekends ? 7 : 5;
   const isMulti = weeks > 1;
@@ -4918,6 +4965,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
               {days.map((d,i) => {
                 const isFirstOfWeek = i % daysPerWeek === 0 && i > 0;
                 const holiday = isHoliday(d);
+                const nonWorkingDay = !isConfiguredWorkingWeekday(dateStr(d));
                 const workedHoliday = isWorkedHoliday(d);
                 return (
                   <th key={i} style={{
@@ -4926,24 +4974,26 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     overflow:'hidden',
                     position:'sticky',top:0,zIndex:11,
                     borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                    background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'var(--surface-2)',
+                    background:holiday?'#D1D5DB':nonWorkingDay?'color-mix(in srgb, var(--border) 55%, var(--surface-2))':isToday(d)?'var(--primary-l)':'var(--surface-2)',
                     fontWeight:'normal',
                     verticalAlign:'middle'}}>
                     <div style={{fontSize:isMulti?(weeks>3?5.5:weeks===3?6:7):9,
                       fontWeight:800,fontFamily:UX2.sans,
-                      color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)',
+                      color:(holiday||nonWorkingDay)?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)',
                       lineHeight:1.05,whiteSpace:'nowrap'}}>
                       {['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}
                     </div>
                     <div style={{fontSize:isMulti?(weeks>3?6:weeks===3?7:8):10,
                       fontWeight:isMulti?700:400,
                       fontFamily:"'DM Mono',monospace",
-                      color:holiday?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)',
+                      color:(holiday||nonWorkingDay)?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)',
                       lineHeight:1.05,whiteSpace:'nowrap',marginTop:isMulti?1:0}}>
                       {`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`}
                     </div>
                     {holiday && <div style={{fontSize:7,fontWeight:700,color:'#4B5563',
                       fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
+                    {!holiday && nonWorkingDay && <div style={{fontSize:6.5,fontWeight:700,color:'#6B7280',
+                      fontFamily:"'DM Mono',monospace",marginTop:1}}>NO</div>}
                     {workedHoliday && <div style={{fontSize:6.5,fontWeight:700,color:'#16A34A',
                       fontFamily:"'DM Mono',monospace",marginTop:1}}>ouvré</div>}
                   </th>
@@ -4997,12 +5047,13 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                   {days.map((day, di) => {
                     const ds = dateStr(day);
                     const holiday = isHoliday(day);
+                    const nonWorkingDay = isNonWorkingCalendarDate(ds);
                     const workedHoliday = isWorkedHoliday(day);
                     const isFirstOfWeek = di % daysPerWeek === 0 && di > 0;
                     const isDeadline = zone.deadline && ds === zone.deadline;
-                    const cellBg = holiday?'#D1D5DB': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
+                    const cellBg = holiday?'#D1D5DB': nonWorkingDay?'rgba(156,163,175,.16)': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                     const cards = (()=>{
-                      if(holiday) return [];
+                      if(nonWorkingDay) return [];
                       return filtered.filter(function(iv){ return planningTaskVisibleOnDay(iv, day, zone.id); }).sort(planningTaskSort);
                     })();
                     const shown = (!showCriticalPath ? cards : cards.filter(function(iv){
@@ -5017,8 +5068,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                         onClick={function(){
                           if(!isAdmin) return;
                           if(moveSelectionActive && onMoveSelectedTasks){ onMoveSelectedTasks(selectedPlanningIds, zone.id, ds); return; }
-                          if(holiday) return;
-                          if(pasteTaskActive&&onPasteTask){onPasteTask(zone.id,ds);}else{onOpenAdd(zone.id,ds);}
+                          if(pasteTaskActive&&onPasteTask){onPasteTask(zone.id,ds); return;}
+                          if(nonWorkingDay) return;
+                          onOpenAdd(zone.id,ds);
                         }}
                         title={moveSelectionActive ? 'Déplacer la sélection vers '+zone.short+' le '+fmtDate(ds) : ''}
                         style={{
@@ -5029,7 +5081,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                           verticalAlign:'top',
                           borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
                           background:moveSelectionActive ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 5%, transparent), color-mix(in srgb, var(--primary) 5%, transparent)), '+cellBg : cellBg,
-                          cursor:isAdmin&&(moveSelectionActive||!holiday)?'pointer':'default',
+                          cursor:isAdmin&&(moveSelectionActive||pasteTaskActive||!nonWorkingDay)?'pointer':'default',
                           transition:'background .12s'}}>
                         {shown.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical, ds); })}
                       </td>
@@ -5321,7 +5373,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
 /* ════════════════════════════════════════════════════════════
    SETTINGS SCREEN
 ═══════════════════════════════════════════════════════════ */
-function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies, data = [], zoneClipboard = null, onCopyZone, onClearZoneClipboard, onPasteZone, onMoveZone, onDeleteZone, onDeleteTrade, onDeleteCompany, calendarOverrides, onSetHolidayWorked }) {
+function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies, data = [], zoneClipboard = null, onCopyZone, onClearZoneClipboard, onPasteZone, onMoveZone, onDeleteZone, onDeleteTrade, onDeleteCompany, calendarOverrides, onSetHolidayWorked, workingWeekdays = DEFAULT_WORKING_WEEKDAYS, onSetWorkingWeekday }) {
   const [tab, setTab] = useState('zones');
   const [editingZone, setEditingZone] = useState(null);
   const [editingTrade, setEditingTrade] = useState(null);
@@ -5332,6 +5384,18 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
   const [zonePaste, setZonePaste] = useState({targetZoneId:'', startDate:dateStr(new Date()), newName:'', newShort:'', newFloor:'', newDeadline:''});
   const PALETTE = Object.keys(TRADE_COLORS);
   const holidayDates = Array.from(_HOLIDAYS).sort();
+  const workingDayLabels = [
+    {idx:1,label:'Lundi',short:'Lun'},
+    {idx:2,label:'Mardi',short:'Mar'},
+    {idx:3,label:'Mercredi',short:'Mer'},
+    {idx:4,label:'Jeudi',short:'Jeu'},
+    {idx:5,label:'Vendredi',short:'Ven'},
+    {idx:6,label:'Samedi',short:'Sam'},
+    {idx:0,label:'Dimanche',short:'Dim'}
+  ];
+  function workingDayEnabled(idx) {
+    return normalizeWorkingWeekdays(workingWeekdays).includes(idx);
+  }
   function overrideFor(ds) {
     return (calendarOverrides||[]).find(function(o){return o.date===ds;});
   }
@@ -5848,6 +5912,30 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                 </div>
               );
             })}
+          </div>
+
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',
+            borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,boxShadow:'var(--shadow)'}}>
+            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:5}}>Jours ouvrés standards</div>
+            <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.45,marginBottom:10}}>
+              Ces jours pilotent l’affichage 5J, le collage des tâches et les déplacements. Par défaut : lundi à vendredi.
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(0,1fr))',gap:6}}>
+              {workingDayLabels.map(function(d){
+                var active = workingDayEnabled(d.idx);
+                return (
+                  <button key={d.idx} type="button" onClick={function(){onSetWorkingWeekday && onSetWorkingWeekday(d.idx, !active);}}
+                    title={d.label}
+                    style={{padding:'8px 4px',borderRadius:'var(--r-xs)',
+                      border:'1px solid '+(active?'var(--primary)':'var(--border)'),
+                      background:active?'var(--primary-l)':'var(--surface-2)',
+                      color:active?'var(--primary)':'var(--muted)',fontSize:11,fontWeight:900,
+                      cursor:'pointer',fontFamily:"'DM Mono',monospace"}}>
+                    {d.short}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div style={{background:'var(--surface)',border:'1px solid var(--border)',
@@ -7575,6 +7663,7 @@ function PlanifyApp() {
   const [companies,  setCompanies]  = useState([...COMPANIES]);
   const [loginCompaniesLoading, setLoginCompaniesLoading] = useState(false);
   const [calendarOverrides, setCalendarOverrides] = useState([]);
+  const [workingWeekdays, setWorkingWeekdays] = useState(DEFAULT_WORKING_WEEKDAYS.slice());
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
   const [taskClipboard, setTaskClipboard] = useState(null);
   const [zoneClipboard, setZoneClipboard] = useState(null);
@@ -7640,6 +7729,11 @@ function PlanifyApp() {
       .map(function(o){return normalizeDateKey(o.date);})
       .filter(Boolean));
   }, [calendarOverrides]);
+
+  // Working weekdays are configurable from the admin calendar settings.
+  useEffect(() => {
+    window.PLANIFY_WORKING_WEEKDAYS = new Set(normalizeWorkingWeekdays(workingWeekdays));
+  }, [workingWeekdays]);
 
   function notify(message, type = 'success', ms = 2600) {
     setToast({message:message,type:type});
@@ -7956,12 +8050,13 @@ function PlanifyApp() {
       fetch(SUPA_URL+'/rest/v1/companies?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/interventions?order=start_date',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/calendar_overrides?order=date',{headers:hdrs}),
+      fetch(SUPA_URL+'/rest/v1/calendar_settings?key=eq.working_weekdays',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/task_change_requests?order=created_at.desc&limit=500',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/task_logs?order=created_at.desc&limit=500',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/notifications?order=created_at.desc&limit=200'+(sess&&sess.role==='company'&&sess.company?('&company=eq.'+encodeURIComponent(sess.company.name)):''),{headers:hdrs}),
     ]).then(function(rs){ return Promise.all(rs.map(function(r){return r.ok?r.json():[];})); })
     .then(function(results){
-      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], crData=results[5], logData=results[6], nData=results[7];
+      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], calendarSettingsData=results[5], crData=results[6], logData=results[7], nData=results[8];
       if(zData&&zData.length) setZones(zData);
       if(tData&&tData.length) setTrades(tData.map(function(t){
         var loc=TRADES.find(function(lt){return lt.id===t.id;}) || {};
@@ -7979,6 +8074,12 @@ function PlanifyApp() {
       setCalendarOverrides((calData||[]).map(function(r){
         return {date:normalizeDateKey(r.date),label:r.label||'',is_worked:!!r.is_worked,updated_at:r.updated_at||''};
       }).filter(function(r){ return !!r.date; }));
+      var workingSetting = (calendarSettingsData||[]).find(function(r){ return r.key === 'working_weekdays'; });
+      if (workingSetting) {
+        var rawDays = workingSetting.value;
+        if (rawDays && !Array.isArray(rawDays) && Array.isArray(rawDays.days)) rawDays = rawDays.days;
+        setWorkingWeekdays(normalizeWorkingWeekdays(rawDays));
+      }
       setChangeRequests((crData||[]).map(normalizeChangeRequestRow));
       setTaskLogs(logData || []);
       setNotifications(nData || []);
@@ -8015,6 +8116,21 @@ function PlanifyApp() {
     sbFetchRows('POST','calendar_overrides',row,'on_conflict=date')
       .then(function(){notify(isWorked?'Jour férié rendu ouvré ✓':'Jour férié remis non ouvré ✓','success');})
       .catch(function(){notify('Erreur calendrier','error');});
+  }
+
+  function handleWorkingWeekdayToggle(dayIndex, enabled) {
+    var current = normalizeWorkingWeekdays(workingWeekdays);
+    var set = new Set(current);
+    if (enabled) set.add(Number(dayIndex));
+    else set.delete(Number(dayIndex));
+    var next = normalizeWorkingWeekdays(Array.from(set));
+    if (!next.length) next = DEFAULT_WORKING_WEEKDAYS.slice();
+    setWorkingWeekdays(next);
+    window.PLANIFY_WORKING_WEEKDAYS = new Set(next);
+    var row = {key:'working_weekdays',value:next,updated_at:new Date().toISOString()};
+    sbFetchRows('POST','calendar_settings',row,'on_conflict=key')
+      .then(function(){notify('Jours ouvrés mis à jour ✓','success');})
+      .catch(function(){notify('Erreur sauvegarde jours ouvrés','error');});
   }
 
   function syncAll(showMessage = true) {
@@ -8102,7 +8218,7 @@ function PlanifyApp() {
   }
   function isWeekendDateStr(ds) {
     var dow = dayOfWeekDateStr(ds);
-    return dow === 0 || dow === 6;
+    return !getConfiguredWorkingWeekdays().includes(dow);
   }
   function isHolidayDateStr(ds) {
     return isHoliday(normalizeDateKey(ds || dateStr(new Date())));
@@ -8338,7 +8454,7 @@ function PlanifyApp() {
         name:String(nz.name || '').trim(),
         short:String(nz.short || '').trim(),
         floor:String(nz.floor || '').trim(),
-        floor_color:getZoneFloorColor({floor:String(nz.floor || '').trim(),floor_color:(zoneClipboard.zone && zoneClipboard.zone.floor_color) || ''}, zones),
+        floor_color:getZoneFloorColor(String(nz.floor || '').trim(), zones),
         deadline:nz.deadline || null,
         display_order:currentOrders.length ? Math.max.apply(null, currentOrders) + 10 : 10
       };
@@ -9168,7 +9284,8 @@ function PlanifyApp() {
         onCopyZone={copyZoneToClipboard} onClearZoneClipboard={clearZoneClipboard}
         onPasteZone={pasteZoneFromClipboard} onMoveZone={moveZone}
         onDeleteZone={deleteZone} onDeleteTrade={deleteTrade} onDeleteCompany={deleteCompany}
-        calendarOverrides={calendarOverrides} onSetHolidayWorked={handleHolidayWorked} />;
+        calendarOverrides={calendarOverrides} onSetHolidayWorked={handleHolidayWorked}
+        workingWeekdays={workingWeekdays} onSetWorkingWeekday={handleWorkingWeekdayToggle} />;
       default:          return null;
     }
   };
