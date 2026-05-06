@@ -385,7 +385,9 @@ const DAYS_FR = ['Lun','Mar','Mer','Jeu','Ven'];
 // French public holidays 2026
 const HOLIDAYS_2026 = new Set([
   '2026-01-01','2026-04-06','2026-05-01','2026-05-08',
-  '2026-05-14','2026-05-25','2026-07-14','2026-08-15',
+  '2026-05-14','2026-05-25',
+  '2026-07-14', // mardi — Fête nationale
+  '2026-08-15', // samedi — Assomption
   '2026-11-01','2026-11-11','2026-12-25'
 ]);
 function isHoliday(d) { return HOLIDAYS_2026.has(dateStr(d)); }
@@ -3202,8 +3204,11 @@ const _HOLIDAYS = new Set([
   '2026-05-08', // Victoire 1945
   '2026-05-14', // Ascension
   '2026-05-25', // Lundi de Pentecote
-  '2026-07-14', // Fete Nationale
-  '2026-08-15','2026-11-01','2026-11-11','2026-12-25'
+  '2026-07-14', // mardi — Fête Nationale
+  '2026-08-15', // samedi — Assomption
+  '2026-11-01', // dimanche — Toussaint
+  '2026-11-11', // mercredi — Armistice
+  '2026-12-25'  // vendredi — Noël
 ]);
 const _HOLIDAY_LABELS = {
   '2026-01-01':'Jour de l’an',
@@ -3220,7 +3225,12 @@ const _HOLIDAY_LABELS = {
 };
 window.PLANIFY_WORKED_HOLIDAYS = window.PLANIFY_WORKED_HOLIDAYS || new Set();
 const PLANNING_DEFAULT_END_DATE = '2026-10-31'; // Planning disponible jusqu'à fin octobre 2026
-function _ds(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _ds(d) {
+  if (!(d instanceof Date)) d = new Date(d);
+  if (Number.isNaN(d.getTime())) return '';
+  // Dates chantier en clé pure YYYY-MM-DD, sans décalage de fuseau.
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+}
 function normalizeDateKey(value) {
   if (!value) return '';
   if (value instanceof Date) return _ds(value);
@@ -8014,23 +8024,72 @@ function PlanifyApp() {
   function diffDaysStr(fromDate, toDate) {
     return Math.round((dateToUtcMs(toDate) - dateToUtcMs(fromDate)) / (24 * 3600 * 1000));
   }
+  function dayOfWeekDateStr(ds) {
+    var key = normalizeDateKey(ds || dateStr(new Date()));
+    var p = key.split('-').map(function(n){ return parseInt(n, 10); });
+    if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) return 1;
+    return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
+  }
   function isWeekendDateStr(ds) {
-    var d = new Date(normalizeDateKey(ds) + 'T00:00:00');
-    var dow = d.getDay();
+    var dow = dayOfWeekDateStr(ds);
     return dow === 0 || dow === 6;
   }
+  function isHolidayDateStr(ds) {
+    return isHoliday(normalizeDateKey(ds || dateStr(new Date())));
+  }
   function isNonWorkingDateStr(ds) {
-    var d = new Date(normalizeDateKey(ds) + 'T00:00:00');
-    return isWeekendDateStr(ds) || isHoliday(d);
+    return isWeekendDateStr(ds) || isHolidayDateStr(ds);
+  }
+  function isWorkingDateStr(ds) {
+    return !isNonWorkingDateStr(ds);
   }
   function nextWorkingDateStr(ds) {
     var current = normalizeDateKey(ds || dateStr(new Date()));
     var guard = 0;
-    while (isNonWorkingDateStr(current) && guard < 30) {
+    while (isNonWorkingDateStr(current) && guard < 90) {
       current = addDaysStr(current, 1);
       guard += 1;
     }
     return current;
+  }
+  function addWorkingDaysStr(baseDate, amount) {
+    var current = nextWorkingDateStr(baseDate || dateStr(new Date()));
+    var remaining = Math.max(0, Number(amount || 0));
+    var guard = 0;
+    while (remaining > 0 && guard < 500) {
+      current = addDaysStr(current, 1);
+      if (isWorkingDateStr(current)) remaining -= 1;
+      guard += 1;
+    }
+    return current;
+  }
+  function workingOffsetDaysStr(fromDate, toDate) {
+    var from = nextWorkingDateStr(fromDate || dateStr(new Date()));
+    var to = nextWorkingDateStr(toDate || from);
+    if (to <= from) return 0;
+    var current = from;
+    var count = 0;
+    var guard = 0;
+    while (current < to && guard < 500) {
+      current = addDaysStr(current, 1);
+      if (isWorkingDateStr(current)) count += 1;
+      guard += 1;
+    }
+    return count;
+  }
+  function workingSpanDaysStr(start, end) {
+    var s = nextWorkingDateStr(start || dateStr(new Date()));
+    var e = nextWorkingDateStr(end || s);
+    if (e < s) e = s;
+    var current = s;
+    var count = 1;
+    var guard = 0;
+    while (current < e && guard < 500) {
+      current = addDaysStr(current, 1);
+      if (isWorkingDateStr(current)) count += 1;
+      guard += 1;
+    }
+    return Math.max(1, count);
   }
   function daysBetweenStr(start, end) {
     return Math.max(0, diffDaysStr(start || dateStr(new Date()), end || start || dateStr(new Date())));
@@ -8057,20 +8116,24 @@ function PlanifyApp() {
     };
   }
   function makeTaskCopy(source, targetZoneId, targetDate, existingTasks, alreadyDrafted) {
-    var duration = daysBetweenStr(source.start, source.end || source.start);
-    var endDate = addDaysStr(targetDate, duration);
+    // Une tâche collée ne doit jamais démarrer ni finir un samedi, dimanche ou jour férié.
+    var cleanStart = nextWorkingDateStr(targetDate || dateStr(new Date()));
+    var sourceStart = taskStartKey(source);
+    var sourceEnd = taskEndKey(source);
+    var workingSpan = workingSpanDaysStr(sourceStart, sourceEnd);
+    var endDate = addWorkingDaysStr(cleanStart, workingSpan - 1);
     var pool = (existingTasks || data || []).concat(alreadyDrafted || []);
     return Object.assign({}, source, {
       id:genId(),
       zone:targetZoneId,
-      start:targetDate,
+      start:cleanStart,
       end:endDate,
       status:'arealis',
       task_number:genTaskNum(pool, source.company, source.trade, trades),
       predecessor_id:null,
       predecessor_ids:[],
       successor_ids:[],
-      off_days:weekendOffDaysBetween(targetDate, endDate),
+      off_days:weekendOffDaysBetween(cleanStart, endDate),
       updated_at:null,
       _expected_updated_at:''
     });
@@ -8234,22 +8297,25 @@ function PlanifyApp() {
       return;
     }
 
-    // Règle métier : la 1ère tâche chronologique de la zone copiée démarre EXACTEMENT
-    // à la date saisie au moment du collage. Toutes les autres tâches gardent leur
-    // écart relatif en jours par rapport à cette première tâche.
+    // Règle métier : la 1ère tâche chronologique de la zone copiée démarre à la date saisie,
+    // sauf si cette date est un samedi, dimanche ou jour férié : elle est alors décalée au jour ouvré suivant.
+    // Les tâches suivantes gardent l'ordre et l'écart en JOURS OUVRÉS par rapport à cette première tâche.
     var anchorTask = sourceTasks[0];
-    var anchorStart = taskStartKey(anchorTask);
+    var anchorStart = nextWorkingDateStr(taskStartKey(anchorTask));
+    var effectiveStartDate = nextWorkingDateStr(startDate);
+    var shiftedNonWorking = effectiveStartDate !== startDate ? 1 : 0;
 
     var idMap = {};
     var drafts = [];
 
     sourceTasks.forEach(function(src, sourceIndex){
-      var originalStart = taskStartKey(src);
-      var originalEnd = taskEndKey(src);
-      var offsetFromAnchor = diffDaysStr(anchorStart, originalStart);
-      var duration = Math.max(0, diffDaysStr(originalStart, originalEnd));
-      var ns = addDaysStr(startDate, offsetFromAnchor);
-      var ne = addDaysStr(ns, duration);
+      var originalStart = nextWorkingDateStr(taskStartKey(src));
+      var originalEnd = nextWorkingDateStr(taskEndKey(src));
+      var offsetFromAnchor = workingOffsetDaysStr(anchorStart, originalStart);
+      var workingSpan = workingSpanDaysStr(originalStart, originalEnd);
+      var ns = addWorkingDaysStr(effectiveStartDate, offsetFromAnchor);
+      var ne = addWorkingDaysStr(ns, workingSpan - 1);
+      if (ns !== addDaysStr(startDate, diffDaysStr(anchorStart, taskStartKey(src)))) shiftedNonWorking += 1;
       var draft = makeTaskCopy(src, targetZoneId, ns, data, drafts);
 
       draft.start = ns;
@@ -8257,10 +8323,10 @@ function PlanifyApp() {
       draft.status = 'arealis';
       draft.off_days = weekendOffDaysBetween(draft.start, draft.end);
       draft.company_edit_start_min = src.company_edit_start_min
-        ? addDaysStr(startDate, diffDaysStr(anchorStart, src.company_edit_start_min))
+        ? addWorkingDaysStr(effectiveStartDate, workingOffsetDaysStr(anchorStart, src.company_edit_start_min))
         : '';
       draft.company_edit_end_max = src.company_edit_end_max
-        ? addDaysStr(startDate, diffDaysStr(anchorStart, src.company_edit_end_max))
+        ? addWorkingDaysStr(effectiveStartDate, workingOffsetDaysStr(anchorStart, src.company_edit_end_max))
         : '';
       draft._paste_source_order = sourceIndex;
 
@@ -8289,12 +8355,12 @@ function PlanifyApp() {
         event_type:'zone_duplicated',
         zone_id:targetZoneId,
         zone_name:targetZone ? targetZone.name : '',
-        message:'Zone copiée : '+zoneClipboard.zone.short+' → '+(targetZone ? targetZone.short : targetZoneId)+' · démarrage '+fmtDate(startDate)+' · '+saved.length+' tâche'+(saved.length>1?'s':''),
-        payload:{source_zone:zoneClipboard.zone,target_zone:targetZone,tasks_count:saved.length,start_date:startDate,anchor_start:anchorStart}
+        message:'Zone copiée : '+zoneClipboard.zone.short+' → '+(targetZone ? targetZone.short : targetZoneId)+' · démarrage '+fmtDate(effectiveStartDate)+' · '+saved.length+' tâche'+(saved.length>1?'s':''),
+        payload:{source_zone:zoneClipboard.zone,target_zone:targetZone,tasks_count:saved.length,requested_start_date:startDate,start_date:effectiveStartDate,anchor_start:anchorStart,shifted_non_working_count:shiftedNonWorking}
       });
       setZoneClipboard(null);
       setScreen('planning');
-      notify('Zone collée : 1ère tâche au '+fmtDate(startDate)+' ✓','success',3600);
+      notify('Zone collée : 1ère tâche au '+fmtDate(effectiveStartDate)+(shiftedNonWorking?' · jours non ouvrés évités':'')+' ✓','success',4200);
     } catch(e) {
       notify('Erreur lors du collage de la zone','error',4200);
     }
@@ -8320,17 +8386,16 @@ function PlanifyApp() {
     var shiftedCount = 0;
     var nowIso = new Date().toISOString();
 
+    var effectiveTarget = nextWorkingDateStr(requestedTarget);
+    if (effectiveTarget !== requestedTarget) shiftedCount += 1;
+
     var moved = selected.map(function(src){
-      var originalStart = taskStartKey(src);
-      var originalEnd = taskEndKey(src);
-      var offset = diffDaysStr(anchorStart, originalStart);
-      var duration = Math.max(0, diffDaysStr(originalStart, originalEnd));
-      var candidateStart = addDaysStr(requestedTarget, offset);
-      var newStart = nextWorkingDateStr(candidateStart);
-      if (newStart !== candidateStart) shiftedCount += 1;
-      var candidateEnd = addDaysStr(newStart, duration);
-      var newEnd = nextWorkingDateStr(candidateEnd);
-      if (newEnd !== candidateEnd) shiftedCount += 1;
+      var originalStart = nextWorkingDateStr(taskStartKey(src));
+      var originalEnd = nextWorkingDateStr(taskEndKey(src));
+      var offset = workingOffsetDaysStr(anchorStart, originalStart);
+      var workingSpan = workingSpanDaysStr(originalStart, originalEnd);
+      var newStart = addWorkingDaysStr(effectiveTarget, offset);
+      var newEnd = addWorkingDaysStr(newStart, workingSpan - 1);
       var next = Object.assign({}, src, {
         zone:targetZoneId,
         start:newStart,
@@ -8365,8 +8430,8 @@ function PlanifyApp() {
         event_type:'tasks_moved',
         zone_id:targetZoneId,
         zone_name:targetZone ? targetZone.name : '',
-        message:'Déplacement planning : '+savedRows.length+' tâche'+(savedRows.length>1?'s':'')+' vers '+(targetZone ? targetZone.short : targetZoneId)+' à partir du '+fmtDate(requestedTarget),
-        payload:{task_ids:savedRows.map(function(t){ return t.id; }),target_zone_id:targetZoneId,target_date:requestedTarget,shifted_non_working_count:shiftedCount}
+        message:'Déplacement planning : '+savedRows.length+' tâche'+(savedRows.length>1?'s':'')+' vers '+(targetZone ? targetZone.short : targetZoneId)+' à partir du '+fmtDate(effectiveTarget),
+        payload:{task_ids:savedRows.map(function(t){ return t.id; }),target_zone_id:targetZoneId,requested_target_date:requestedTarget,target_date:effectiveTarget,shifted_non_working_count:shiftedCount}
       });
       setSelectedPlanningTaskIds([]);
       notify('Tâche'+(savedRows.length>1?'s':'')+' déplacée'+(savedRows.length>1?'s':'')+(shiftedCount?' · jours non ouvrés évités':'')+' ✓','success',3600);
