@@ -7901,15 +7901,31 @@ function PlanifyApp() {
   const canChangeStatus = !planningValidated;
 
 
+  function dateToUtcMs(value) {
+    var ds = normalizeDateKey(value || dateStr(new Date()));
+    var p = ds.split('-').map(function(n){ return parseInt(n, 10); });
+    if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) {
+      var fallback = dateStr(new Date()).split('-').map(function(n){ return parseInt(n, 10); });
+      return Date.UTC(fallback[0], fallback[1] - 1, fallback[2]);
+    }
+    return Date.UTC(p[0], p[1] - 1, p[2]);
+  }
   function addDaysStr(baseDate, amount) {
-    var d = new Date((baseDate || dateStr(new Date())) + 'T00:00:00');
-    d.setDate(d.getDate() + Number(amount || 0));
-    return dateStr(d);
+    var ms = dateToUtcMs(baseDate) + Number(amount || 0) * 24 * 3600 * 1000;
+    var d = new Date(ms);
+    return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+  }
+  function diffDaysStr(fromDate, toDate) {
+    return Math.round((dateToUtcMs(toDate) - dateToUtcMs(fromDate)) / (24 * 3600 * 1000));
   }
   function daysBetweenStr(start, end) {
-    var s = new Date((start || dateStr(new Date())) + 'T00:00:00');
-    var e = new Date((end || start || dateStr(new Date())) + 'T00:00:00');
-    return Math.max(0, Math.round((e - s) / (24 * 3600 * 1000)));
+    return Math.max(0, diffDaysStr(start || dateStr(new Date()), end || start || dateStr(new Date())));
+  }
+  function taskStartKey(task) {
+    return normalizeDateKey(task && (task.start || task.start_date) || dateStr(new Date()));
+  }
+  function taskEndKey(task) {
+    return normalizeDateKey(task && (task.end || task.end_date || task.start || task.start_date) || dateStr(new Date()));
   }
   function interventionToSupabaseRow(cleanIv, newUpdatedAt) {
     return {
@@ -8063,6 +8079,7 @@ function PlanifyApp() {
     var targetZone = null;
     var startDate = normalizeDateKey(opts.startDate || dateStr(new Date()));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) startDate = dateStr(new Date());
+
     if (opts.mode === 'new') {
       var nz = opts.newZone || {};
       if (!String(nz.name || '').trim() || !String(nz.short || '').trim() || !String(nz.floor || '').trim()) {
@@ -8085,45 +8102,69 @@ function PlanifyApp() {
       targetZone = zones.find(function(z){ return z.id === targetZoneId; });
       if (!targetZone) { alert('Zone de destination introuvable.'); return; }
     }
+
     var sourceTasks = (zoneClipboard.tasks || []).slice().sort(function(a,b){
-      var as = a.start || '';
-      var bs = b.start || '';
+      var as = taskStartKey(a);
+      var bs = taskStartKey(b);
       if (as !== bs) return as.localeCompare(bs);
-      var ae = a.end || a.start || '';
-      var be = b.end || b.start || '';
+      var ae = taskEndKey(a);
+      var be = taskEndKey(b);
       if (ae !== be) return ae.localeCompare(be);
       return planningTaskSort(a,b);
     });
+
     if (!sourceTasks.length) {
       setZoneClipboard(null);
       notify('Zone créée / sélectionnée. Aucune tâche à copier.','success',2600);
       setScreen('planning');
       return;
     }
-    var minStart = sourceTasks.reduce(function(min, t){ return !min || String(t.start) < String(min) ? t.start : min; }, '');
-    var shift = Math.round((new Date(startDate + 'T00:00:00') - new Date((minStart || startDate) + 'T00:00:00')) / (24 * 3600 * 1000));
+
+    // Règle métier : la 1ère tâche chronologique de la zone copiée démarre EXACTEMENT
+    // à la date saisie au moment du collage. Toutes les autres tâches gardent leur
+    // écart relatif en jours par rapport à cette première tâche.
+    var anchorTask = sourceTasks[0];
+    var anchorStart = taskStartKey(anchorTask);
+
     var idMap = {};
     var drafts = [];
-    sourceTasks.forEach(function(src){
-      var originalStart = src.start || minStart || startDate;
-      var originalEnd = src.end || src.start || minStart || startDate;
-      var ns = addDaysStr(originalStart, shift);
-      var ne = addDaysStr(originalEnd, shift);
+
+    sourceTasks.forEach(function(src, sourceIndex){
+      var originalStart = taskStartKey(src);
+      var originalEnd = taskEndKey(src);
+      var offsetFromAnchor = diffDaysStr(anchorStart, originalStart);
+      var duration = Math.max(0, diffDaysStr(originalStart, originalEnd));
+      var ns = addDaysStr(startDate, offsetFromAnchor);
+      var ne = addDaysStr(ns, duration);
       var draft = makeTaskCopy(src, targetZoneId, ns, data, drafts);
+
       draft.start = ns;
       draft.end = ne;
+      draft.status = 'arealis';
       draft.off_days = weekendOffDaysBetween(draft.start, draft.end);
-      draft.company_edit_start_min = src.company_edit_start_min ? addDaysStr(src.company_edit_start_min, shift) : '';
-      draft.company_edit_end_max = src.company_edit_end_max ? addDaysStr(src.company_edit_end_max, shift) : '';
+      draft.company_edit_start_min = src.company_edit_start_min
+        ? addDaysStr(startDate, diffDaysStr(anchorStart, src.company_edit_start_min))
+        : '';
+      draft.company_edit_end_max = src.company_edit_end_max
+        ? addDaysStr(startDate, diffDaysStr(anchorStart, src.company_edit_end_max))
+        : '';
+      draft._paste_source_order = sourceIndex;
+
       idMap[src.id] = draft.id;
       drafts.push(draft);
     });
+
     drafts = drafts.map(function(draft, index){
       var src = sourceTasks[index];
-      var pred = normalizeTaskLinkIds(src.predecessor_ids || src.predecessor_id).filter(function(id){ return !!idMap[id]; }).map(function(id){ return idMap[id]; });
-      var succ = normalizeTaskLinkIds(src.successor_ids).filter(function(id){ return !!idMap[id]; }).map(function(id){ return idMap[id]; });
+      var pred = normalizeTaskLinkIds(src.predecessor_ids || src.predecessor_id)
+        .filter(function(id){ return !!idMap[id]; })
+        .map(function(id){ return idMap[id]; });
+      var succ = normalizeTaskLinkIds(src.successor_ids)
+        .filter(function(id){ return !!idMap[id]; })
+        .map(function(id){ return idMap[id]; });
       return Object.assign({}, draft, {predecessor_ids:pred, successor_ids:succ, predecessor_id:pred[0] || null});
     });
+
     var nowIso = new Date().toISOString();
     var rows = drafts.map(function(d){ return interventionToSupabaseRow(d, nowIso); });
     try {
@@ -8134,12 +8175,12 @@ function PlanifyApp() {
         event_type:'zone_duplicated',
         zone_id:targetZoneId,
         zone_name:targetZone ? targetZone.name : '',
-        message:'Zone copiée : '+zoneClipboard.zone.short+' → '+(targetZone ? targetZone.short : targetZoneId)+' · '+saved.length+' tâche'+(saved.length>1?'s':''),
-        payload:{source_zone:zoneClipboard.zone,target_zone:targetZone,tasks_count:saved.length}
+        message:'Zone copiée : '+zoneClipboard.zone.short+' → '+(targetZone ? targetZone.short : targetZoneId)+' · démarrage '+fmtDate(startDate)+' · '+saved.length+' tâche'+(saved.length>1?'s':''),
+        payload:{source_zone:zoneClipboard.zone,target_zone:targetZone,tasks_count:saved.length,start_date:startDate,anchor_start:anchorStart}
       });
       setZoneClipboard(null);
       setScreen('planning');
-      notify('Zone collée avec '+saved.length+' tâche'+(saved.length>1?'s':'')+' ✓','success',3600);
+      notify('Zone collée : 1ère tâche au '+fmtDate(startDate)+' ✓','success',3600);
     } catch(e) {
       notify('Erreur lors du collage de la zone','error',4200);
     }
