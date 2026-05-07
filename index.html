@@ -105,34 +105,18 @@ function getTC(colorId) {
 }
 
 const ZONES = [
-    {id:'z_1',name:'R+3 — Sanitaire H/F',    short:'R3-SANI',deadline:'2026-06-04',floor:'R+3',floor_color:'#2152C8'},
-    {id:'z_2',name:'R+3 — Bureaux + circ.', short:'R3-BUR', deadline:'2026-06-04',floor:'R+3',floor_color:'#2152C8'},
-    {id:'z_3',name:'R+3 — Tisanerie',        short:'R3-TIS', deadline:'2026-06-04',floor:'R+3',floor_color:'#2152C8'},
-    {id:'z_4',name:'R+3 — LT VDI',           short:'R3-VDI', deadline:'2026-06-04',floor:'R+3',floor_color:'#2152C8'},
-    {id:'z_5',name:'R+2 — Tisanerie',        short:'R2-TIS', deadline:'2026-05-29',floor:'R+2',floor_color:'#0D9488'},
-    {id:'z_6',name:'R+1 — Tisanerie',        short:'R1-TIS', deadline:'2026-05-29',floor:'R+1',floor_color:'#8B5CF6'},
-    {id:'z_7',name:'R+1 — Cafétéria',        short:'R1-CAF', deadline:'2026-05-29',floor:'R+1',floor_color:'#8B5CF6'},
-    {id:'z_8',name:'R+1 — Lounge',           short:'R1-LGE', deadline:'2026-05-29',floor:'R+1',floor_color:'#8B5CF6'},
+  {id:'z_1',name:'R+3 — Sanitaire H/F',    short:'R3-SANI',deadline:'2026-06-04',floor:'R+3'},
+  {id:'z_2',name:'R+3 — Bureaux + circ.', short:'R3-BUR', deadline:'2026-06-04',floor:'R+3'},
+  {id:'z_3',name:'R+3 — Tisanerie',        short:'R3-TIS', deadline:'2026-06-04',floor:'R+3'},
+  {id:'z_4',name:'R+3 — LT VDI',           short:'R3-VDI', deadline:'2026-06-04',floor:'R+3'},
+  {id:'z_5',name:'R+2 — Tisanerie',        short:'R2-TIS', deadline:'2026-05-29',floor:'R+2'},
+  {id:'z_6',name:'R+1 — Tisanerie',        short:'R1-TIS', deadline:'2026-05-29',floor:'R+1'},
+  {id:'z_7',name:'R+1 — Cafétéria',        short:'R1-CAF', deadline:'2026-05-29',floor:'R+1'},
+  {id:'z_8',name:'R+1 — Lounge',           short:'R1-LGE', deadline:'2026-05-29',floor:'R+1'},
 ];
 
 // Floor accent colors
 const FLOOR_COLORS = {'R+3':'#2152C8','R+2':'#0D9488','R+1':'#8B5CF6'};
-
-function normalizeFloorColorValue(color) {
-  var value = String(color || '').trim();
-  return /^#[0-9A-Fa-f]{6}$/.test(value) ? value.toUpperCase() : '';
-}
-function getZoneFloorColor(zoneOrFloor, zonesList) {
-  var zone = typeof zoneOrFloor === 'object' && zoneOrFloor ? zoneOrFloor : null;
-  var floor = zone ? String(zone.floor || '') : String(zoneOrFloor || '');
-  var direct = zone ? normalizeFloorColorValue(zone.floor_color) : '';
-  if (direct) return direct;
-  var match = (zonesList || []).find(function(z){
-    return String(z.floor || '') === floor && normalizeFloorColorValue(z.floor_color);
-  });
-  if (match) return normalizeFloorColorValue(match.floor_color);
-  return FLOOR_COLORS[floor] || '#9CA3AF';
-}
 
 function daysUntil(dateStr) {
   const d = new Date(dateStr+'T00:00:00'), now = new Date();
@@ -401,9 +385,7 @@ const DAYS_FR = ['Lun','Mar','Mer','Jeu','Ven'];
 // French public holidays 2026
 const HOLIDAYS_2026 = new Set([
   '2026-01-01','2026-04-06','2026-05-01','2026-05-08',
-  '2026-05-14','2026-05-25',
-  '2026-07-14', // mardi — Fête nationale
-  '2026-08-15', // samedi — Assomption
+  '2026-05-14','2026-05-25','2026-07-14','2026-08-15',
   '2026-11-01','2026-11-11','2026-12-25'
 ]);
 function isHoliday(d) { return HOLIDAYS_2026.has(dateStr(d)); }
@@ -426,7 +408,7 @@ function workingDaysUntil(ds) {
 
 // Expose all globals so Babel-compiled scripts can access them
 Object.assign(window, {
-  ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, CHANGE_REQUEST_STATUS_META, TASK_CHANGE_FIELDS, FLOOR_COLORS, getZoneFloorColor, normalizeFloorColorValue, DAYS_FR,
+  ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, CHANGE_REQUEST_STATUS_META, TASK_CHANGE_FIELDS, FLOOR_COLORS, DAYS_FR,
   planifyIsDarkTheme, planifyHexToRgb, planifyRgba,
   HOLIDAYS_2026, isHoliday, workingDaysUntil,
   getTC, getStatusThemeMeta, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
@@ -1058,7 +1040,7 @@ function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null,
       <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
       <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}>
         <TaskDependencyBadges iv={iv} data={data} compact />
-        {hasCritical ? <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'1px 6px',borderRadius:20,background:rgbaCss(ccColor,.16),color:ccColor,border:'1px solid '+rgbaCss(ccColor,.45),fontSize:8.5,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CC'}</span> : null}
+        {hasCritical ? <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'1px 6px',borderRadius:20,background:rgbaCss(ccColor,.16),color:ccColor,border:'1px solid '+rgbaCss(ccColor,.45),fontSize:8.5,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CC'} · chemin critique</span> : null}
       </div>
       {iv.prereq && <div style={{fontSize:'8.5px',marginTop:2,color:'#DC2626',opacity:.85,display:'flex',gap:3,alignItems:'flex-start'}}>
         <span>⚠</span><span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.prereq.slice(0,40)}</span>
@@ -1117,9 +1099,6 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
   var maxWeeks = 1;
   if (viewMode === 'tout') {
     var nowHdr = new Date(); nowHdr.setHours(0,0,0,0);
-    var defaultEndHdr = new Date((typeof PLANNING_DEFAULT_END_DATE !== 'undefined' ? PLANNING_DEFAULT_END_DATE : '2026-10-31') + 'T00:00:00');
-    var defaultWeeksHdr = Math.ceil((defaultEndHdr - nowHdr)/(7*24*3600*1000)) + 1;
-    if (!Number.isNaN(defaultWeeksHdr) && defaultWeeksHdr > maxWeeks) maxWeeks = defaultWeeksHdr;
     zones.forEach(function(z){
       if(z.deadline){
         var d = new Date(z.deadline+'T00:00:00');
@@ -1127,12 +1106,17 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
         if(w > maxWeeks) maxWeeks = w;
       }
     });
-    maxWeeks = Math.max(1, Math.min(maxWeeks, 32));
+    maxWeeks = Math.max(1, Math.min(maxWeeks, 16));
   }
   const weeks = viewMode === 'tout' ? maxWeeks : viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const fullDaysForWeekend = multiWeekDays(weekOffset, weeks, true);
-  const weekendTaskVisible = false;
-  const headerIncludeWeekends = !!showWeekends;
+  const weekendTaskVisible = (data||[]).some(function(iv){
+    return fullDaysForWeekend.some(function(d){
+      var dow = d.getDay();
+      return (dow === 0 || dow === 6) && inDay(iv,d) && !(iv.off_days||[]).includes(dateStr(d));
+    });
+  });
+  const headerIncludeWeekends = !!showWeekends || weekendTaskVisible;
   const days  = multiWeekDays(weekOffset, weeks, headerIncludeWeekends);
   const start = days[0], end = days[days.length - 1];
 
@@ -1189,9 +1173,6 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
   const exportWeekOptions = React.useMemo(function(){
     var maxOffset = 11;
     var base = exportDateFromStr(exportStartDate || defaultExportStartDate, defaultExportStartDate);
-    var defaultEnd = new Date((typeof PLANNING_DEFAULT_END_DATE !== 'undefined' ? PLANNING_DEFAULT_END_DATE : '2026-10-31') + 'T00:00:00');
-    var defaultOff = Math.ceil((defaultEnd - base) / (7 * 24 * 3600 * 1000));
-    if (!Number.isNaN(defaultOff) && defaultOff > maxOffset) maxOffset = defaultOff;
     (zones || []).forEach(function(z){
       if (!z.deadline) return;
       var d = new Date(z.deadline + 'T00:00:00');
@@ -1199,7 +1180,7 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
       var off = Math.ceil((d - base) / (7 * 24 * 3600 * 1000));
       if (off > maxOffset) maxOffset = off;
     });
-    maxOffset = Math.max(0, Math.min(maxOffset, 32));
+    maxOffset = Math.max(0, Math.min(maxOffset, 20));
     return Array.from({length:maxOffset + 1}, function(_, offset){
       return {offset:offset, label:exportWeekRangeLabel(offset)};
     });
@@ -2902,7 +2883,7 @@ var TaskCard = window.TaskCard = function TaskCard({
             fontFamily:UX2.mono,
             whiteSpace:'nowrap'
           }}>
-            {criticalPath.chainLabel || 'CC'}
+            {criticalPath.chainLabel || 'CC'} · critique
           </span>
         )}
 
@@ -3215,11 +3196,8 @@ const _HOLIDAYS = new Set([
   '2026-05-08', // Victoire 1945
   '2026-05-14', // Ascension
   '2026-05-25', // Lundi de Pentecote
-  '2026-07-14', // mardi — Fête Nationale
-  '2026-08-15', // samedi — Assomption
-  '2026-11-01', // dimanche — Toussaint
-  '2026-11-11', // mercredi — Armistice
-  '2026-12-25'  // vendredi — Noël
+  '2026-07-14', // Fete Nationale
+  '2026-08-15','2026-11-01','2026-11-11','2026-12-25'
 ]);
 const _HOLIDAY_LABELS = {
   '2026-01-01':'Jour de l’an',
@@ -3235,59 +3213,7 @@ const _HOLIDAY_LABELS = {
   '2026-12-25':'Noël'
 };
 window.PLANIFY_WORKED_HOLIDAYS = window.PLANIFY_WORKED_HOLIDAYS || new Set();
-const DEFAULT_WORKING_WEEKDAYS = [1,2,3,4,5]; // 0=dimanche, 1=lundi, ... 6=samedi
-window.PLANIFY_WORKING_WEEKDAYS = window.PLANIFY_WORKING_WEEKDAYS || new Set(DEFAULT_WORKING_WEEKDAYS);
-const PLANNING_DEFAULT_END_DATE = '2026-10-31'; // Planning disponible jusqu'à fin octobre 2026
-
-function normalizeWorkingWeekdays(days) {
-  var arr = Array.isArray(days) ? days : DEFAULT_WORKING_WEEKDAYS;
-  var clean = Array.from(new Set(arr.map(function(d){ return Number(d); })
-    .filter(function(d){ return Number.isInteger(d) && d >= 0 && d <= 6; })))
-    .sort(function(a,b){ return a-b; });
-  return clean.length ? clean : DEFAULT_WORKING_WEEKDAYS.slice();
-}
-function getConfiguredWorkingWeekdays() {
-  if (window.PLANIFY_WORKING_WEEKDAYS instanceof Set) {
-    return normalizeWorkingWeekdays(Array.from(window.PLANIFY_WORKING_WEEKDAYS));
-  }
-  return DEFAULT_WORKING_WEEKDAYS.slice();
-}
-function dayOfWeekFromKey(ds) {
-  var key = normalizeDateKey(ds);
-  var p = key.split('-').map(function(n){ return parseInt(n, 10); });
-  if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) return 1;
-  return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
-}
-function isConfiguredWorkingWeekday(value) {
-  return getConfiguredWorkingWeekdays().includes(dayOfWeekFromKey(value));
-}
-function isNonWorkingCalendarDate(value) {
-  var key = normalizeDateKey(value);
-  return !isConfiguredWorkingWeekday(key) || isHoliday(key);
-}
-function nextConfiguredWorkingDate(value) {
-  var current = normalizeDateKey(value || dateStr(new Date()));
-  var guard = 0;
-  while (isNonWorkingCalendarDate(current) && guard < 180) {
-    current = addCalendarDaysKey(current, 1);
-    guard += 1;
-  }
-  return current;
-}
-function addCalendarDaysKey(baseDate, amount) {
-  var key = normalizeDateKey(baseDate || dateStr(new Date()));
-  var p = key.split('-').map(function(n){ return parseInt(n, 10); });
-  if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) return dateStr(new Date());
-  var d = new Date(Date.UTC(p[0], p[1] - 1, p[2] + Number(amount || 0)));
-  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
-}
-function _ds(d) {
-  if (!(d instanceof Date)) d = new Date(d);
-  if (Number.isNaN(d.getTime())) return '';
-  // Dates chantier en clé pure YYYY-MM-DD, sans conversion UTC.
-  // Correction critique : un Date local au 14/07 ne doit pas devenir 13/07 ou 15/07.
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
+function _ds(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function normalizeDateKey(value) {
   if (!value) return '';
   if (value instanceof Date) return _ds(value);
@@ -3333,20 +3259,9 @@ function weekendOffDaysBetween(start, end) {
   }
   return out;
 }
-function weekDays(offset = 0, includeAllDays = false) {
-  var m = getMonday(offset);
-  var all = Array.from({length:7}, function(_,i){ var d = new Date(m); d.setDate(m.getDate()+i); return d; });
-  if (includeAllDays) return all;
-  return all.filter(function(d){ return isConfiguredWorkingWeekday(dateStr(d)); });
+function multiWeekDays(offset = 0, weeks = 1, includeWeekends = false) {
+  return Array.from({length: weeks}, (_, w) => weekDays(offset + w, includeWeekends)).flat();
 }
-function multiWeekDays(offset = 0, weeks = 1, includeAllDays = false) {
-  return Array.from({length: weeks}, function(_, w){ return weekDays(offset + w, includeAllDays); }).flat();
-}
-Object.assign(window, {
-  DEFAULT_WORKING_WEEKDAYS, normalizeWorkingWeekdays, getConfiguredWorkingWeekdays,
-  isConfiguredWorkingWeekday, isNonWorkingCalendarDate, nextConfiguredWorkingDate,
-  weekDays, multiWeekDays
-});
 // ─────────────────────────────────────────────────────────────
 
 
@@ -4242,7 +4157,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
                     padding:'9px 10px',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
                     background:'var(--surface-2)',marginBottom:7,cursor:'pointer'}}>
                   <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
-                    <span style={{width:8,height:8,borderRadius:'50%',background:getZoneFloorColor(item.z, zones),display:'inline-block'}}></span>
+                    <span style={{width:8,height:8,borderRadius:'50%',background:FLOOR_COLORS[item.z.floor]||'#9CA3AF',display:'inline-block'}}></span>
                     <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{item.z.name}</span>
                   </div>
                   <div style={{display:'flex',gap:8,alignItems:'center',fontFamily:"'DM Mono',monospace",fontSize:10,flexShrink:0}}>
@@ -4278,7 +4193,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
                   onMouseLeave={function(e){e.currentTarget.style.background='transparent';}}>
                   <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                     <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,display:'inline-block',
-                      background:getZoneFloorColor(z, zones)}}></span>
+                      background:FLOOR_COLORS[z.floor]||'#9CA3AF'}}></span>
                     <span style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</span>
                     {enc>0&&<span style={{fontSize:10,color:'#2563EB',fontWeight:700}}>▶ {enc}</span>}
                     {bloc>0&&<span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>⚠ {bloc}</span>}
@@ -4399,7 +4314,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
             var p=zivs.length?Math.round(done/zivs.length*100):0;
             var wdv=workingDaysUntil(z.deadline);
             var dc=z.deadline?(wdv<0?'#DC2626':wdv<5?'#DC2626':wdv<15?'#EA580C':'#16A34A'):'var(--xmuted)';
-            var fc=getZoneFloorColor(z, zones);
+            var fc=FLOOR_COLORS[z.floor]||'#9CA3AF';
             var isOpen = openZoneId === z.id;
             return (
               <div key={z.id} style={{marginBottom:12}}>
@@ -4531,14 +4446,11 @@ function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
 }
 
 
-function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false, taskClipboard = null, onPasteTask, onClearTaskClipboard, selectedTaskIds = [], onToggleTaskSelection, onClearTaskSelection, onMoveSelectedTasks, dependencyLinkMode = null, onStartDependencyLinkMode, onCancelDependencyLinkMode, onChooseDependencyTarget, onValidateDependencyLink, onWeekChange }) {
+function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false }) {
   // 'tout' = show all weeks from today to the furthest deadline
   var maxWeeks = 1;
   if (viewMode === 'tout') {
     var now = new Date(); now.setHours(0,0,0,0);
-    var defaultEnd = new Date((typeof PLANNING_DEFAULT_END_DATE !== 'undefined' ? PLANNING_DEFAULT_END_DATE : '2026-10-31') + 'T00:00:00');
-    var defaultWeeks = Math.ceil((defaultEnd - now)/(7*24*3600*1000)) + 1;
-    if (!Number.isNaN(defaultWeeks) && defaultWeeks > maxWeeks) maxWeeks = defaultWeeks;
     zones.forEach(function(z){
       if(z.deadline){
         var d = new Date(z.deadline+'T00:00:00');
@@ -4546,37 +4458,20 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         if(w > maxWeeks) maxWeeks = w;
       }
     });
-    maxWeeks = Math.max(1, Math.min(maxWeeks, 32)); // jusqu'à fin octobre + marge
+    maxWeeks = Math.max(1, Math.min(maxWeeks, 16)); // cap at 16 weeks
   }
   const weeks = viewMode === 'tout' ? maxWeeks : viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1;
   const isDark = document.documentElement.getAttribute('data-theme') === 'nuit';
   const filtered = filter === 'all' ? data : data.filter(i => i.trade === filter);
   const isAdmin = session?.role === 'admin';
-  const pasteTaskActive = !!(isAdmin && taskClipboard && taskClipboard.task);
-  const selectedPlanningIds = Array.isArray(selectedTaskIds) ? selectedTaskIds : [];
-  const selectedTaskSet = new Set(selectedPlanningIds);
-  const moveSelectionActive = !!(isAdmin && selectedPlanningIds.length > 0 && !pasteTaskActive);
-  const dependencyLinkActive = !!(moveSelectionActive && dependencyLinkMode && dependencyLinkMode.type);
-  const dependencyTargetId = dependencyLinkActive ? (dependencyLinkMode.targetTaskId || '') : '';
-  const dependencyTargetTask = dependencyTargetId ? data.find(function(iv){ return iv.id === dependencyTargetId; }) : null;
-  const dependencyTargetActive = dependencyLinkActive;
-  const dependencyModeLabel = dependencyLinkMode && dependencyLinkMode.type === 'selection_as_predecessor'
-    ? 'La sélection sera prédécesseur de la tâche cible'
-    : dependencyLinkMode && dependencyLinkMode.type === 'selection_as_successor'
-      ? 'La sélection sera successeur de la tâche cible'
-      : '';
-  const selectedTasks = data.filter(function(iv){ return selectedTaskSet.has(iv.id); }).sort(planningTaskSort);
-  const selectedTaskCodes = selectedTasks.map(function(t){ return t.task_number || t.task || t.id; });
-  const dependencyTargetCode = dependencyTargetTask ? (dependencyTargetTask.task_number || dependencyTargetTask.task || dependencyTargetTask.id) : '';
-  const dependencyStartLabel = dependencyLinkMode && dependencyLinkMode.type === 'selection_as_predecessor'
-    ? selectedTaskCodes.join(' · ')
-    : (dependencyTargetCode || 'Tâche cible à choisir');
-  const dependencyEndLabel = dependencyLinkMode && dependencyLinkMode.type === 'selection_as_predecessor'
-    ? (dependencyTargetCode || 'Tâche cible à choisir')
-    : selectedTaskCodes.join(' · ');
   const fullWeekDays = multiWeekDays(weekOffset, weeks, true);
-  const weekendTaskVisible = false;
-  const includeWeekends = !!showWeekends;
+  const weekendTaskVisible = filtered.some(function(iv){
+    return fullWeekDays.some(function(d){
+      var dow = d.getDay();
+      return (dow === 0 || dow === 6) && inDay(iv,d) && !(iv.off_days||[]).includes(dateStr(d));
+    });
+  });
+  const includeWeekends = (isAdmin && !!showWeekends) || weekendTaskVisible;
   const days = multiWeekDays(weekOffset, weeks, includeWeekends);
   const daysPerWeek = includeWeekends ? 7 : 5;
   const isMulti = weeks > 1;
@@ -4586,16 +4481,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const [criticalOnly, setCriticalOnly] = useState(false);
   const [pinnedCriticalChainId, setPinnedCriticalChainId] = useState(null);
   const planningGridRef = useRef(null);
-
-  useEffect(function(){
-    function forceShowCriticalPath(){
-      setShowCriticalPath(true);
-      setCriticalOnly(false);
-      setPinnedCriticalChainId(null);
-    }
-    window.addEventListener('planify-force-show-cc', forceShowCriticalPath);
-    return function(){ window.removeEventListener('planify-force-show-cc', forceShowCriticalPath); };
-  }, []);
 
   function compactTaskHoverPayload(ev, iv, zone, statusMeta) {
     return {
@@ -4634,15 +4519,37 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   }, [dropOpen]);
 
   function toggleZone(id) {
-    setZoneFilter(prev => {
-      if (prev.length === 0) return zones.filter(z => z.id !== id).map(z => z.id);
-      if (prev.includes(id)) { const next = prev.filter(x => x !== id); return next.length === zones.length ? [] : next; }
-      const next = [...prev, id];
-      return next.length === zones.length ? [] : next;
+    setZoneFilter(function(prev){
+      var current = Array.isArray(prev) ? prev.slice() : [];
+
+      // État [] = toutes les zones visibles.
+      // Depuis cet état, cliquer sur une zone doit l'isoler, pas la masquer.
+      if (current.length === 0) return [id];
+
+      if (current.includes(id)) {
+        var next = current.filter(function(x){ return x !== id; });
+        // Si aucune zone n'est sélectionnée, on revient au mode Toutes.
+        return next.length ? next : [];
+      }
+
+      var added = current.concat([id]);
+      // Si toutes les zones sont sélectionnées une par une, on revient au mode Toutes.
+      return added.length >= (zones || []).length ? [] : added;
     });
   }
-  const visibleZones = zoneFilter.length === 0 ? zones : zones.filter(z => zoneFilter.includes(z.id));
-  const activeCount = zoneFilter.length;
+
+  React.useEffect(function(){
+    setZoneFilter(function(prev){
+      if (!Array.isArray(prev) || prev.length === 0) return [];
+      var validIds = new Set((zones || []).map(function(z){ return z.id; }));
+      var cleaned = prev.filter(function(id){ return validIds.has(id); });
+      return cleaned.length && cleaned.length < (zones || []).length ? cleaned : [];
+    });
+  }, [zones]);
+
+  const visibleZones = zoneFilter.length === 0 ? zones : zones.filter(function(z){ return zoneFilter.includes(z.id); });
+  const activeCount = zoneFilter.length === 0 ? (zones || []).length : zoneFilter.length;
+  const allZonesVisible = zoneFilter.length === 0;
   const activeCriticalChainId = pinnedCriticalChainId;
   const criticalPathMeta = React.useMemo(function(){
     return buildZoneCriticalPathMeta(filtered);
@@ -4689,44 +4596,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     });
   }, [criticalPathMeta, visibleZones, days, showCriticalPath, activeCriticalChainId]);
 
-  function renderTaskSelectionControl(iv, compact) {
-    if (!isAdmin) return null;
-    var active = selectedTaskSet.has(iv.id);
-    return (
-      <button
-        type="button"
-        title={active ? 'Retirer de la sélection' : 'Sélectionner cette tâche'}
-        onClick={function(e){
-          e.stopPropagation();
-          setTaskHover(null);
-          if (onToggleTaskSelection) onToggleTaskSelection(iv.id);
-        }}
-        style={{
-          position:'absolute',
-          top:compact ? 3 : 6,
-          right:compact ? 3 : 6,
-          zIndex:6,
-          width:compact ? 17 : 22,
-          height:compact ? 17 : 22,
-          borderRadius:999,
-          border:'1px solid '+(active ? 'var(--primary)' : 'rgba(255,255,255,.72)'),
-          background:active ? 'var(--primary)' : 'rgba(255,255,255,.82)',
-          color:active ? '#fff' : 'var(--muted)',
-          boxShadow:active ? '0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent)' : '0 2px 8px rgba(0,0,0,.12)',
-          fontSize:compact ? 10 : 12,
-          fontWeight:900,
-          fontFamily:UX2.mono,
-          lineHeight:1,
-          cursor:'pointer',
-          display:'flex',
-          alignItems:'center',
-          justifyContent:'center'
-        }}>
-        {active ? '✓' : '+'}
-      </button>
-    );
-  }
-
   function renderPlanningTask(iv, zone, zoneCritical, dayStrForCard) {
     if (isMulti) {
       var _tr = trades.find(function(t){return t.id===iv.trade;});
@@ -4737,8 +4606,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
       var ccColor = ccLinked ? (criticalInfo.color || '#EA580C') : _c.b;
       var ccFocused = !!(activeCriticalChainId && criticalInfo && criticalInfo.chainId === activeCriticalChainId);
       var ccDimmed = !!(showCriticalPath && activeCriticalChainId && (!criticalInfo || criticalInfo.chainId !== activeCriticalChainId));
-      var selectedForMove = selectedTaskSet.has(iv.id);
-      var selectedAsDependencyTarget = !!(dependencyLinkActive && dependencyTargetId === iv.id);
       return (
         <div key={iv.id}
           data-cc-task-id={iv.id}
@@ -4748,19 +4615,13 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, _m));}}
           onMouseMove={function(){}}
           onMouseLeave={function(){setTaskHover(null);}}
-          onClick={function(e){
-            e.stopPropagation();
-            setTaskHover(null);
-            if (dependencyLinkActive && onChooseDependencyTarget) { onChooseDependencyTarget(iv.id); return; }
-            onOpenDetail(iv.id);
-          }}
-          style={{borderRadius:6,padding:weeks===2?'4px 26px 4px 5px':'3px 24px 3px 4px',marginBottom:2,cursor:'pointer',
-            background:selectedForMove ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary) 12%, transparent)), '+(ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg) : (ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg),
-            borderLeft:'4px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':(ccLinked?ccColor:_c.b))),
-            border:'1px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':(ccLinked?rgbaCss(ccColor,.82):'transparent'))),
-            boxShadow:selectedForMove ? '0 0 0 2px color-mix(in srgb, var(--primary) 26%, transparent), 0 6px 18px rgba(0,0,0,.12)' : (selectedAsDependencyTarget ? '0 0 0 2px rgba(124,58,237,.26), 0 8px 20px rgba(124,58,237,.14)' : (ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none')),
-            overflow:'hidden',opacity:ccDimmed && !selectedForMove ? .28 : 1,filter:ccDimmed&&!selectedForMove?'saturate(.65)':'none',position:'relative'}}>
-          {renderTaskSelectionControl(iv, true)}
+          onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}}
+          style={{borderRadius:6,padding:weeks===2?'4px 5px':'3px 4px',marginBottom:2,cursor:'pointer',
+            background:ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg,
+            borderLeft:'4px solid '+(ccLinked?ccColor:_c.b),
+            border:'1px solid '+(ccLinked?rgbaCss(ccColor,.82):'transparent'),
+            boxShadow:ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none',
+            overflow:'hidden',opacity:ccDimmed ? .28 : 1,filter:ccDimmed?'saturate(.65)':'none',position:'relative'}}>
           <div style={{display:'flex',alignItems:'center',gap:4}}>
             <span style={{fontSize:weeks===2?9:8,fontWeight:800,color:_c.t,fontFamily:UX2.sans,
               overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
@@ -4777,12 +4638,10 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             textOverflow:'ellipsis',fontWeight:600}}>{iv.task}</div>}
           {taskCanFinishLater(iv)&&<div style={{fontSize:weeks===2?7.2:6.6,color:'var(--primary)',fontWeight:800,
             lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
-          {selectedAsDependencyTarget ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#7C3AED',fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Cible</div> : (ccLinked ? <div style={{fontSize:weeks===2?7.2:6.6,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>CC</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null))}
+          {ccLinked ? <div style={{fontSize:weeks===2?7.2:6.6,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{criticalInfo.chainLabel || 'CC'} · chemin critique</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null)}
         </div>
       );
     }
-    var selectedForMove = selectedTaskSet.has(iv.id);
-    var selectedAsDependencyTarget = !!(dependencyLinkActive && dependencyTargetId === iv.id);
     return (
       <div key={iv.id}
         data-cc-task-id={iv.id}
@@ -4791,21 +4650,13 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         data-cc-chain-id={showCriticalPath && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].linked ? zoneCritical.roles[iv.id].chainId : undefined}
         onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, getStatusThemeMeta(iv.status)));}}
         onMouseMove={function(){}}
-        onMouseLeave={function(){setTaskHover(null);}}
-        style={{position:'relative',borderRadius:14,outline:selectedForMove?'2px solid var(--primary)':(selectedAsDependencyTarget?'2px solid #7C3AED':'none'),outlineOffset:1,boxShadow:selectedForMove?'0 0 0 5px color-mix(in srgb, var(--primary) 12%, transparent)':(selectedAsDependencyTarget?'0 0 0 5px rgba(124,58,237,.13)':'none')}}>
-        {selectedAsDependencyTarget && <div style={{position:'absolute',top:-7,left:8,zIndex:8,borderRadius:999,background:'#7C3AED',color:'#fff',fontFamily:UX2.mono,fontSize:8.5,fontWeight:900,padding:'2px 6px',boxShadow:'0 4px 12px rgba(124,58,237,.25)'}}>Cible</div>}
-        {renderTaskSelectionControl(iv, false)}
+        onMouseLeave={function(){setTaskHover(null);}}>
         <TaskCard iv={iv} trades={trades} data={data} isDark={isDark}
           criticalPath={showCriticalPath ? (zoneCritical.roles[iv.id] || null) : null}
           criticalVisible={showCriticalPath}
           dimmed={!!(showCriticalPath && activeCriticalChainId && (!(zoneCritical.roles[iv.id]) || zoneCritical.roles[iv.id].chainId !== activeCriticalChainId))}
           focused={!!(showCriticalPath && activeCriticalChainId && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].chainId === activeCriticalChainId)}
-          onClick={function(e){
-            e.stopPropagation();
-            setTaskHover(null);
-            if (dependencyLinkActive && onChooseDependencyTarget) { onChooseDependencyTarget(iv.id); return; }
-            onOpenDetail(iv.id);
-          }} />
+          onClick={function(e){e.stopPropagation();setTaskHover(null);onOpenDetail(iv.id);}} />
       </div>
     );
   }
@@ -4837,17 +4688,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   const floorOf = id => zones.find(z=>z.id===id)?.floor||'';
 
   return (
-    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100,position:'relative'}}>
-      {onWeekChange && (
-        <>
-          <button type="button" aria-label="Semaine précédente" title="Semaine précédente"
-            onClick={function(e){ e.stopPropagation(); onWeekChange(-1); }}
-            style={{position:'fixed',left:8,top:'50%',zIndex:85,width:34,height:54,borderRadius:'0 18px 18px 0',border:'1px solid var(--border-s)',borderLeft:'none',background:'color-mix(in srgb, var(--surface) 88%, transparent)',color:'var(--primary)',boxShadow:'var(--shadow-md)',fontSize:25,fontWeight:900,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',opacity:.86}}>‹</button>
-          <button type="button" aria-label="Semaine suivante" title="Semaine suivante"
-            onClick={function(e){ e.stopPropagation(); onWeekChange(1); }}
-            style={{position:'fixed',right:8,top:'50%',zIndex:85,width:34,height:54,borderRadius:'18px 0 0 18px',border:'1px solid var(--border-s)',borderRight:'none',background:'color-mix(in srgb, var(--surface) 88%, transparent)',color:'var(--primary)',boxShadow:'var(--shadow-md)',fontSize:25,fontWeight:900,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',opacity:.86}}>›</button>
-        </>
-      )}
+    <div style={{overflowY:'auto',height:'100%',padding:isMulti?0:'10px 0',paddingBottom:100}}>
       <div style={{background:'var(--surface)',
         border:isMulti?'none':'1px solid var(--border)',
         margin:isMulti?0:'0 8px',
@@ -4859,7 +4700,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:'1 1 320px'}}>
               <div style={{width:26,height:16,borderRadius:6,background:'rgba(234,88,12,.12)',border:'2px solid rgba(234,88,12,.65)',boxShadow:'0 0 0 3px rgba(234,88,12,.08)',flexShrink:0}}></div>
               <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.35}}>
-                <b style={{color:'#9A3412'}}>CC</b> : tâches liées surlignées simplement. {visibleCriticalChains.length ? (visibleCriticalChains.length + ' chaîne(s)') : 'Aucun lien'}
+                <b style={{color:'#9A3412'}}>Chemin critique</b> : les tâches liées par prédécesseur / successeur sont simplement mises en surbrillance, même entre zones différentes. Aucun trait ni flèche n’est affiché. Code affiché : <b>CC</b>. {visibleCriticalChains.length ? (visibleCriticalChains.length + ' chaîne(s) détectée(s).') : 'Aucune chaîne détectée.'}
               </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
@@ -4909,144 +4750,71 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           )}
         </div>
 
-
-          {pasteTaskActive && (
-            <div style={{marginTop:8,padding:'9px 10px',borderRadius:'var(--r-sm)',border:'1px solid rgba(96,165,250,.35)',background:'var(--primary-l)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
-              <div style={{fontSize:12,color:'var(--text)',lineHeight:1.35,fontWeight:700}}>
-                Mode collage actif : <span style={{fontFamily:UX2.mono,color:'var(--primary)'}}>{taskClipboard.task.task_number || 'Tâche copiée'}</span>
-                <span style={{fontWeight:500,color:'var(--muted)'}}> · Cliquez sur une cellule du planning pour coller la tâche dans cette zone à cette date.</span>
-              </div>
-              <button onClick={function(){ onClearTaskClipboard && onClearTaskClipboard(); }}
-                style={{padding:'6px 10px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
-                Annuler collage
-              </button>
-            </div>
-          )}
-
-          {moveSelectionActive && (
-            <div style={{marginTop:8,padding:'10px 12px',borderRadius:'var(--r-sm)',border:'1px solid color-mix(in srgb, var(--primary) 34%, transparent)',background:'var(--primary-l)',display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
-              <div style={{fontSize:12,color:'var(--text)',lineHeight:1.35,fontWeight:800,minWidth:240,flex:'1 1 380px'}}>
-                <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
-                  <span>{dependencyLinkActive ? 'Mode lien' : 'Sélection planning'}</span>
-                  <span style={{fontFamily:UX2.mono,color:'var(--primary)'}}>{selectedPlanningIds.length} tâche{selectedPlanningIds.length>1?'s':''}</span>
-                  {dependencyLinkActive && <span style={{fontSize:10.5,fontWeight:900,color:'var(--primary)',background:'var(--surface)',border:'1px solid color-mix(in srgb, var(--primary) 26%, transparent)',borderRadius:999,padding:'2px 7px',fontFamily:UX2.mono}}>Cible : {dependencyTargetCode || 'à choisir'}</span>}
-                </div>
-                <div style={{fontSize:10.5,color:'var(--muted)',marginTop:5,fontWeight:700}}>
-                  {dependencyLinkActive
-                    ? 'Cliquez une tâche cible dans le planning, puis utilisez le bouton Valider le lien placé à côté de Annuler sélection.'
-                    : 'Déplacement actif : cliquez sur une cellule zone/date pour déplacer la sélection. Ou créez un lien prédécesseur / successeur.'}
-                </div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:7,alignItems:'center'}}>
-                  <span style={{fontSize:10.5,color:'var(--muted)',fontWeight:800}}>Sélection :</span>
-                  {selectedTaskCodes.map(function(code){ return <span key={code} style={{fontSize:10,fontFamily:UX2.mono,fontWeight:900,color:'var(--primary)',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:999,padding:'3px 7px'}}>{code}</span>; })}
-                </div>
-                {dependencyLinkActive && (
-                  <div style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:'3px 8px',marginTop:7,fontSize:10.5,color:'var(--muted)',fontWeight:800}}>
-                    <span>Départ :</span><span style={{fontFamily:UX2.mono,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis'}}>{dependencyStartLabel || '—'}</span>
-                    <span>Arrivée :</span><span style={{fontFamily:UX2.mono,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis'}}>{dependencyEndLabel || '—'}</span>
-                  </div>
-                )}
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_predecessor'); }}
-                  title="La sélection sera ajoutée comme prédécesseur de la tâche cible"
-                  style={{padding:'7px 10px',borderRadius:999,border:'1px solid '+(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor'?'rgba(234,88,12,.72)':'rgba(234,88,12,.38)'),background:(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor')?'rgba(234,88,12,.18)':'rgba(234,88,12,.10)',color:'#9A3412',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
-                  Sélection = préd.
+        <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',background:'var(--surface-2)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>
+            <span style={{fontSize:10.5,fontWeight:900,color:'var(--muted)',fontFamily:UX2.mono,textTransform:'uppercase',letterSpacing:'.05em',whiteSpace:'nowrap',flexShrink:0}}>
+              Zones
+            </span>
+            <button type="button" onClick={function(){setZoneFilter([]);}}
+              style={{height:32,padding:'0 12px',borderRadius:999,border:'1px solid '+(allZonesVisible?'var(--primary)':'var(--border)'),
+                background:allZonesVisible?'var(--primary-l)':'var(--surface)',color:allZonesVisible?'var(--primary)':'var(--muted)',
+                fontSize:11,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
+              Toutes
+            </button>
+            {(zones || []).map(function(z){
+              var selected = allZonesVisible || zoneFilter.includes(z.id);
+              var isolated = !allZonesVisible && zoneFilter.length === 1 && zoneFilter[0] === z.id;
+              var fc = FLOOR_COLORS[z.floor] || '#9CA3AF';
+              return (
+                <button key={z.id} type="button" onClick={function(){toggleZone(z.id);}}
+                  title={selected ? 'Zone visible — cliquer pour masquer / réafficher' : 'Zone masquée — cliquer pour afficher'}
+                  style={{height:32,display:'inline-flex',alignItems:'center',gap:6,padding:'0 10px',borderRadius:999,
+                    border:'1px solid '+(isolated?'var(--primary)':selected?fc:'var(--border)'),
+                    background:isolated?'var(--primary-l)':selected?rgbaCss(fc,.10):'var(--surface)',
+                    color:isolated?'var(--primary)':selected?fc:'var(--xmuted)',fontSize:11,fontWeight:900,
+                    fontFamily:UX2.mono,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,opacity:selected?1:.62}}>
+                  <span style={{width:7,height:7,borderRadius:'50%',background:selected?fc:'var(--border-s)',display:'inline-block',flexShrink:0}}></span>
+                  {z.short || z.name}
                 </button>
-                <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_successor'); }}
-                  title="La sélection sera ajoutée comme successeur de la tâche cible"
-                  style={{padding:'7px 10px',borderRadius:999,border:'1px solid '+(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_successor'?'rgba(124,58,237,.72)':'rgba(124,58,237,.36)'),background:(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_successor')?'rgba(124,58,237,.18)':'rgba(124,58,237,.10)',color:'#6D28D9',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
-                  Sélection = succ.
-                </button>
-                {dependencyLinkActive && (
-                  <button onClick={function(e){ e.stopPropagation(); onCancelDependencyLinkMode && onCancelDependencyLinkMode(); }}
-                    style={{padding:'7px 10px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
-                    Annuler lien
-                  </button>
-                )}
-                <button onClick={function(e){ e.stopPropagation(); onValidateDependencyLink && onValidateDependencyLink(); }}
-                  disabled={!(dependencyLinkActive && dependencyTargetId)}
-                  title={dependencyLinkActive ? (dependencyTargetId ? 'Enregistrer le lien sélectionné' : 'Cliquez d’abord une tâche cible dans le planning') : 'Choisissez d’abord prédécesseur ou successeur, puis une tâche cible'}
-                  style={{padding:'8px 13px',borderRadius:999,border:'1px solid '+(dependencyLinkActive&&dependencyTargetId?'var(--primary)':'var(--border)'),background:dependencyLinkActive&&dependencyTargetId?'var(--primary)':'var(--surface-2)',color:dependencyLinkActive&&dependencyTargetId?'#fff':'var(--xmuted)',fontSize:11,fontWeight:900,fontFamily:UX2.mono,cursor:dependencyLinkActive&&dependencyTargetId?'pointer':'not-allowed',opacity:dependencyLinkActive&&dependencyTargetId?1:.72,boxShadow:dependencyLinkActive&&dependencyTargetId?'0 8px 20px color-mix(in srgb, var(--primary) 22%, transparent)':'none'}}>
-                  Valider le lien
-                </button>
-                <button onClick={function(){ onClearTaskSelection && onClearTaskSelection(); }}
-                  style={{padding:'8px 13px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--muted)',fontSize:11,fontWeight:800,fontFamily:UX2.mono,cursor:'pointer'}}>
-                  Annuler sélection
-                </button>
-              </div>
-            </div>
-          )}
+              );
+            })}
+            {!allZonesVisible && (
+              <span style={{fontSize:10.5,color:'var(--muted)',fontWeight:800,whiteSpace:'nowrap',marginLeft:2,flexShrink:0}}>
+                {activeCount}/{(zones || []).length} visibles
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* TABLE-LAYOUT for guaranteed column alignment */}
         <div ref={planningGridRef} style={{position:'relative'}}>
         <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed',position:'relative',zIndex:1}}>
           <colgroup>
-            <col style={{width:isMulti?'40px':'58px'}} />
+            <col style={{width:zoneColW}} />
             {days.map((_,i) => <col key={i} />)}
-            <col style={{width:isMulti?'28px':'50px'}} />
+            <col style={{width:deadlineColW}} />
           </colgroup>
 
           {/* ── STICKY HEADER ── */}
           <thead>
             <tr style={{background:'var(--surface-2)',borderBottom:'2px solid var(--border)'}}>
 
-              {/* Zone filter */}
-              <th ref={dropRef} style={{padding:'5px 3px',borderRight:'3px solid var(--border-s)',
+              {/* Zone column header */}
+              <th style={{padding:'7px 4px',borderRight:'3px solid var(--border-s)',
                 position:'sticky',top:0,zIndex:12,background:'var(--surface-2)',
                 verticalAlign:'middle',textAlign:'center'}}>
-                <button onClick={() => setDropOpen(o => !o)}
-                  style={{width:'100%',padding:'4px 2px',borderRadius:'var(--r-xs)',
-                    border:`1px solid ${dropOpen||activeCount?'var(--primary)':'var(--border)'}`,
-                    background:activeCount?'var(--primary-l)':'transparent',
-                    color:activeCount?'var(--primary)':'var(--muted)',
-                    fontSize:8,fontWeight:700,cursor:'pointer',fontFamily:"'DM Mono',monospace",
-                    letterSpacing:'.04em',textTransform:'uppercase',lineHeight:1.3}}>
-                  {activeCount ? 'Zones' : 'Zones'}
-                </button>
-                {dropOpen && (
-                  <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,minWidth:220,
-                    background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-                    boxShadow:'var(--shadow-md)',zIndex:50,overflow:'hidden',textAlign:'left'}}>
-                    <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',
-                      display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <span style={{fontSize:11,fontWeight:700,color:'var(--muted)',
-                        fontFamily:"'DM Mono',monospace",textTransform:'uppercase',letterSpacing:'.05em'}}>Zones</span>
-                      <button onClick={()=>{setZoneFilter([]);setDropOpen(false);}}
-                        style={{fontSize:10,color:'var(--primary)',background:'none',border:'none',
-                          cursor:'pointer',fontWeight:600}}>Toutes</button>
-                    </div>
-                    {zones.map(z => {
-                      const checked = zoneFilter.length===0||zoneFilter.includes(z.id);
-                      const fc = getZoneFloorColor(z, zones);
-                      return (
-                        <div key={z.id} onClick={function(e){e.preventDefault();e.stopPropagation();toggleZone(z.id);}}
-                          style={{display:'flex',alignItems:'center',gap:10,
-                          padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid var(--border)',
-                          background:checked?'var(--primary-l)':'transparent',transition:'background .1s'}}>
-                          <div style={{width:14,height:14,borderRadius:3,flexShrink:0,
-                            border:`2px solid ${checked?'var(--primary)':'var(--border)'}`,
-                            background:checked?'var(--primary)':'transparent',
-                            display:'flex',alignItems:'center',justifyContent:'center'}}>
-                            {checked&&<span style={{color:'#fff',fontSize:9,lineHeight:1}}>✓</span>}
-                          </div>
-                          <span style={{width:8,height:8,borderRadius:'50%',background:fc,flexShrink:0}}></span>
-                          <div>
-                            <div style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
-                            <div style={{fontSize:10,fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{z.short}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'100%',
+                  padding:'4px 2px',borderRadius:'var(--r-xs)',border:'1px solid var(--border)',
+                  color:'var(--muted)',fontSize:8.5,fontWeight:900,fontFamily:UX2.mono,
+                  letterSpacing:'.04em',textTransform:'uppercase',lineHeight:1.25}}>
+                  Zones
+                </span>
               </th>
 
               {/* Day headers */}
               {days.map((d,i) => {
                 const isFirstOfWeek = i % daysPerWeek === 0 && i > 0;
                 const holiday = isHoliday(d);
-                const nonWorkingDay = !isConfiguredWorkingWeekday(dateStr(d));
                 const workedHoliday = isWorkedHoliday(d);
                 return (
                   <th key={i} style={{
@@ -5055,26 +4823,24 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     overflow:'hidden',
                     position:'sticky',top:0,zIndex:11,
                     borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                    background:holiday?'#D1D5DB':nonWorkingDay?'color-mix(in srgb, var(--border) 55%, var(--surface-2))':isToday(d)?'var(--primary-l)':'var(--surface-2)',
+                    background:holiday?'#D1D5DB':isToday(d)?'var(--primary-l)':'var(--surface-2)',
                     fontWeight:'normal',
                     verticalAlign:'middle'}}>
                     <div style={{fontSize:isMulti?(weeks>3?5.5:weeks===3?6:7):9,
                       fontWeight:800,fontFamily:UX2.sans,
-                      color:(holiday||nonWorkingDay)?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)',
+                      color:holiday?'#6B7280':isToday(d)?'var(--primary)':'var(--muted)',
                       lineHeight:1.05,whiteSpace:'nowrap'}}>
                       {['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()]}
                     </div>
                     <div style={{fontSize:isMulti?(weeks>3?6:weeks===3?7:8):10,
                       fontWeight:isMulti?700:400,
                       fontFamily:"'DM Mono',monospace",
-                      color:(holiday||nonWorkingDay)?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)',
+                      color:holiday?'#4B5563':isToday(d)?'var(--primary)':'var(--muted)',
                       lineHeight:1.05,whiteSpace:'nowrap',marginTop:isMulti?1:0}}>
                       {`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`}
                     </div>
                     {holiday && <div style={{fontSize:7,fontWeight:700,color:'#4B5563',
                       fontFamily:"'DM Mono',monospace",marginTop:1}}>JF</div>}
-                    {!holiday && nonWorkingDay && <div style={{fontSize:6.5,fontWeight:700,color:'#6B7280',
-                      fontFamily:"'DM Mono',monospace",marginTop:1}}>NO</div>}
                     {workedHoliday && <div style={{fontSize:6.5,fontWeight:700,color:'#16A34A',
                       fontFamily:"'DM Mono',monospace",marginTop:1}}>ouvré</div>}
                   </th>
@@ -5099,9 +4865,10 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             {visibleZones.map((zone, zi) => {
               const prevZone = visibleZones[zi - 1];
               const floorChange = zi > 0 && prevZone?.floor !== zone.floor;
-              const fc  = getZoneFloorColor(zone, zones);
+              const fc  = FLOOR_COLORS[zone.floor] || '#9CA3AF';
               const dc  = deadlineColor(zone.deadline);
-              const rowBg = rgbaCss(fc, .025);
+              const rowBg = zone.floor==='R+3' ? 'rgba(33,82,200,.025)' :
+                            zone.floor==='R+2' ? 'rgba(13,148,136,.025)' : 'rgba(139,92,246,.025)';
               const zoneCritical = criticalPathMetaByZone[zone.id] || { links:[], roles:{}, chains:[] };
 
               return (
@@ -5128,13 +4895,12 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                   {days.map((day, di) => {
                     const ds = dateStr(day);
                     const holiday = isHoliday(day);
-                    const nonWorkingDay = isNonWorkingCalendarDate(ds);
                     const workedHoliday = isWorkedHoliday(day);
                     const isFirstOfWeek = di % daysPerWeek === 0 && di > 0;
                     const isDeadline = zone.deadline && ds === zone.deadline;
-                    const cellBg = holiday?'#D1D5DB': nonWorkingDay?'rgba(156,163,175,.16)': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
+                    const cellBg = holiday?'#D1D5DB': isDeadline?'rgba(220,38,38,.18)': isToday(day)?'color-mix(in srgb, var(--primary) 5%, transparent)':'transparent';
                     const cards = (()=>{
-                      if(nonWorkingDay) return [];
+                      if(holiday) return [];
                       return filtered.filter(function(iv){ return planningTaskVisibleOnDay(iv, day, zone.id); }).sort(planningTaskSort);
                     })();
                     const shown = (!showCriticalPath ? cards : cards.filter(function(iv){
@@ -5146,15 +4912,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
 
                     return (
                       <td key={di}
-                        onClick={function(){
-                          if(!isAdmin) return;
-                          if(dependencyLinkActive) return;
-                          if(moveSelectionActive && onMoveSelectedTasks){ onMoveSelectedTasks(selectedPlanningIds, zone.id, ds); return; }
-                          if(pasteTaskActive&&onPasteTask){onPasteTask(zone.id,ds); return;}
-                          if(nonWorkingDay) return;
-                          onOpenAdd(zone.id,ds);
-                        }}
-                        title={moveSelectionActive ? 'Déplacer la sélection vers '+zone.short+' le '+fmtDate(ds) : ''}
+                        onClick={function(){if(isAdmin&&!holiday)onOpenAdd(zone.id,ds);}}
                         style={{
                           position:'relative',
                           overflow:'hidden',
@@ -5162,8 +4920,8 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                           height:isMulti?'48px':'66px',
                           verticalAlign:'top',
                           borderLeft:`${isFirstOfWeek?2:1}px solid ${isFirstOfWeek?'var(--border-s)':'var(--border)'}`,
-                          background:moveSelectionActive ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 5%, transparent), color-mix(in srgb, var(--primary) 5%, transparent)), '+cellBg : cellBg,
-                          cursor:isAdmin&&(moveSelectionActive||pasteTaskActive||!nonWorkingDay)?'pointer':'default',
+                          background:cellBg,
+                          cursor:isAdmin&&!holiday?'pointer':'default',
                           transition:'background .12s'}}>
                         {shown.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical, ds); })}
                       </td>
@@ -5455,7 +5213,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
 /* ════════════════════════════════════════════════════════════
    SETTINGS SCREEN
 ═══════════════════════════════════════════════════════════ */
-function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies, data = [], zoneClipboard = null, onCopyZone, onClearZoneClipboard, onPasteZone, onMoveZone, onDeleteZone, onDeleteTrade, onDeleteCompany, calendarOverrides, onSetHolidayWorked, workingWeekdays = DEFAULT_WORKING_WEEKDAYS, onSetWorkingWeekday }) {
+function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies, calendarOverrides, onSetHolidayWorked }) {
   const [tab, setTab] = useState('zones');
   const [editingZone, setEditingZone] = useState(null);
   const [editingTrade, setEditingTrade] = useState(null);
@@ -5463,21 +5221,8 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
   const [newZone, setNewZone] = useState(null);
   const [newTrade, setNewTrade] = useState(null);
   const [newCompany, setNewCompany] = useState(null);
-  const [zonePaste, setZonePaste] = useState({targetZoneId:'', startDate:dateStr(new Date()), newName:'', newShort:'', newFloor:'', newDeadline:''});
   const PALETTE = Object.keys(TRADE_COLORS);
   const holidayDates = Array.from(_HOLIDAYS).sort();
-  const workingDayLabels = [
-    {idx:1,label:'Lundi',short:'Lun'},
-    {idx:2,label:'Mardi',short:'Mar'},
-    {idx:3,label:'Mercredi',short:'Mer'},
-    {idx:4,label:'Jeudi',short:'Jeu'},
-    {idx:5,label:'Vendredi',short:'Ven'},
-    {idx:6,label:'Samedi',short:'Sam'},
-    {idx:0,label:'Dimanche',short:'Dim'}
-  ];
-  function workingDayEnabled(idx) {
-    return normalizeWorkingWeekdays(workingWeekdays).includes(idx);
-  }
   function overrideFor(ds) {
     return (calendarOverrides||[]).find(function(o){return o.date===ds;});
   }
@@ -5486,21 +5231,6 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
     return !!(o && o.is_worked);
   }
   const floorList = [...new Set((zones||[]).map(function(z){return z.floor;}).filter(Boolean))].sort();
-  useEffect(function(){
-    if (!zoneClipboard || !zoneClipboard.zone) return;
-    setZonePaste(function(prev){
-      return Object.assign({}, prev, {
-        targetZoneId: prev.targetZoneId || ((zones || []).find(function(z){ return z.id !== zoneClipboard.zone.id; }) || {}).id || '',
-        newName: prev.newName || (zoneClipboard.zone.name + ' — copie'),
-        newShort: prev.newShort || ((zoneClipboard.zone.short || 'ZONE') + '-C'),
-        newFloor: prev.newFloor || (zoneClipboard.zone.floor || ''),
-        newDeadline: prev.newDeadline || (zoneClipboard.zone.deadline || '')
-      });
-    });
-  }, [zoneClipboard]);
-  function setZonePasteField(key, value) {
-    setZonePaste(function(prev){ return Object.assign({}, prev, {[key]:value}); });
-  }
   function setFloorDeadline(floor, deadline) {
     setZones(function(prev){
       return prev.map(function(z){
@@ -5525,20 +5255,6 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
     var first = list[0].deadline || '';
     return list.every(function(z){return (z.deadline||'')===first;}) ? first : '';
   }
-  function floorColorValue(floor) {
-    return getZoneFloorColor(floor, zones);
-  }
-  function setFloorColor(floor, color) {
-    var nextColor = normalizeFloorColorValue(color) || '#9CA3AF';
-    setZones(function(prev){
-      return (prev || []).map(function(z){
-        return z.floor === floor ? Object.assign({}, z, {floor_color:nextColor}) : z;
-      });
-    });
-    (zones || []).filter(function(z){ return z.floor === floor; }).forEach(function(z){
-      supaWrite('PATCH','zones',{floor_color:nextColor},'id=eq.'+z.id);
-    });
-  }
 
   function slugCompanyId(name) {
     return String(name||'entreprise')
@@ -5559,10 +5275,9 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
     return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',trade_id:c.tradeId||null};
   }
   function saveZone(z) {
-    var savedZone = Object.assign({}, z, {floor_color:normalizeFloorColorValue(z.floor_color) || floorColorValue(z.floor)});
-    setZones(prev => prev.map(x => x.id===savedZone.id ? savedZone : x));
+    setZones(prev => prev.map(x => x.id===z.id ? z : x));
     setEditingZone(null);
-    supaWrite('PATCH','zones',{name:savedZone.name,short:savedZone.short,floor:savedZone.floor,deadline:savedZone.deadline||null,floor_color:savedZone.floor_color},'id=eq.'+savedZone.id);
+    supaWrite('PATCH','zones',{name:z.name,short:z.short,floor:z.floor,deadline:z.deadline||null},'id=eq.'+z.id);
   }
   function saveTrade(t) {
     setTrades(prev => prev.map(x => x.id===t.id ? t : x));
@@ -5591,7 +5306,6 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
       name: String(newZone.name || '').trim(),
       short: String(newZone.short || '').trim(),
       floor: floorValue,
-      floor_color: floorColorValue(floorValue),
       deadline: newZone.deadline || null,
       display_order: currentOrders.length ? Math.max.apply(null, currentOrders) + 10 : 10
     };
@@ -5605,17 +5319,8 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
   }
   function addTrade() {
     if (!newTrade?.name||!newTrade?.short) return;
-    var currentOrders = (trades || []).map(function(t){ return Number(t.display_order || 0); }).filter(function(n){ return !Number.isNaN(n); });
-    var tr = {
-      id:'tr_'+genId(),
-      name:String(newTrade.name || '').trim(),
-      short:String(newTrade.short || '').trim(),
-      color:newTrade.color||'blue',
-      display_order:currentOrders.length ? Math.max.apply(null, currentOrders) + 10 : 10
-    };
-    setTrades(prev=>[...prev,tr]);
+    setTrades(prev=>[...prev,{id:'tr_'+genId(),name:newTrade.name,short:newTrade.short,color:newTrade.color||'blue'}]);
     setNewTrade(null);
-    supaWrite('POST','trades',{id:tr.id,name:tr.name,short:tr.short,color:tr.color,display_order:tr.display_order});
   }
   function addCompany() {
     var co = normalizeCompany(newCompany||{});
@@ -5644,71 +5349,6 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
 
       {tab==='zones' && (
         <div>
-          {floorList.length > 0 && (
-            <div style={{background:'var(--surface)',border:'1px solid var(--border)',
-              borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,boxShadow:'var(--shadow)'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,marginBottom:10}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:900,color:'var(--text)'}}>Couleurs par niveau</div>
-                  <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>La couleur choisie s’applique au texte des zones dans le planning.</div>
-                </div>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8}}>
-                {floorList.map(function(floor){
-                  var fc = floorColorValue(floor);
-                  var count = (zones || []).filter(function(z){ return z.floor === floor; }).length;
-                  return (
-                    <label key={floor} style={{display:'flex',alignItems:'center',gap:10,
-                      border:'1px solid var(--border)',borderRadius:'var(--r-xs)',padding:'8px 10px',
-                      background:'var(--surface-2)',cursor:'pointer'}}>
-                      <input type="color" value={fc} onChange={function(e){ setFloorColor(floor, e.target.value); }}
-                        style={{width:36,height:30,border:'none',background:'transparent',padding:0,cursor:'pointer'}} />
-                      <div style={{minWidth:0}}>
-                        <div style={{fontFamily:UX2.mono,fontSize:12,fontWeight:900,color:fc}}>{floor}</div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{count} zone{count>1?'s':''}</div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {zoneClipboard && zoneClipboard.zone && (
-            <div style={{background:'var(--primary-l)',border:'1px solid rgba(96,165,250,.35)',borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,boxShadow:'var(--shadow)'}}>
-              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,marginBottom:10}}>
-                <div>
-                  <div style={{fontSize:12,fontWeight:900,color:'var(--primary)',fontFamily:UX2.mono,marginBottom:3}}>Zone copiée</div>
-                  <div style={{fontSize:13,fontWeight:800,color:'var(--text)'}}>{zoneClipboard.zone.name}</div>
-                  <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{zoneClipboard.tasks?.length || 0} tâche{(zoneClipboard.tasks?.length || 0)>1?'s':''} à recopier</div>
-                </div>
-                <button onClick={onClearZoneClipboard} style={miniBtn}>Annuler</button>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
-                <label style={{fontSize:11,color:'var(--muted)',fontWeight:800}}>Date de départ
-                  <input type="date" value={zonePaste.startDate || dateStr(new Date())} onChange={function(e){setZonePasteField('startDate', e.target.value);}} style={{marginTop:4,width:'100%',...inputSt}} />
-                </label>
-                <label style={{fontSize:11,color:'var(--muted)',fontWeight:800}}>Zone existante
-                  <select value={zonePaste.targetZoneId || ''} onChange={function(e){setZonePasteField('targetZoneId', e.target.value);}} style={{marginTop:4,width:'100%',...inputSt}}>
-                    <option value="">Choisir une zone…</option>
-                    {(zones || []).map(function(z){ return <option key={z.id} value={z.id}>{z.short} — {z.name}</option>; })}
-                  </select>
-                </label>
-              </div>
-              <button onClick={function(){ onPasteZone && onPasteZone({mode:'existing', targetZoneId:zonePaste.targetZoneId, startDate:zonePaste.startDate || dateStr(new Date())}); }}
-                style={{...miniBtn,width:'100%',background:'var(--surface)',marginBottom:10}}>Coller les tâches dans la zone sélectionnée</button>
-              <div style={{borderTop:'1px solid var(--border)',paddingTop:10}}>
-                <div style={{fontSize:11,fontWeight:900,color:'var(--muted)',fontFamily:UX2.mono,marginBottom:7}}>Ou créer une nouvelle zone avec ces tâches</div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:7,alignItems:'center'}}>
-                  <input value={zonePaste.newName || ''} onChange={function(e){setZonePasteField('newName', e.target.value);}} style={{...inputSt}} placeholder="Nom nouvelle zone" />
-                  <input value={zonePaste.newShort || ''} onChange={function(e){setZonePasteField('newShort', e.target.value);}} style={{...inputSt}} placeholder="Code" />
-                  <input value={zonePaste.newFloor || ''} onChange={function(e){setZonePasteField('newFloor', e.target.value);}} style={{...inputSt}} placeholder="Niveau" />
-                  <input type="date" value={zonePaste.newDeadline || ''} onChange={function(e){setZonePasteField('newDeadline', e.target.value);}} style={{...inputSt}} />
-                </div>
-                <button onClick={function(){ onPasteZone && onPasteZone({mode:'new', startDate:zonePaste.startDate || dateStr(new Date()), newZone:{name:zonePaste.newName, short:zonePaste.newShort, floor:zonePaste.newFloor, deadline:zonePaste.newDeadline}}); }}
-                  style={{...miniBtn,width:'100%',background:'var(--primary)',color:'#fff',border:'none',marginTop:8}}>Créer la zone + coller les tâches</button>
-              </div>
-            </div>
-          )}
           {zones.map((z,i)=>(
             <div key={z.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
               borderRadius:'var(--r-sm)',padding:'11px 13px',marginBottom:7,boxShadow:'var(--shadow)'}}>
@@ -5718,12 +5358,8 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                     style={{flex:1,minWidth:160,...inputSt}} placeholder="Nom complet" />
                   <input value={editingZone.short || ''} onChange={e=>setEditingZone({...editingZone,short:e.target.value})}
                     style={{width:92,...inputSt}} placeholder="Court" />
-                  <input value={editingZone.floor || ''} onChange={e=>setEditingZone({...editingZone,floor:e.target.value,floor_color:floorColorValue(e.target.value)})}
+                  <input value={editingZone.floor || ''} onChange={e=>setEditingZone({...editingZone,floor:e.target.value})}
                     style={{width:78,...inputSt}} placeholder="Niveau" />
-                  <input type="color" value={normalizeFloorColorValue(editingZone.floor_color) || floorColorValue(editingZone.floor)}
-                    onChange={e=>setFloorColor(editingZone.floor, e.target.value)}
-                    title="Couleur du niveau"
-                    style={{width:44,height:38,border:'1px solid var(--border)',borderRadius:'var(--r-xs)',background:'var(--surface-2)',padding:3,cursor:'pointer'}} />
                   <input type="date" value={editingZone.deadline || ''} onChange={e=>setEditingZone({...editingZone,deadline:e.target.value})}
                     style={{width:142,...inputSt}} />
                   <button onClick={()=>saveZone(editingZone)} style={miniBtn}>✓</button>
@@ -5732,22 +5368,12 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
               ) : (
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <div style={{flex:1}}>
-                    <div style={{display:'flex',alignItems:'center',gap:7}}>
-                      <span style={{width:8,height:8,borderRadius:'50%',background:getZoneFloorColor(z, zones),flexShrink:0}}></span>
-                      <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
-                    </div>
+                    <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{z.name}</div>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:2}}>
                       {z.short}{z.floor ? ' · ' + z.floor : ''}{z.deadline ? ' · fin ' + fmtDate(z.deadline) : ''}
                     </div>
                   </div>
-                  <button onClick={function(){ onMoveZone && onMoveZone(z.id, -1); }} disabled={i===0}
-                    title="Monter la zone" style={{...miniBtn,opacity:i===0 ? .35 : 1,cursor:i===0?'not-allowed':'pointer'}}>↑</button>
-                  <button onClick={function(){ onMoveZone && onMoveZone(z.id, 1); }} disabled={i===(zones||[]).length-1}
-                    title="Descendre la zone" style={{...miniBtn,opacity:i===(zones||[]).length-1 ? .35 : 1,cursor:i===(zones||[]).length-1?'not-allowed':'pointer'}}>↓</button>
-                  <button onClick={function(){ onCopyZone && onCopyZone(z.id); }} style={miniBtn}>Copier</button>
                   <button onClick={()=>setEditingZone(z)} style={miniBtn}>✎</button>
-                  <button onClick={function(){ onDeleteZone && onDeleteZone(z.id); }}
-                    title="Supprimer la zone" style={{...miniBtn,color:'var(--danger)',borderColor:'rgba(220,38,38,.35)'}}>Suppr.</button>
                 </div>
               )}
             </div>
@@ -5814,8 +5440,6 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--muted)',marginTop:1}}>{tr.short}</div>
                     </div>
                     <button onClick={()=>setEditingTrade(tr)} style={miniBtn}>✎</button>
-                    <button onClick={function(){ onDeleteTrade && onDeleteTrade(tr.id); }}
-                      title="Supprimer le corps de métier" style={{...miniBtn,color:'var(--danger)',borderColor:'rgba(220,38,38,.35)'}}>Suppr.</button>
                   </div>
                 )}
               </div>
@@ -5898,8 +5522,6 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                       </div>
                     </div>
                     <button onClick={()=>setEditingCompany(co)} style={miniBtn}>✎</button>
-                    <button onClick={function(){ onDeleteCompany && onDeleteCompany(co.id); }}
-                      title="Supprimer l’entreprise" style={{...miniBtn,color:'var(--danger)',borderColor:'rgba(220,38,38,.35)'}}>Suppr.</button>
                   </div>
                 )}
               </div>
@@ -5954,13 +5576,10 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
             </div>
             {floorList.map(function(floor){
               return (
-                <div key={floor} style={{display:'grid',gridTemplateColumns:'44px 70px 1fr',gap:10,
+                <div key={floor} style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:10,
                   alignItems:'center',marginBottom:8}}>
-                  <input type="color" value={floorColorValue(floor)} onChange={function(e){setFloorColor(floor,e.target.value);}}
-                    title={'Couleur '+floor}
-                    style={{width:34,height:30,border:'1px solid var(--border)',borderRadius:'var(--r-xs)',background:'var(--surface-2)',padding:2,cursor:'pointer'}} />
                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:800,
-                    color:getZoneFloorColor(floor, zones)}}>{floor}</div>
+                    color:FLOOR_COLORS[floor]||'var(--text)'}}>{floor}</div>
                   <input type="date" value={floorDeadlineValue(floor)}
                     onChange={function(e){setFloorDeadline(floor,e.target.value);}}
                     style={{width:'100%',padding:'8px 10px',border:'1px solid var(--border)',
@@ -5994,30 +5613,6 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                 </div>
               );
             })}
-          </div>
-
-          <div style={{background:'var(--surface)',border:'1px solid var(--border)',
-            borderRadius:'var(--r-sm)',padding:'12px 13px',marginBottom:12,boxShadow:'var(--shadow)'}}>
-            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:5}}>Jours ouvrés standards</div>
-            <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.45,marginBottom:10}}>
-              Ces jours pilotent l’affichage 5J, le collage des tâches et les déplacements. Par défaut : lundi à vendredi.
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(0,1fr))',gap:6}}>
-              {workingDayLabels.map(function(d){
-                var active = workingDayEnabled(d.idx);
-                return (
-                  <button key={d.idx} type="button" onClick={function(){onSetWorkingWeekday && onSetWorkingWeekday(d.idx, !active);}}
-                    title={d.label}
-                    style={{padding:'8px 4px',borderRadius:'var(--r-xs)',
-                      border:'1px solid '+(active?'var(--primary)':'var(--border)'),
-                      background:active?'var(--primary-l)':'var(--surface-2)',
-                      color:active?'var(--primary)':'var(--muted)',fontSize:11,fontWeight:900,
-                      cursor:'pointer',fontFamily:"'DM Mono',monospace"}}>
-                    {d.short}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
           <div style={{background:'var(--surface)',border:'1px solid var(--border)',
@@ -6594,7 +6189,7 @@ function taskStatusNoteItems(iv, history, taskLogs) {
   }).slice(0, 12);
 }
 
-function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, onCopyTask, canEditPlanning = true, canChangeStatus = true, changeRequests = [], history = [], taskLogs = [], onSubmitChangeRequest, onReviewChangeRequest, changeRequestBusy = false, canRequestTaskChange = true }) {
+function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStatusChange, onEdit, canEditPlanning = true, canChangeStatus = true, changeRequests = [], history = [], taskLogs = [], onSubmitChangeRequest, onReviewChangeRequest, changeRequestBusy = false, canRequestTaskChange = true }) {
   const iv = data.find(x=>x.id===ivId);
   if (!iv) return null;
   const z  = zones.find(x=>x.id===iv.zone);
@@ -6620,15 +6215,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
         </div>
         <StatusBadge status={iv.status} />
       </div>
-      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-        <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
-        {session?.role==='admin' && canEditPlanning && (
-          <button onClick={function(){ onCopyTask && onCopyTask(iv.id); }}
-            style={{padding:'7px 10px',borderRadius:999,border:'1px solid var(--primary)',background:'var(--primary-l)',color:'var(--primary)',fontSize:11,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
-            Copier la tâche
-          </button>
-        )}
-      </div>
+      <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
 
       {/* Task */}
       <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
@@ -7037,7 +6624,7 @@ function TaskPlanningPickerOverlay({ open, label, selectedIds, onChange, data, z
             </thead>
             <tbody>
               {(zones || []).map(function(zone){
-                var fc = getZoneFloorColor(zone, zones);
+                var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
                 return <tr key={zone.id} style={{borderBottom:'1px solid var(--border)'}}>
                   <td style={{padding:'8px 6px',borderRight:'3px solid '+fc,background:fc+'12',verticalAlign:'top',position:'sticky',left:0,zIndex:4}}>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:900,color:fc}}>{zone.short}</div>
@@ -7745,12 +7332,7 @@ function PlanifyApp() {
   const [companies,  setCompanies]  = useState([...COMPANIES]);
   const [loginCompaniesLoading, setLoginCompaniesLoading] = useState(false);
   const [calendarOverrides, setCalendarOverrides] = useState([]);
-  const [workingWeekdays, setWorkingWeekdays] = useState(DEFAULT_WORKING_WEEKDAYS.slice());
   const [modal,      setModal]      = useState(null); // {type, id?, zone?, date?}
-  const [taskClipboard, setTaskClipboard] = useState(null);
-  const [zoneClipboard, setZoneClipboard] = useState(null);
-  const [selectedPlanningTaskIds, setSelectedPlanningTaskIds] = useState([]);
-  const [planningDependencyMode, setPlanningDependencyMode] = useState(null);
   const [userMenu,   setUserMenu]   = useState(false);
   const [viewMode,   setViewMode]   = useState('1s');
   const [showWeekends, setShowWeekends] = useState(false);
@@ -7812,11 +7394,6 @@ function PlanifyApp() {
       .map(function(o){return normalizeDateKey(o.date);})
       .filter(Boolean));
   }, [calendarOverrides]);
-
-  // Working weekdays are configurable from the admin calendar settings.
-  useEffect(() => {
-    window.PLANIFY_WORKING_WEEKDAYS = new Set(normalizeWorkingWeekdays(workingWeekdays));
-  }, [workingWeekdays]);
 
   function notify(message, type = 'success', ms = 2600) {
     setToast({message:message,type:type});
@@ -8133,13 +7710,12 @@ function PlanifyApp() {
       fetch(SUPA_URL+'/rest/v1/companies?order=display_order',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/interventions?order=start_date',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/calendar_overrides?order=date',{headers:hdrs}),
-      fetch(SUPA_URL+'/rest/v1/calendar_settings?key=eq.working_weekdays',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/task_change_requests?order=created_at.desc&limit=500',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/task_logs?order=created_at.desc&limit=500',{headers:hdrs}),
       fetch(SUPA_URL+'/rest/v1/notifications?order=created_at.desc&limit=200'+(sess&&sess.role==='company'&&sess.company?('&company=eq.'+encodeURIComponent(sess.company.name)):''),{headers:hdrs}),
     ]).then(function(rs){ return Promise.all(rs.map(function(r){return r.ok?r.json():[];})); })
     .then(function(results){
-      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], calendarSettingsData=results[5], crData=results[6], logData=results[7], nData=results[8];
+      var zData=results[0], tData=results[1], cData=results[2], iData=results[3], calData=results[4], crData=results[5], logData=results[6], nData=results[7];
       if(zData&&zData.length) setZones(zData);
       if(tData&&tData.length) setTrades(tData.map(function(t){
         var loc=TRADES.find(function(lt){return lt.id===t.id;}) || {};
@@ -8157,12 +7733,6 @@ function PlanifyApp() {
       setCalendarOverrides((calData||[]).map(function(r){
         return {date:normalizeDateKey(r.date),label:r.label||'',is_worked:!!r.is_worked,updated_at:r.updated_at||''};
       }).filter(function(r){ return !!r.date; }));
-      var workingSetting = (calendarSettingsData||[]).find(function(r){ return r.key === 'working_weekdays'; });
-      if (workingSetting) {
-        var rawDays = workingSetting.value;
-        if (rawDays && !Array.isArray(rawDays) && Array.isArray(rawDays.days)) rawDays = rawDays.days;
-        setWorkingWeekdays(normalizeWorkingWeekdays(rawDays));
-      }
       setChangeRequests((crData||[]).map(normalizeChangeRequestRow));
       setTaskLogs(logData || []);
       setNotifications(nData || []);
@@ -8199,21 +7769,6 @@ function PlanifyApp() {
     sbFetchRows('POST','calendar_overrides',row,'on_conflict=date')
       .then(function(){notify(isWorked?'Jour férié rendu ouvré ✓':'Jour férié remis non ouvré ✓','success');})
       .catch(function(){notify('Erreur calendrier','error');});
-  }
-
-  function handleWorkingWeekdayToggle(dayIndex, enabled) {
-    var current = normalizeWorkingWeekdays(workingWeekdays);
-    var set = new Set(current);
-    if (enabled) set.add(Number(dayIndex));
-    else set.delete(Number(dayIndex));
-    var next = normalizeWorkingWeekdays(Array.from(set));
-    if (!next.length) next = DEFAULT_WORKING_WEEKDAYS.slice();
-    setWorkingWeekdays(next);
-    window.PLANIFY_WORKING_WEEKDAYS = new Set(next);
-    var row = {key:'working_weekdays',value:next,updated_at:new Date().toISOString()};
-    sbFetchRows('POST','calendar_settings',row,'on_conflict=key')
-      .then(function(){notify('Jours ouvrés mis à jour ✓','success');})
-      .catch(function(){notify('Erreur sauvegarde jours ouvrés','error');});
   }
 
   function syncAll(showMessage = true) {
@@ -8256,588 +7811,6 @@ function PlanifyApp() {
   const isAdmin = session?.role === 'admin';
   const canEditPlanning = isAdmin && !planningLocked && !planningValidated;
   const canChangeStatus = !planningValidated;
-
-  function togglePlanningTaskSelection(taskId) {
-    if (!canEditPlanning) {
-      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour déplacer les tâches.' : 'Planning verrouillé : déplacement indisponible.');
-      return;
-    }
-    setTaskClipboard(null);
-    setPlanningDependencyMode(null);
-    setSelectedPlanningTaskIds(function(prev){
-      var list = Array.isArray(prev) ? prev.slice() : [];
-      if (list.includes(taskId)) return list.filter(function(id){ return id !== taskId; });
-      return list.concat([taskId]);
-    });
-  }
-  function clearPlanningTaskSelection() {
-    setSelectedPlanningTaskIds([]);
-    setPlanningDependencyMode(null);
-  }
-
-  useEffect(function(){
-    if (screen !== 'planning' && selectedPlanningTaskIds.length) {
-      setSelectedPlanningTaskIds([]);
-      setPlanningDependencyMode(null);
-    }
-  }, [screen]);
-
-  useEffect(function(){
-    if (!selectedPlanningTaskIds.length && planningDependencyMode) setPlanningDependencyMode(null);
-  }, [selectedPlanningTaskIds.length, planningDependencyMode]);
-
-  function startPlanningDependencyMode(type) {
-    if (!canEditPlanning) {
-      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour modifier les liens.' : 'Planning verrouillé : modification des liens indisponible.');
-      return;
-    }
-    if (!selectedPlanningTaskIds.length) { alert('Sélectionnez d’abord une ou plusieurs tâches dans le planning.'); return; }
-    setTaskClipboard(null);
-    setPlanningDependencyMode({type:type, targetTaskId:null});
-    notify('Choisissez la tâche cible puis cliquez Valider le lien.', 'info', 3600);
-  }
-
-  function cancelPlanningDependencyMode() {
-    setPlanningDependencyMode(null);
-  }
-
-
-  function dateToUtcMs(value) {
-    var ds = normalizeDateKey(value || dateStr(new Date()));
-    var p = ds.split('-').map(function(n){ return parseInt(n, 10); });
-    if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) {
-      var fallback = dateStr(new Date()).split('-').map(function(n){ return parseInt(n, 10); });
-      return Date.UTC(fallback[0], fallback[1] - 1, fallback[2]);
-    }
-    return Date.UTC(p[0], p[1] - 1, p[2]);
-  }
-  function addDaysStr(baseDate, amount) {
-    var ms = dateToUtcMs(baseDate) + Number(amount || 0) * 24 * 3600 * 1000;
-    var d = new Date(ms);
-    return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
-  }
-  function diffDaysStr(fromDate, toDate) {
-    return Math.round((dateToUtcMs(toDate) - dateToUtcMs(fromDate)) / (24 * 3600 * 1000));
-  }
-  function dayOfWeekDateStr(ds) {
-    var key = normalizeDateKey(ds || dateStr(new Date()));
-    var p = key.split('-').map(function(n){ return parseInt(n, 10); });
-    if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) return 1;
-    return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
-  }
-  function isWeekendDateStr(ds) {
-    var dow = dayOfWeekDateStr(ds);
-    return !getConfiguredWorkingWeekdays().includes(dow);
-  }
-  function isHolidayDateStr(ds) {
-    return isHoliday(normalizeDateKey(ds || dateStr(new Date())));
-  }
-  function isNonWorkingDateStr(ds) {
-    return isWeekendDateStr(ds) || isHolidayDateStr(ds);
-  }
-  function isWorkingDateStr(ds) {
-    return !isNonWorkingDateStr(ds);
-  }
-  function nextWorkingDateStr(ds) {
-    var current = normalizeDateKey(ds || dateStr(new Date()));
-    var guard = 0;
-    while (isNonWorkingDateStr(current) && guard < 90) {
-      current = addDaysStr(current, 1);
-      guard += 1;
-    }
-    return current;
-  }
-  function addWorkingDaysStr(baseDate, amount) {
-    var current = nextWorkingDateStr(baseDate || dateStr(new Date()));
-    var remaining = Math.max(0, Number(amount || 0));
-    var guard = 0;
-    while (remaining > 0 && guard < 500) {
-      current = addDaysStr(current, 1);
-      if (isWorkingDateStr(current)) remaining -= 1;
-      guard += 1;
-    }
-    return current;
-  }
-  function workingOffsetDaysStr(fromDate, toDate) {
-    var from = nextWorkingDateStr(fromDate || dateStr(new Date()));
-    var to = nextWorkingDateStr(toDate || from);
-    if (to <= from) return 0;
-    var current = from;
-    var count = 0;
-    var guard = 0;
-    while (current < to && guard < 500) {
-      current = addDaysStr(current, 1);
-      if (isWorkingDateStr(current)) count += 1;
-      guard += 1;
-    }
-    return count;
-  }
-  function workingSpanDaysStr(start, end) {
-    var s = nextWorkingDateStr(start || dateStr(new Date()));
-    var e = nextWorkingDateStr(end || s);
-    if (e < s) e = s;
-    var current = s;
-    var count = 1;
-    var guard = 0;
-    while (current < e && guard < 500) {
-      current = addDaysStr(current, 1);
-      if (isWorkingDateStr(current)) count += 1;
-      guard += 1;
-    }
-    return Math.max(1, count);
-  }
-  function daysBetweenStr(start, end) {
-    return Math.max(0, diffDaysStr(start || dateStr(new Date()), end || start || dateStr(new Date())));
-  }
-  function taskStartKey(task) {
-    return normalizeDateKey(task && (task.start || task.start_date) || dateStr(new Date()));
-  }
-  function taskEndKey(task) {
-    return normalizeDateKey(task && (task.end || task.end_date || task.start || task.start_date) || dateStr(new Date()));
-  }
-  function interventionToSupabaseRow(cleanIv, newUpdatedAt) {
-    return {
-      id:cleanIv.id, trade:cleanIv.trade, company:cleanIv.company, task:cleanIv.task,
-      zone:cleanIv.zone, start_date:cleanIv.start, end_date:cleanIv.end||cleanIv.start,
-      status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
-      prereq:cleanIv.prereq||'', prereq_company:(cleanIv.prereq&&String(cleanIv.prereq).trim())?(cleanIv.prereq_company||''):'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
-      task_number:cleanIv.task_number||null, predecessor_id:(normalizeTaskLinkIds(cleanIv.predecessor_ids)[0]||null),
-      predecessor_ids:normalizeTaskLinkIds(cleanIv.predecessor_ids), successor_ids:normalizeTaskLinkIds(cleanIv.successor_ids),
-      off_days:cleanIv.off_days||[],
-      company_edit_allowed: !!cleanIv.company_edit_allowed,
-      company_edit_start_min: cleanIv.company_edit_allowed ? (cleanIv.company_edit_start_min || null) : null,
-      company_edit_end_max: cleanIv.company_edit_allowed ? (cleanIv.company_edit_end_max || null) : null,
-      updated_at:newUpdatedAt || new Date().toISOString()
-    };
-  }
-  function makeTaskCopy(source, targetZoneId, targetDate, existingTasks, alreadyDrafted) {
-    // Une tâche collée ne doit jamais démarrer ni finir un samedi, dimanche ou jour férié.
-    var cleanStart = nextWorkingDateStr(targetDate || dateStr(new Date()));
-    var sourceStart = taskStartKey(source);
-    var sourceEnd = taskEndKey(source);
-    var workingSpan = workingSpanDaysStr(sourceStart, sourceEnd);
-    var endDate = addWorkingDaysStr(cleanStart, workingSpan - 1);
-    var pool = (existingTasks || data || []).concat(alreadyDrafted || []);
-    return Object.assign({}, source, {
-      id:genId(),
-      zone:targetZoneId,
-      start:cleanStart,
-      end:endDate,
-      status:'arealis',
-      task_number:genTaskNum(pool, source.company, source.trade, trades),
-      predecessor_id:null,
-      predecessor_ids:[],
-      successor_ids:[],
-      off_days:weekendOffDaysBetween(cleanStart, endDate),
-      updated_at:null,
-      _expected_updated_at:''
-    });
-  }
-  function copyTaskToClipboard(id) {
-    if (!canEditPlanning) { alert('Planning verrouillé ou validé : copie indisponible.'); return; }
-    var task = data.find(function(iv){ return iv.id === id; });
-    if (!task) return;
-    setTaskClipboard({task:Object.assign({}, task), copiedAt:new Date().toISOString()});
-    notify('Tâche copiée. Cliquez une cellule du planning pour la coller.','success',3200);
-    setScreen('planning');
-    closeModal();
-  }
-  async function pasteTaskFromClipboard(targetZoneId, targetDate) {
-    if (!taskClipboard || !taskClipboard.task) return;
-    if (!canEditPlanning) { alert('Planning verrouillé ou validé : collage indisponible.'); return; }
-    var draft = makeTaskCopy(taskClipboard.task, targetZoneId, targetDate, data, []);
-    try {
-      var saved = await handleSave(draft);
-      setTaskClipboard(null);
-      setModal({type:'edit', id:saved.id});
-      notify('Tâche collée. Ajustez les données si besoin.','success',3200);
-    } catch(e) {}
-  }
-  function copyZoneToClipboard(zoneId) {
-    if (!canEditPlanning) { alert('Planning verrouillé ou validé : copie indisponible.'); return; }
-    var zone = zones.find(function(z){ return z.id === zoneId; });
-    if (!zone) return;
-    var tasks = data.filter(function(iv){ return iv.zone === zoneId; }).sort(planningTaskSort);
-    setZoneClipboard({zone:Object.assign({}, zone), tasks:tasks.map(function(t){ return Object.assign({}, t); }), copiedAt:new Date().toISOString()});
-    notify('Zone copiée avec '+tasks.length+' tâche'+(tasks.length>1?'s':'')+'.','success',3200);
-  }
-  function clearZoneClipboard() {
-    setZoneClipboard(null);
-  }
-  async function moveZone(zoneId, direction) {
-    if (!isAdmin) return;
-    var ordered = (zones || []).slice().sort(function(a,b){ return Number(a.display_order || 0) - Number(b.display_order || 0); });
-    var idx = ordered.findIndex(function(z){ return z.id === zoneId; });
-    var nextIdx = idx + direction;
-    if (idx < 0 || nextIdx < 0 || nextIdx >= ordered.length) return;
-    var tmp = ordered[idx]; ordered[idx] = ordered[nextIdx]; ordered[nextIdx] = tmp;
-    var normalized = ordered.map(function(z, i){ return Object.assign({}, z, {display_order:(i + 1) * 10}); });
-    setZones(normalized);
-    await Promise.all(normalized.map(function(z){ return sbFetchSilent('PATCH','zones',{display_order:z.display_order},eqFilter('id', z.id)); }));
-    notify('Ordre des zones sauvegardé ✓','success',1800);
-  }
-
-  async function deleteZone(zoneId) {
-    if (!canEditPlanning) { alert('Planning verrouillé ou validé : suppression indisponible.'); return; }
-    var zone = zones.find(function(z){ return z.id === zoneId; });
-    if (!zone) return;
-    var linkedTasks = data.filter(function(iv){ return iv.zone === zoneId; });
-    var msg = linkedTasks.length
-      ? 'Supprimer la zone '+zone.short+' supprimera aussi '+linkedTasks.length+' tâche'+(linkedTasks.length>1?'s':'')+' associée'+(linkedTasks.length>1?'s':'')+'. Continuer ?'
-      : 'Supprimer la zone '+zone.short+' ?';
-    if (!window.confirm(msg)) return;
-    try {
-      if (linkedTasks.length) await sbFetchRows('DELETE','interventions',null,'zone=eq.'+encodeURIComponent(zoneId));
-      await sbFetchRows('DELETE','zones',null,eqFilter('id', zoneId));
-      setData(function(prev){ return (prev || []).filter(function(iv){ return iv.zone !== zoneId; }); });
-      setZones(function(prev){ return (prev || []).filter(function(z){ return z.id !== zoneId; }); });
-      if (zoneClipboard && zoneClipboard.zone && zoneClipboard.zone.id === zoneId) setZoneClipboard(null);
-      await addPlanningEvent({
-        event_type:'zone_deleted',
-        zone_id:zoneId,
-        zone_name:zone.name,
-        message:'Zone supprimée : '+zone.short+' · '+linkedTasks.length+' tâche'+(linkedTasks.length>1?'s':''),
-        payload:{zone:zone,tasks_count:linkedTasks.length}
-      });
-      notify('Zone supprimée ✓','success',2600);
-    } catch(e) {
-      notify('Erreur lors de la suppression de la zone','error',4200);
-    }
-  }
-
-  async function deleteTrade(tradeId) {
-    if (!isAdmin) return;
-    var tr = trades.find(function(t){ return t.id === tradeId; });
-    if (!tr) return;
-    var linkedTasks = data.filter(function(iv){ return iv.trade === tradeId; });
-    var linkedCompanies = companies.filter(function(co){ return co.tradeId === tradeId || co.trade_id === tradeId; });
-    if (linkedTasks.length || linkedCompanies.length) {
-      alert('Suppression impossible : ce corps de métier est utilisé par '+linkedTasks.length+' tâche'+(linkedTasks.length>1?'s':'')+' et '+linkedCompanies.length+' entreprise'+(linkedCompanies.length>1?'s':'')+'. Réaffectez-les avant suppression.');
-      return;
-    }
-    if (!window.confirm('Supprimer le corps de métier '+tr.short+' — '+tr.name+' ?')) return;
-    try {
-      await sbFetchRows('DELETE','trades',null,eqFilter('id', tradeId));
-      setTrades(function(prev){ return (prev || []).filter(function(t){ return t.id !== tradeId; }); });
-      notify('Corps de métier supprimé ✓','success',2400);
-    } catch(e) {
-      notify('Erreur lors de la suppression du corps de métier','error',4200);
-    }
-  }
-
-  async function deleteCompany(companyId) {
-    if (!isAdmin) return;
-    var co = companies.find(function(c){ return c.id === companyId; });
-    if (!co) return;
-    var linkedTasks = data.filter(function(iv){ return String(iv.company || '').trim().toLowerCase() === String(co.name || '').trim().toLowerCase(); });
-    if (linkedTasks.length) {
-      alert('Suppression impossible : cette entreprise est utilisée par '+linkedTasks.length+' tâche'+(linkedTasks.length>1?'s':'')+'. Réaffectez les tâches avant suppression.');
-      return;
-    }
-    if (!window.confirm('Supprimer l’entreprise '+co.name+' ?')) return;
-    try {
-      await sbFetchRows('DELETE','companies',null,eqFilter('id', companyId));
-      setCompanies(function(prev){ return (prev || []).filter(function(c){ return c.id !== companyId; }); });
-      notify('Entreprise supprimée ✓','success',2400);
-    } catch(e) {
-      notify('Erreur lors de la suppression de l’entreprise','error',4200);
-    }
-  }
-  async function pasteZoneFromClipboard(opts) {
-    if (!zoneClipboard || !zoneClipboard.zone) return;
-    if (!canEditPlanning) { alert('Planning verrouillé ou validé : collage indisponible.'); return; }
-    opts = opts || {};
-    var targetZoneId = opts.targetZoneId || '';
-    var targetZone = null;
-    var startDate = normalizeDateKey(opts.startDate || dateStr(new Date()));
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) startDate = dateStr(new Date());
-
-    if (opts.mode === 'new') {
-      var nz = opts.newZone || {};
-      if (!String(nz.name || '').trim() || !String(nz.short || '').trim() || !String(nz.floor || '').trim()) {
-        alert('Nom, code court et niveau sont requis pour créer une nouvelle zone.'); return;
-      }
-      var currentOrders = (zones || []).map(function(z){ return Number(z.display_order || 0); }).filter(function(n){ return !Number.isNaN(n); });
-      targetZone = {
-        id:'z_' + genId(),
-        name:String(nz.name || '').trim(),
-        short:String(nz.short || '').trim(),
-        floor:String(nz.floor || '').trim(),
-        floor_color:getZoneFloorColor(String(nz.floor || '').trim(), zones),
-        deadline:nz.deadline || null,
-        display_order:currentOrders.length ? Math.max.apply(null, currentOrders) + 10 : 10
-      };
-      targetZoneId = targetZone.id;
-      setZones(function(prev){ return (prev || []).concat([targetZone]); });
-      await sbFetchRows('POST','zones',targetZone).catch(function(e){ throw e; });
-    } else {
-      if (!targetZoneId) { alert('Choisissez une zone de destination.'); return; }
-      targetZone = zones.find(function(z){ return z.id === targetZoneId; });
-      if (!targetZone) { alert('Zone de destination introuvable.'); return; }
-    }
-
-    var sourceTasks = (zoneClipboard.tasks || []).slice().sort(function(a,b){
-      var as = taskStartKey(a);
-      var bs = taskStartKey(b);
-      if (as !== bs) return as.localeCompare(bs);
-      var ae = taskEndKey(a);
-      var be = taskEndKey(b);
-      if (ae !== be) return ae.localeCompare(be);
-      return planningTaskSort(a,b);
-    });
-
-    if (!sourceTasks.length) {
-      setZoneClipboard(null);
-      notify('Zone créée / sélectionnée. Aucune tâche à copier.','success',2600);
-      setScreen('planning');
-      return;
-    }
-
-    // Règle métier : la 1ère tâche chronologique de la zone copiée démarre à la date saisie,
-    // sauf si cette date est un samedi, dimanche ou jour férié : elle est alors décalée au jour ouvré suivant.
-    // Les tâches suivantes gardent l'ordre et l'écart en JOURS OUVRÉS par rapport à cette première tâche.
-    var anchorTask = sourceTasks[0];
-    var anchorStart = nextWorkingDateStr(taskStartKey(anchorTask));
-    var effectiveStartDate = nextWorkingDateStr(startDate);
-    var shiftedNonWorking = effectiveStartDate !== startDate ? 1 : 0;
-
-    var idMap = {};
-    var drafts = [];
-
-    sourceTasks.forEach(function(src, sourceIndex){
-      var originalStart = nextWorkingDateStr(taskStartKey(src));
-      var originalEnd = nextWorkingDateStr(taskEndKey(src));
-      var offsetFromAnchor = workingOffsetDaysStr(anchorStart, originalStart);
-      var workingSpan = workingSpanDaysStr(originalStart, originalEnd);
-      var ns = addWorkingDaysStr(effectiveStartDate, offsetFromAnchor);
-      var ne = addWorkingDaysStr(ns, workingSpan - 1);
-      if (ns !== addDaysStr(startDate, diffDaysStr(anchorStart, taskStartKey(src)))) shiftedNonWorking += 1;
-      var draft = makeTaskCopy(src, targetZoneId, ns, data, drafts);
-
-      draft.start = ns;
-      draft.end = ne;
-      draft.status = 'arealis';
-      draft.off_days = weekendOffDaysBetween(draft.start, draft.end);
-      draft.company_edit_start_min = src.company_edit_start_min
-        ? addWorkingDaysStr(effectiveStartDate, workingOffsetDaysStr(anchorStart, src.company_edit_start_min))
-        : '';
-      draft.company_edit_end_max = src.company_edit_end_max
-        ? addWorkingDaysStr(effectiveStartDate, workingOffsetDaysStr(anchorStart, src.company_edit_end_max))
-        : '';
-      draft._paste_source_order = sourceIndex;
-
-      idMap[src.id] = draft.id;
-      drafts.push(draft);
-    });
-
-    drafts = drafts.map(function(draft, index){
-      var src = sourceTasks[index];
-      var pred = normalizeTaskLinkIds(src.predecessor_ids || src.predecessor_id)
-        .filter(function(id){ return !!idMap[id]; })
-        .map(function(id){ return idMap[id]; });
-      var succ = normalizeTaskLinkIds(src.successor_ids)
-        .filter(function(id){ return !!idMap[id]; })
-        .map(function(id){ return idMap[id]; });
-      return Object.assign({}, draft, {predecessor_ids:pred, successor_ids:succ, predecessor_id:pred[0] || null});
-    });
-
-    var nowIso = new Date().toISOString();
-    var rows = drafts.map(function(d){ return interventionToSupabaseRow(d, nowIso); });
-    try {
-      var savedRows = await sbFetchRows('POST','interventions',rows);
-      var saved = savedRows && savedRows.length ? savedRows.map(normalizeInterventionRow) : drafts.map(function(d){ return Object.assign({}, d, {updated_at:nowIso}); });
-      setData(function(prev){ return (prev || []).concat(saved); });
-      await addPlanningEvent({
-        event_type:'zone_duplicated',
-        zone_id:targetZoneId,
-        zone_name:targetZone ? targetZone.name : '',
-        message:'Zone copiée : '+zoneClipboard.zone.short+' → '+(targetZone ? targetZone.short : targetZoneId)+' · démarrage '+fmtDate(effectiveStartDate)+' · '+saved.length+' tâche'+(saved.length>1?'s':''),
-        payload:{source_zone:zoneClipboard.zone,target_zone:targetZone,tasks_count:saved.length,requested_start_date:startDate,start_date:effectiveStartDate,anchor_start:anchorStart,shifted_non_working_count:shiftedNonWorking}
-      });
-      setZoneClipboard(null);
-      setScreen('planning');
-      notify('Zone collée : 1ère tâche au '+fmtDate(effectiveStartDate)+(shiftedNonWorking?' · jours non ouvrés évités':'')+' ✓','success',4200);
-    } catch(e) {
-      notify('Erreur lors du collage de la zone','error',4200);
-    }
-  }
-
-  function choosePlanningDependencyTarget(targetTaskId) {
-    if (!canEditPlanning) { alert('Planning verrouillé ou validé : modification des liens indisponible.'); return; }
-    if (!planningDependencyMode || !planningDependencyMode.type) return;
-    if ((selectedPlanningTaskIds || []).includes(targetTaskId)) {
-      alert('La tâche cible ne peut pas faire partie de la sélection. Retirez-la de la sélection puis recommencez.');
-      return;
-    }
-    var target = data.find(function(iv){ return iv.id === targetTaskId; });
-    if (!target) return;
-    setPlanningDependencyMode(function(prev){ return Object.assign({}, prev || {}, {targetTaskId:targetTaskId}); });
-    notify('Tâche cible sélectionnée : '+(target.task_number || target.task)+' · cliquez Valider le lien.','info',2600);
-  }
-
-  async function validatePlanningDependencyLink() {
-    if (!canEditPlanning) { alert('Planning verrouillé ou validé : modification des liens indisponible.'); return; }
-    if (!planningDependencyMode || !planningDependencyMode.type) return;
-    var targetTaskId = planningDependencyMode.targetTaskId;
-    if (!targetTaskId) { alert('Cliquez d’abord sur la tâche cible dans le planning, puis validez.'); return; }
-    var cleanIds = uniqueTaskIds((selectedPlanningTaskIds || []).filter(Boolean));
-    if (!cleanIds.length) { setPlanningDependencyMode(null); return; }
-    if (cleanIds.includes(targetTaskId)) {
-      alert('La tâche cible ne peut pas faire partie de la sélection. Retirez-la de la sélection puis recommencez.');
-      return;
-    }
-    var target = data.find(function(iv){ return iv.id === targetTaskId; });
-    var selected = cleanIds.map(function(id){ return data.find(function(iv){ return iv.id === id; }); }).filter(Boolean);
-    if (!target || !selected.length) return;
-
-    selected.sort(function(a,b){ return planningTaskSort(a,b); });
-
-    var byId = {};
-    function draftFor(task) {
-      if (!byId[task.id]) byId[task.id] = Object.assign({}, task, {_expected_updated_at:task.updated_at || ''});
-      return byId[task.id];
-    }
-    function addPred(task, predId) {
-      var d = draftFor(task);
-      d.predecessor_ids = uniqueTaskIds(normalizeTaskLinkIds(d.predecessor_ids || d.predecessor_id).concat([predId]));
-      d.predecessor_id = d.predecessor_ids[0] || null;
-    }
-    function addSucc(task, succId) {
-      var d = draftFor(task);
-      d.successor_ids = uniqueTaskIds(normalizeTaskLinkIds(d.successor_ids).concat([succId]));
-    }
-
-    if (planningDependencyMode.type === 'selection_as_predecessor') {
-      selected.forEach(function(src){
-        addPred(target, src.id);
-        addSucc(src, target.id);
-      });
-    } else if (planningDependencyMode.type === 'selection_as_successor') {
-      selected.forEach(function(src){
-        addPred(src, target.id);
-        addSucc(target, src.id);
-      });
-    } else {
-      return;
-    }
-
-    var nowIso = new Date().toISOString();
-    var drafts = Object.keys(byId).map(function(id){
-      return Object.assign({}, byId[id], {updated_at:nowIso});
-    });
-
-    setBusyKey('planning_dependency', true);
-    try {
-      var savedRows = [];
-      for (var i = 0; i < drafts.length; i += 1) {
-        var row = interventionToSupabaseRow(drafts[i], nowIso);
-        var rows = await sbFetchRows('PATCH','interventions',row,conflictQuery(drafts[i].id, drafts[i]._expected_updated_at || ''));
-        if (drafts[i]._expected_updated_at && (!rows || !rows.length)) {
-          await syncAll(false).catch(function(){});
-          throw new Error('Une tâche liée a été modifiée par un autre utilisateur. Actualisez puis réessayez.');
-        }
-        savedRows.push(rows && rows[0] ? normalizeInterventionRow(rows[0]) : Object.assign({}, drafts[i], {updated_at:nowIso}));
-      }
-      setData(function(prev){
-        return (prev || []).map(function(iv){
-          var updated = savedRows.find(function(row){ return row.id === iv.id; });
-          return updated || iv;
-        });
-      });
-      await addPlanningEvent({
-        event_type:'task_dependencies_updated',
-        message:(planningDependencyMode.type === 'selection_as_predecessor'
-          ? 'Lien planning : '+selected.length+' tâche'+(selected.length>1?'s':'')+' ajoutée'+(selected.length>1?'s':'')+' en prédécesseur de '+(target.task_number || target.task)
-          : 'Lien planning : '+selected.length+' tâche'+(selected.length>1?'s':'')+' ajoutée'+(selected.length>1?'s':'')+' en successeur de '+(target.task_number || target.task)),
-        payload:{mode:planningDependencyMode.type,target_task_id:target.id,selected_task_ids:selected.map(function(t){ return t.id; })}
-      });
-      setPlanningDependencyMode(null);
-      setSelectedPlanningTaskIds([]);
-      setScreen('planning');
-      try { window.dispatchEvent(new CustomEvent('planify-force-show-cc')); } catch(e) {}
-      notify('Lien enregistré ✓ visible dans le planning','success',3600);
-    } catch(e) {
-      notify(e.message || 'Erreur lors de la création du lien','error',4600);
-    } finally {
-      setBusyKey('planning_dependency', false);
-    }
-  }
-
-  async function moveSelectedPlanningTasks(ids, targetZoneId, targetDate) {
-    if (!canEditPlanning) { alert('Planning verrouillé ou validé : déplacement indisponible.'); return; }
-    var cleanIds = uniqueTaskIds((ids || []).filter(Boolean));
-    if (!cleanIds.length) return;
-    var selected = cleanIds.map(function(id){ return data.find(function(iv){ return iv.id === id; }); }).filter(Boolean);
-    if (!selected.length) { setSelectedPlanningTaskIds([]); return; }
-
-    selected.sort(function(a,b){
-      var as = taskStartKey(a), bs = taskStartKey(b);
-      if (as !== bs) return as.localeCompare(bs);
-      var ae = taskEndKey(a), be = taskEndKey(b);
-      if (ae !== be) return ae.localeCompare(be);
-      return planningTaskSort(a,b);
-    });
-
-    var anchorStart = taskStartKey(selected[0]);
-    var requestedTarget = normalizeDateKey(targetDate || dateStr(new Date()));
-    var shiftedCount = 0;
-    var nowIso = new Date().toISOString();
-
-    var effectiveTarget = nextWorkingDateStr(requestedTarget);
-    if (effectiveTarget !== requestedTarget) shiftedCount += 1;
-
-    var moved = selected.map(function(src){
-      var originalStart = nextWorkingDateStr(taskStartKey(src));
-      var originalEnd = nextWorkingDateStr(taskEndKey(src));
-      var offset = workingOffsetDaysStr(anchorStart, originalStart);
-      var workingSpan = workingSpanDaysStr(originalStart, originalEnd);
-      var newStart = addWorkingDaysStr(effectiveTarget, offset);
-      var newEnd = addWorkingDaysStr(newStart, workingSpan - 1);
-      var next = Object.assign({}, src, {
-        zone:targetZoneId,
-        start:newStart,
-        end:newEnd,
-        off_days:weekendOffDaysBetween(newStart, newEnd),
-        updated_at:nowIso,
-        _expected_updated_at:src.updated_at || ''
-      });
-      return next;
-    });
-
-    setBusyKey('planning_move', true);
-    try {
-      var savedRows = [];
-      for (var i = 0; i < moved.length; i += 1) {
-        var row = interventionToSupabaseRow(moved[i], nowIso);
-        var rows = await sbFetchRows('PATCH','interventions',row,conflictQuery(moved[i].id, moved[i]._expected_updated_at || ''));
-        if (moved[i]._expected_updated_at && (!rows || !rows.length)) {
-          await syncAll(false).catch(function(){});
-          throw new Error('Une tâche sélectionnée a été modifiée par un autre utilisateur. Actualisez puis réessayez.');
-        }
-        savedRows.push(rows && rows[0] ? normalizeInterventionRow(rows[0]) : Object.assign({}, moved[i], {updated_at:nowIso}));
-      }
-      setData(function(prev){
-        return (prev || []).map(function(iv){
-          var s = savedRows.find(function(row){ return row.id === iv.id; });
-          return s || iv;
-        });
-      });
-      var targetZone = zones.find(function(z){ return z.id === targetZoneId; });
-      await addPlanningEvent({
-        event_type:'tasks_moved',
-        zone_id:targetZoneId,
-        zone_name:targetZone ? targetZone.name : '',
-        message:'Déplacement planning : '+savedRows.length+' tâche'+(savedRows.length>1?'s':'')+' vers '+(targetZone ? targetZone.short : targetZoneId)+' à partir du '+fmtDate(effectiveTarget),
-        payload:{task_ids:savedRows.map(function(t){ return t.id; }),target_zone_id:targetZoneId,requested_target_date:requestedTarget,target_date:effectiveTarget,shifted_non_working_count:shiftedCount}
-      });
-      setSelectedPlanningTaskIds([]);
-      notify('Tâche'+(savedRows.length>1?'s':'')+' déplacée'+(savedRows.length>1?'s':'')+(shiftedCount?' · jours non ouvrés évités':'')+' ✓','success',3600);
-    } catch(e) {
-      notify(e.message || 'Erreur lors du déplacement','error',4600);
-    } finally {
-      setBusyKey('planning_move', false);
-    }
-  }
 
   function openDetail(id)           { setModal({type:'detail', id}); }
   function openAdd(zone,date) {
@@ -9256,7 +8229,19 @@ function PlanifyApp() {
     var cleanIv = Object.assign({}, iv);
     delete cleanIv._expected_updated_at;
     var newUpdatedAt = new Date().toISOString();
-    var row = interventionToSupabaseRow(cleanIv, newUpdatedAt);
+    var row = {
+      id:cleanIv.id, trade:cleanIv.trade, company:cleanIv.company, task:cleanIv.task,
+      zone:cleanIv.zone, start_date:cleanIv.start, end_date:cleanIv.end||cleanIv.start,
+      status:cleanIv.status||'arealis', priority:cleanIv.priority||3,
+      prereq:cleanIv.prereq||'', prereq_company:(cleanIv.prereq&&String(cleanIv.prereq).trim())?(cleanIv.prereq_company||''):'', impact:cleanIv.impact||'', notes:cleanIv.notes||'',
+      task_number:cleanIv.task_number||null, predecessor_id:(normalizeTaskLinkIds(cleanIv.predecessor_ids)[0]||null),
+      predecessor_ids:normalizeTaskLinkIds(cleanIv.predecessor_ids), successor_ids:normalizeTaskLinkIds(cleanIv.successor_ids),
+      off_days:cleanIv.off_days||[],
+      company_edit_allowed: !!cleanIv.company_edit_allowed,
+      company_edit_start_min: cleanIv.company_edit_allowed ? (cleanIv.company_edit_start_min || null) : null,
+      company_edit_end_max: cleanIv.company_edit_allowed ? (cleanIv.company_edit_end_max || null) : null,
+      updated_at:newUpdatedAt
+    };
 
     setBusyKey('task_save', true);
     try {
@@ -9483,21 +8468,13 @@ function PlanifyApp() {
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
       case 'planning':  return <PlanningScreen  data={data} zones={zones} setZones={setZones} trades={trades}
         weekOffset={weekOffset} filter={filter} session={session}
-        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} taskClipboard={taskClipboard} onPasteTask={pasteTaskFromClipboard} onClearTaskClipboard={function(){setTaskClipboard(null);}}
-        selectedTaskIds={selectedPlanningTaskIds} onToggleTaskSelection={togglePlanningTaskSelection} onClearTaskSelection={clearPlanningTaskSelection} onMoveSelectedTasks={moveSelectedPlanningTasks}
-        dependencyLinkMode={planningDependencyMode} onStartDependencyLinkMode={startPlanningDependencyMode} onCancelDependencyLinkMode={cancelPlanningDependencyMode} onChooseDependencyTarget={choosePlanningDependencyTarget} onValidateDependencyLink={validatePlanningDependencyLink}
-        onWeekChange={function(delta){setWeekOffset(function(w){return w+delta;});}} />;
+        onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
       case 'settings':  return <SettingsScreen  zones={zones} trades={trades} companies={companies}
         setZones={setZones} setTrades={setTrades} setCompanies={setCompanies}
-        data={data} zoneClipboard={zoneClipboard}
-        onCopyZone={copyZoneToClipboard} onClearZoneClipboard={clearZoneClipboard}
-        onPasteZone={pasteZoneFromClipboard} onMoveZone={moveZone}
-        onDeleteZone={deleteZone} onDeleteTrade={deleteTrade} onDeleteCompany={deleteCompany}
-        calendarOverrides={calendarOverrides} onSetHolidayWorked={handleHolidayWorked}
-        workingWeekdays={workingWeekdays} onSetWorkingWeekday={handleWorkingWeekdayToggle} />;
+        calendarOverrides={calendarOverrides} onSetHolidayWorked={handleHolidayWorked} />;
       default:          return null;
     }
   };
@@ -10034,7 +9011,7 @@ function PlanifyApp() {
         currentY += rowH;
         rowBoundaries.push(currentY);
 
-        var fc = getZoneFloorColor(zone, zones);
+        var fc = FLOOR_COLORS[zone.floor] || '#9CA3AF';
         var fcRgb = hexToRgb(fc);
         var rowBg = mixWhite(fcRgb, overviewMode ? 0.95 : 0.96);
 
@@ -10242,7 +9219,7 @@ function PlanifyApp() {
       {/* Modals */}
       <DetailModal open={modal?.type==='detail'} ivId={modal?.id}
         data={data} zones={zones} trades={trades} session={session}
-        onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit} onCopyTask={copyTaskToClipboard}
+        onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit}
         canEditPlanning={canEditPlanning} canChangeStatus={canChangeStatus}
         changeRequests={changeRequests} history={history} taskLogs={taskLogs}
         onSubmitChangeRequest={handleSubmitTaskChangeRequest}
