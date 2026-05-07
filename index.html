@@ -1031,40 +1031,40 @@ function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null,
   const hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
   const ccColor = hasCritical ? (criticalPath.color || '#EA580C') : c.b;
   const ccBg = hasCritical ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.11)+', '+rgbaCss(ccColor,.11)+'), '+bg) : bg;
-  const ccBorder = hasCritical ? ('1px solid '+rgbaCss(ccColor,.82)) : ('1px solid '+bdr);
+  const ccBorder = hasCritical ? ('1.5px dashed '+rgbaCss(ccColor,.90)) : ('1px solid '+bdr);
   const ccShadow = hasCritical
-    ? ('0 0 0 2px '+rgbaCss(ccColor,.30)+', 0 0 0 5px '+rgbaCss(ccColor,.08)+', 0 3px 12px '+rgbaCss(ccColor,.12))
+    ? ('0 0 0 2px '+rgbaCss(ccColor,.22)+', 0 0 0 5px '+rgbaCss(ccColor,.07)+', 0 2px 8px '+rgbaCss(ccColor,.10))
     : 'none';
   return (
-    <div onClick={onClick} style={{borderRadius:8,padding:'5px 7px 5px 9px',marginBottom:3,cursor:'pointer',
-      background:ccBg,borderLeft:`4px solid ${hasCritical ? ccColor : c.b}`,border:ccBorder,
+    <div onClick={onClick} style={{borderRadius:7,padding:'3px 6px 3px 8px',marginBottom:2,cursor:'pointer',
+      background:ccBg,borderLeft:`3px solid ${hasCritical ? ccColor : c.b}`,border:ccBorder,
       boxShadow:ccShadow,
       transition:'opacity .12s, box-shadow .15s, border-color .15s, background .15s',userSelect:'none',position:'relative',
       opacity:dimmed ? .34 : 1,filter:dimmed?'saturate(.65)':'none'}}
       onMouseEnter={e=>{e.currentTarget.style.opacity=dimmed?'.5':'.90';}}
       onMouseLeave={e=>{e.currentTarget.style.opacity=dimmed?'.34':'1';}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
-        <span style={{fontFamily:"'DM Mono',monospace",fontSize:'8.5px',color:c.t,opacity:.7,fontWeight:600}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:1}}>
+        <span style={{fontFamily:"'DM Mono',monospace",fontSize:'7.5px',color:c.t,opacity:.7,fontWeight:600}}>
           {iv.task_number}
         </span>
-        <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 6px',borderRadius:999,
-          background:m.bg,color:m.text,border:`1px solid ${m.dot}66`,fontSize:8.5,fontWeight:900,
+        <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'1px 5px',borderRadius:999,
+          background:m.bg,color:m.text,border:`1px solid ${m.dot}66`,fontSize:7.5,fontWeight:900,
           fontFamily:"'DM Mono',monospace",lineHeight:1,whiteSpace:'nowrap',flexShrink:0}}>
-          <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0,display:'block'}}></span>
+          <span style={{width:5,height:5,borderRadius:'50%',background:m.dot,flexShrink:0,display:'block'}}></span>
           {m.label}
         </span>
       </div>
-      <div style={{fontSize:11,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.2}}>{iv.company}</div>
-      <div style={{fontSize:10,color:c.t,opacity:.8,lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
-      <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}>
+      <div style={{fontSize:10,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.15}}>{iv.company}</div>
+      <div style={{fontSize:9,color:c.t,opacity:.85,lineHeight:1.32,overflow:'hidden'}}>{iv.task}</div>
+      <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:2}}>
         <TaskDependencyBadges iv={iv} data={data} compact />
-        {hasCritical ? <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'1px 6px',borderRadius:20,background:rgbaCss(ccColor,.16),color:ccColor,border:'1px solid '+rgbaCss(ccColor,.45),fontSize:8.5,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CC'}</span> : null}
+        {hasCritical ? <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'1px 5px',borderRadius:20,background:rgbaCss(ccColor,.16),color:ccColor,border:'1.5px dashed '+rgbaCss(ccColor,.55),fontSize:7.5,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CC'}</span> : null}
       </div>
-      {iv.prereq && <div style={{fontSize:'8.5px',marginTop:2,color:'#DC2626',opacity:.85,display:'flex',gap:3,alignItems:'flex-start'}}>
+      {iv.prereq && <div style={{fontSize:'7.5px',marginTop:2,color:'#DC2626',opacity:.85,display:'flex',gap:3,alignItems:'flex-start'}}>
         <span>⚠</span><span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.prereq.slice(0,40)}</span>
       </div>}
       {taskCanFinishLater(iv) && (
-        <div style={{marginTop:3}}>
+        <div style={{marginTop:2}}>
           <TaskFinishLaterBadge iv={iv} compact />
         </div>
       )}
@@ -4691,6 +4691,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
 
   function renderTaskSelectionControl(iv, compact) {
     if (!isAdmin) return null;
+    if (dependencyLinkActive) return null; // masqué en mode sélection de cible
     var active = selectedTaskSet.has(iv.id);
     return (
       <button
@@ -4754,30 +4755,29 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             if (dependencyLinkActive && onChooseDependencyTarget) { onChooseDependencyTarget(iv.id); return; }
             onOpenDetail(iv.id);
           }}
-          style={{borderRadius:6,padding:weeks===2?'4px 26px 4px 5px':'3px 24px 3px 4px',marginBottom:2,cursor:'pointer',
+          style={{borderRadius:5,padding:weeks===2?'3px 20px 3px 4px':'2px 18px 2px 3px',marginBottom:1,cursor:'pointer',
             background:selectedForMove ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary) 12%, transparent)), '+(ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg) : (ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg),
-            borderLeft:'4px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':(ccLinked?ccColor:_c.b))),
-            border:'1px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':(ccLinked?rgbaCss(ccColor,.82):'transparent'))),
-            boxShadow:selectedForMove ? '0 0 0 2px color-mix(in srgb, var(--primary) 26%, transparent), 0 6px 18px rgba(0,0,0,.12)' : (selectedAsDependencyTarget ? '0 0 0 2px rgba(124,58,237,.26), 0 8px 20px rgba(124,58,237,.14)' : (ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.32)+', 0 1px 7px '+rgbaCss(ccColor,.12)):'none')),
+            borderLeft:'3px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':(ccLinked?ccColor:_c.b))),
+            border:ccLinked?('1.5px dashed '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':rgbaCss(ccColor,.85)))):'1px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':'transparent')),
+            boxShadow:selectedForMove ? '0 0 0 2px color-mix(in srgb, var(--primary) 26%, transparent), 0 6px 18px rgba(0,0,0,.12)' : (selectedAsDependencyTarget ? '0 0 0 2px rgba(124,58,237,.26), 0 8px 20px rgba(124,58,237,.14)' : (ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.24)+', 0 1px 5px '+rgbaCss(ccColor,.10)):'none')),
             overflow:'hidden',opacity:ccDimmed && !selectedForMove ? .28 : 1,filter:ccDimmed&&!selectedForMove?'saturate(.65)':'none',position:'relative'}}>
           {renderTaskSelectionControl(iv, true)}
-          <div style={{display:'flex',alignItems:'center',gap:4}}>
-            <span style={{fontSize:weeks===2?9:8,fontWeight:800,color:_c.t,fontFamily:UX2.sans,
+          <div style={{display:'flex',alignItems:'center',gap:3}}>
+            <span style={{fontSize:weeks===2?8.5:7.5,fontWeight:800,color:_c.t,fontFamily:UX2.sans,
               overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
-              lineHeight:1.15,flex:1}}>{iv.company}</span>
+              lineHeight:1.12,flex:1}}>{iv.company}</span>
             <span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 4px',borderRadius:999,
-              background:_m.bg,color:_m.text,border:'1px solid '+_m.dot+'55',fontSize:weeks===2?7.2:6.8,
+              background:_m.bg,color:_m.text,border:'1px solid '+_m.dot+'55',fontSize:weeks===2?6.8:6.4,
               fontWeight:900,fontFamily:UX2.mono,lineHeight:1,whiteSpace:'nowrap',flexShrink:0}}>
-              <span style={{width:4,height:4,borderRadius:'50%',background:_m.dot,flexShrink:0,display:'block'}}></span>
+              <span style={{width:3.5,height:3.5,borderRadius:'50%',background:_m.dot,flexShrink:0,display:'block'}}></span>
               {_m.label}
             </span>
           </div>
-          {weeks<=3&&<div style={{fontSize:weeks===2?8.2:7.4,color:_c.t,opacity:.88,
-            lineHeight:1.18,overflow:'hidden',whiteSpace:'nowrap',
-            textOverflow:'ellipsis',fontWeight:600}}>{iv.task}</div>}
-          {taskCanFinishLater(iv)&&<div style={{fontSize:weeks===2?7.2:6.6,color:'var(--primary)',fontWeight:800,
+          {weeks<=3&&<div style={{fontSize:weeks===2?7.8:7,color:_c.t,opacity:.88,
+            lineHeight:1.16,overflow:'hidden',fontWeight:600}}>{iv.task}</div>}
+          {taskCanFinishLater(iv)&&<div style={{fontSize:weeks===2?6.8:6.2,color:'var(--primary)',fontWeight:800,
             lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
-          {selectedAsDependencyTarget ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#7C3AED',fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Cible</div> : (ccLinked ? <div style={{fontSize:weeks===2?7.2:6.6,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>CC</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:weeks===2?7.2:6.6,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null))}
+          {selectedAsDependencyTarget ? <div style={{fontSize:weeks===2?6.8:6.2,color:'#7C3AED',fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Cible</div> : (ccLinked ? <div style={{fontSize:weeks===2?6.8:6.2,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',borderTop:'1px dashed '+rgbaCss(ccColor,.35),marginTop:1,paddingTop:1}}>── CC ──</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:weeks===2?6.8:6.2,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null))}
         </div>
       );
     }
@@ -4828,6 +4828,16 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           outline:'none',
           pointerEvents:empty?'none':'auto'
         }}>
+        {/* Ligne pointillée CC traversant la cellule */}
+        <div style={{
+          position:'absolute',
+          left:0,right:0,
+          top:'50%',
+          height:0,
+          borderTop:'1.5px dashed '+rgbaCss(color,.45),
+          pointerEvents:'none',
+          zIndex:0
+        }} />
         {slot.tasks.map(function(iv){ return renderPlanningTask(iv, zone, zoneCritical, dayStrForCard); })}
       </div>
     );
@@ -4857,9 +4867,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',background:'var(--surface)'}}>
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:'1 1 320px'}}>
-              <div style={{width:26,height:16,borderRadius:6,background:'rgba(234,88,12,.12)',border:'2px solid rgba(234,88,12,.65)',boxShadow:'0 0 0 3px rgba(234,88,12,.08)',flexShrink:0}}></div>
+              <div style={{width:26,height:16,borderRadius:6,background:'rgba(234,88,12,.10)',border:'1.5px dashed rgba(234,88,12,.75)',boxShadow:'0 0 0 3px rgba(234,88,12,.07)',flexShrink:0}}></div>
               <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.35}}>
-                <b style={{color:'#9A3412'}}>CC</b> : tâches liées surlignées simplement. {visibleCriticalChains.length ? (visibleCriticalChains.length + ' chaîne(s)') : 'Aucun lien'}
+                <b style={{color:'#9A3412'}}>CC</b> : tâches en bordure pointillée + trait de liaison. {visibleCriticalChains.length ? (visibleCriticalChains.length + ' chaîne(s)') : 'Aucun lien'}
               </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
@@ -4926,35 +4936,55 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
           {moveSelectionActive && (
             <div style={{marginTop:8,padding:'10px 12px',borderRadius:'var(--r-sm)',border:'1px solid color-mix(in srgb, var(--primary) 34%, transparent)',background:'var(--primary-l)',display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
               <div style={{fontSize:12,color:'var(--text)',lineHeight:1.35,fontWeight:800,minWidth:240,flex:'1 1 380px'}}>
-                <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
-                  <span>{dependencyLinkActive ? 'Mode lien' : 'Sélection planning'}</span>
-                  <span style={{fontFamily:UX2.mono,color:'var(--primary)'}}>{selectedPlanningIds.length} tâche{selectedPlanningIds.length>1?'s':''}</span>
-                  {dependencyLinkActive && <span style={{fontSize:10.5,fontWeight:900,color:'var(--primary)',background:'var(--surface)',border:'1px solid color-mix(in srgb, var(--primary) 26%, transparent)',borderRadius:999,padding:'2px 7px',fontFamily:UX2.mono}}>Cible : {dependencyTargetCode || 'à choisir'}</span>}
+                <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',marginBottom:6}}>
+                  <span style={{fontSize:12,fontWeight:900}}>{dependencyLinkActive ? '🔗 Mode lien' : '✶ Sélection planning'}</span>
                 </div>
-                <div style={{fontSize:10.5,color:'var(--muted)',marginTop:5,fontWeight:700}}>
-                  {dependencyLinkActive
-                    ? 'Cliquez une tâche cible dans le planning, puis utilisez le bouton Valider le lien placé à côté de Annuler sélection.'
-                    : 'Déplacement actif : cliquez sur une cellule zone/date pour déplacer la sélection. Ou créez un lien prédécesseur / successeur.'}
-                </div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:7,alignItems:'center'}}>
-                  <span style={{fontSize:10.5,color:'var(--muted)',fontWeight:800}}>Sélection :</span>
-                  {selectedTaskCodes.map(function(code){ return <span key={code} style={{fontSize:10,fontFamily:UX2.mono,fontWeight:900,color:'var(--primary)',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:999,padding:'3px 7px'}}>{code}</span>; })}
-                </div>
-                {dependencyLinkActive && (
-                  <div style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:'3px 8px',marginTop:7,fontSize:10.5,color:'var(--muted)',fontWeight:800}}>
-                    <span>Départ :</span><span style={{fontFamily:UX2.mono,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis'}}>{dependencyStartLabel || '—'}</span>
-                    <span>Arrivée :</span><span style={{fontFamily:UX2.mono,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis'}}>{dependencyEndLabel || '—'}</span>
+                {dependencyLinkActive ? (
+                  <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                    <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center'}}>
+                      <span style={{fontSize:9.5,fontWeight:900,fontFamily:UX2.mono,letterSpacing:'.04em',padding:'2px 7px',borderRadius:999,
+                        background:dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor'?'rgba(234,88,12,.16)':'rgba(124,58,237,.14)',
+                        color:dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor'?'#9A3412':'#6D28D9',
+                        border:'1px solid '+(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor'?'rgba(234,88,12,.45)':'rgba(124,58,237,.38)'),flexShrink:0}}>
+                        {dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor'?'PRÉDÉCESSEUR':'SUCCESSEUR'}
+                      </span>
+                      {selectedTaskCodes.map(function(code){
+                        var isPred = dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor';
+                        return <span key={code} style={{fontSize:10,fontFamily:UX2.mono,fontWeight:900,
+                          color:isPred?'#9A3412':'#6D28D9',
+                          background:isPred?'rgba(234,88,12,.09)':'rgba(124,58,237,.09)',
+                          border:'1px solid '+(isPred?'rgba(234,88,12,.32)':'rgba(124,58,237,.28)'),
+                          borderRadius:999,padding:'2px 7px'}}>{code}</span>;
+                      })}
+                    </div>
+                    <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center'}}>
+                      <span style={{fontSize:9.5,fontWeight:900,fontFamily:UX2.mono,letterSpacing:'.04em',padding:'2px 7px',borderRadius:999,
+                        background:'rgba(37,99,235,.14)',color:'#1E3A8A',border:'1px solid rgba(37,99,235,.35)',flexShrink:0}}>RÉFÉRENCE</span>
+                      {dependencyTargetCode
+                        ? <span style={{fontSize:10,fontFamily:UX2.mono,fontWeight:900,color:'#1E3A8A',background:'rgba(37,99,235,.09)',border:'1px solid rgba(37,99,235,.28)',borderRadius:999,padding:'2px 7px'}}>{dependencyTargetCode}</span>
+                        : <span style={{fontSize:10,fontFamily:UX2.mono,color:'var(--xmuted)',fontStyle:'italic'}}>cliquez une tâche dans le planning…</span>}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center',marginTop:2}}>
+                    <span style={{fontSize:9.5,fontWeight:900,fontFamily:UX2.mono,padding:'2px 7px',borderRadius:999,background:'rgba(33,82,200,.12)',color:'var(--primary)',border:'1px solid rgba(33,82,200,.28)',flexShrink:0}}>SÉLECTION</span>
+                    {selectedTaskCodes.map(function(code){ return <span key={code} style={{fontSize:10,fontFamily:UX2.mono,fontWeight:900,color:'var(--primary)',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:999,padding:'2px 7px'}}>{code}</span>; })}
                   </div>
                 )}
+                <div style={{fontSize:10,color:'var(--muted)',marginTop:6,fontWeight:600,lineHeight:1.4}}>
+                  {dependencyLinkActive
+                    ? (dependencyTargetId ? '✓ Référence choisie — cliquez Valider le lien pour enregistrer.' : 'Cliquez maintenant une tâche dans le planning pour définir la référence.')
+                    : 'Déplacement : cliquez sur une cellule zone/date. Ou créez un lien prédécesseur / successeur.'}
+                </div>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
                 <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_predecessor'); }}
-                  title="La sélection sera ajoutée comme prédécesseur de la tâche cible"
+                  title="La sélection sera ajoutée comme prédécesseur de la tâche référence"
                   style={{padding:'7px 10px',borderRadius:999,border:'1px solid '+(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor'?'rgba(234,88,12,.72)':'rgba(234,88,12,.38)'),background:(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_predecessor')?'rgba(234,88,12,.18)':'rgba(234,88,12,.10)',color:'#9A3412',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
                   Sélection = préd.
                 </button>
                 <button onClick={function(e){ e.stopPropagation(); onStartDependencyLinkMode && onStartDependencyLinkMode('selection_as_successor'); }}
-                  title="La sélection sera ajoutée comme successeur de la tâche cible"
+                  title="La sélection sera ajoutée comme successeur de la tâche référence"
                   style={{padding:'7px 10px',borderRadius:999,border:'1px solid '+(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_successor'?'rgba(124,58,237,.72)':'rgba(124,58,237,.36)'),background:(dependencyLinkMode&&dependencyLinkMode.type==='selection_as_successor')?'rgba(124,58,237,.18)':'rgba(124,58,237,.10)',color:'#6D28D9',fontSize:10.5,fontWeight:900,fontFamily:UX2.mono,cursor:'pointer'}}>
                   Sélection = succ.
                 </button>
@@ -4964,10 +4994,18 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
                     Annuler lien
                   </button>
                 )}
-                <button onClick={function(e){ e.stopPropagation(); onValidateDependencyLink && onValidateDependencyLink(); }}
+                <button onClick={function(e){ e.stopPropagation(); if(dependencyLinkActive && dependencyTargetId){ onValidateDependencyLink && onValidateDependencyLink(); } }}
                   disabled={!(dependencyLinkActive && dependencyTargetId)}
-                  title={dependencyLinkActive ? (dependencyTargetId ? 'Enregistrer le lien sélectionné' : 'Cliquez d’abord une tâche cible dans le planning') : 'Choisissez d’abord prédécesseur ou successeur, puis une tâche cible'}
-                  style={{padding:'8px 13px',borderRadius:999,border:'1px solid '+(dependencyLinkActive&&dependencyTargetId?'var(--primary)':'var(--border)'),background:dependencyLinkActive&&dependencyTargetId?'var(--primary)':'var(--surface-2)',color:dependencyLinkActive&&dependencyTargetId?'#fff':'var(--xmuted)',fontSize:11,fontWeight:900,fontFamily:UX2.mono,cursor:dependencyLinkActive&&dependencyTargetId?'pointer':'not-allowed',opacity:dependencyLinkActive&&dependencyTargetId?1:.72,boxShadow:dependencyLinkActive&&dependencyTargetId?'0 8px 20px color-mix(in srgb, var(--primary) 22%, transparent)':'none'}}>
+                  title={dependencyLinkActive ? (dependencyTargetId ? 'Enregistrer le lien' : 'Choisissez la tâche référence dans le planning') : 'Choisissez préd. ou succ., puis cliquez la tâche référence'}
+                  style={{padding:'8px 13px',borderRadius:999,
+                    border:'1px solid '+(dependencyLinkActive&&dependencyTargetId?'var(--primary)':'var(--border)'),
+                    background:dependencyLinkActive&&dependencyTargetId?'var(--primary)':'var(--surface-2)',
+                    color:dependencyLinkActive&&dependencyTargetId?'#fff':'var(--xmuted)',
+                    fontSize:11,fontWeight:900,fontFamily:UX2.mono,
+                    cursor:dependencyLinkActive&&dependencyTargetId?'pointer':'not-allowed',
+                    opacity:dependencyLinkActive&&dependencyTargetId?1:.65,
+                    boxShadow:dependencyLinkActive&&dependencyTargetId?'0 8px 20px color-mix(in srgb, var(--primary) 22%, transparent)':'none',
+                    pointerEvents:'auto'}}>
                   Valider le lien
                 </button>
                 <button onClick={function(){ onClearTaskSelection && onClearTaskSelection(); }}
