@@ -7823,11 +7823,11 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
       byZone[zn].push(iv);
     });
     var lines = [];
-    lines.push('*Planify — HSF Av. Marceau* \uD83C\uDFD7\uFE0F');
+    lines.push('*Planify — HSF Av. Marceau* 🏗️');
     lines.push('');
-    lines.push('Bonjour ' + prenom + ' \uD83D\uDC4B');
+    lines.push('Bonjour ' + prenom + ' 👋');
     lines.push('');
-    lines.push('Vos interventions ' + wd + '\u00A0:');
+    lines.push('Vos interventions ' + wd + ' :');
     Object.keys(byZone).forEach(function(zn) {
       var zivs = byZone[zn];
       var starts = zivs.map(function(iv) { return iv.start || ''; }).filter(Boolean).sort();
@@ -7835,32 +7835,30 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
       var dRange = '';
       if (starts.length) {
         var s = fmtDayShort(starts[0]);
-        var e = ends[0] && ends[0] !== starts[0] ? ' \u2192 ' + fmtDayShort(ends[0]) : '';
+        var e = ends[0] && ends[0] !== starts[0] ? ' → ' + fmtDayShort(ends[0]) : '';
         dRange = s + e;
       }
       lines.push('');
-      lines.push('\uD83D\uDCCD *' + zn + '*' + (dRange ? '  \u2014  ' + dRange : ''));
+      lines.push('📍 *' + zn + '*' + (dRange ? '  —  ' + dRange : ''));
       zivs.forEach(function(iv) {
         var num = iv.task_number ? '[' + iv.task_number + '] ' : '';
-        lines.push('   \u2022 ' + num + iv.task);
+        lines.push('   • ' + num + iv.task);
       });
     });
     var blocked = ivs.filter(function(iv) { return iv.status === 'bloque'; });
     if (blocked.length) {
       lines.push('');
-      lines.push('\u26A0\uFE0F *Point d\u2019attention\u00A0:* ' + blocked.length + ' t\u00E2che(s) bloqu\u00E9e(s) \u2014 \u00E0 confirmer ensemble.');
+      lines.push('⚠️ *Point d’attention :* ' + blocked.length + ' tâche(s) bloquée(s) — merci de confirmer la situation.');
     }
     var prereq = ivs.filter(function(iv) { return iv.prereq && iv.prereq_company; });
     if (prereq.length) {
       lines.push('');
       prereq.forEach(function(iv) {
-        lines.push('\uD83D\uDD17 Pr\u00E9requis\u00A0: ' + iv.prereq_company + ' doit intervenir avant vous sur cette zone.');
+        lines.push('🔗 *Prérequis :* ' + iv.prereq_company + ' doit intervenir avant vous sur cette zone.');
       });
     }
     lines.push('');
-    lines.push('\uD83D\uDCCD 66 av. Marceau, Paris 8\u1D49 \u2014 acc\u00E8s d\u00E8s 7h30');
-    lines.push('');
-    lines.push('_Planify \u00B7 Coordination chantier HSF_');
+    lines.push('🚧 Le chantier avance avec l’ensemble des équipes, donc si tu as le moindre souci pour tenir une de ces interventions, merci de prévenir Franck au plus vite 📲');
     return lines.join('\n');
   }
 
@@ -7893,7 +7891,9 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   var companyCards = [];
   (companies || []).forEach(function(co) {
     var ivs = (data || []).filter(function(iv) {
-      return iv.company === co.name && iv.status !== 'termine' && overlapsWeek(iv);
+      var nameOk  = iv.company === co.name;
+      var tradeOk = !co.tradeId || !iv.trade_id || iv.trade_id === co.tradeId;
+      return nameOk && tradeOk && iv.status !== 'termine' && overlapsWeek(iv);
     });
     if (ivs.length > 0) companyCards.push({ co: co, ivs: ivs });
   });
@@ -8037,11 +8037,11 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
                     Aperçu du message
                   </div>
                   <pre style={{
-                    fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--text)',
-                    lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0,
+                    fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--text)',
+                    lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0,
                     background: 'var(--surface)', border: '1px solid var(--border)',
-                    borderRadius: 'var(--r-xs)', padding: '10px 12px',
-                    maxHeight: 280, overflowY: 'auto'
+                    borderRadius: 'var(--r-xs)', padding: '14px 16px',
+                    maxHeight: 320, overflowY: 'auto'
                   }}>{msg}</pre>
                 </div>
 
