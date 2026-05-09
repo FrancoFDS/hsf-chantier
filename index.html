@@ -1294,35 +1294,6 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,minWidth:40,height:26,
               fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Hist.</button>
-          {session?.role==='admin' && !planningValidated && (
-            <button onClick={onToggleLock} disabled={!!busyActions.planning_lock} title={planningLocked?'Déverrouiller le planning':'Verrouiller le planning'} aria-label={planningLocked?'Déverrouiller le planning':'Verrouiller le planning'}
-              style={{...hdrBtnStyle,background:planningLocked?'rgba(220,38,38,.22)':'rgba(255,255,255,.08)',
-                border:'1px solid '+(planningLocked?'rgba(248,113,113,.45)':'rgba(255,255,255,.14)'),
-                borderRadius:6,minWidth:34,height:26,fontSize:12,opacity:busyActions.planning_lock ? .65 : 1,cursor:busyActions.planning_lock?'wait':'pointer'}}>
-              {busyActions.planning_lock?'…':(planningLocked?'🔒':'🔓')}
-            </button>
-          )}
-          {session?.role==='admin' && !planningValidated && (
-            <button onClick={onValidatePlanning} disabled={!!busyActions.planning_validate} title="Valider le planning : choisit une date de validité, fige cette version et inscrit l’action dans l’historique." aria-label="Valider le planning"
-              style={{...hdrBtnStyle,background:'rgba(22,163,74,.22)',
-                border:'1px solid rgba(74,222,128,.45)',borderRadius:6,minWidth:48,height:26,
-                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:busyActions.planning_validate ? .65 : 1,cursor:busyActions.planning_validate?'wait':'pointer'}}>{busyActions.planning_validate?'…':'Valider'}</button>
-          )}
-          {session?.role==='admin' && planningValidated && (
-            <button onClick={onReindexPlanning} disabled={!!busyActions.planning_reindex} title="Réindexer une nouvelle version" aria-label="Réindexer une nouvelle version"
-              style={{...hdrBtnStyle,background:'rgba(249,115,22,.22)',
-                border:'1px solid rgba(251,146,60,.55)',borderRadius:6,minWidth:60,height:26,
-                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:busyActions.planning_reindex ? .65 : 1,cursor:busyActions.planning_reindex?'wait':'pointer'}}>{busyActions.planning_reindex?'…':'Réindexer'}</button>
-          )}
-          {statusLabel && (
-            <span title={statusLabel} style={{height:26,display:'inline-flex',alignItems:'center',
-              padding:'0 8px',borderRadius:6,background:'rgba(255,255,255,.08)',
-              border:'1px solid rgba(255,255,255,.14)',fontSize:9,fontWeight:800,
-              fontFamily:"'DM Mono',monospace",color:planningValidated?'#86EFAC':'#FCA5A5',
-              whiteSpace:'nowrap',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis'}}>
-              {statusLabel}
-            </span>
-          )}
           <div ref={exportRef} className="planify-export-wrap" style={{position:'relative'}}>
             <button onClick={()=>setExportOpen(o=>!o)} title="Télécharger le planning" aria-label="Ouvrir le menu export"
               style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
@@ -1487,6 +1458,7 @@ function BottomNav({ screen, onNav, onAdd, isAdmin, canAdd = true }) {
     {id:'planning',  icon: <PlanIcon />, label:'Planning'},
     null, // FAB slot
     {id:'list',      icon: <ListIcon />, label:'Liste'},
+    {id:'briefings', icon: <BriefIcon />, label:'Fiches', adminOnly:true},
     {id:'settings',  icon: <SettIcon />, label:'Config', adminOnly:true},
   ].filter(i => i === null || !i.adminOnly || isAdmin);
 
@@ -1538,6 +1510,7 @@ function DashIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="curren
 function PlanIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="3" width="16" height="15" rx="2"/><line x1="2" y1="7" x2="18" y2="7"/><line x1="7" y1="3" x2="7" y2="18"/></svg>; }
 function ListIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><line x1="6.5" y1="5" x2="17" y2="5"/><line x1="6.5" y1="10" x2="17" y2="10"/><line x1="6.5" y1="15" x2="17" y2="15"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor" stroke="none"/></svg>; }
 function SettIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/></svg>; }
+function BriefIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="4" width="16" height="13" rx="2"/><path d="M2 8l8 5 8-5"/></svg>; }
 function AttachIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16"><path d="M16.5 9.4l-7 7a4.5 4.5 0 0 1-6.36-6.36l7-7a3 3 0 0 1 4.24 4.24l-7.07 7.07a1.5 1.5 0 0 1-2.12-2.12l6.36-6.36"/></svg>; }
 
 /* ── SHARED BUTTON STYLES ─────────────────────────────────── */
@@ -1904,7 +1877,7 @@ Object.assign(window, {
   StatusBadge, TradeBadge, SheetModal, ConfirmDialog, TaskCard, StatChip,
   FilterChips, AppHeader, BottomNav, Field, Input, Select, Textarea,
   AttachmentZone, ZoneProgressBar,
-  DashIcon, PlanIcon, ListIcon, SettIcon, AttachIcon,
+  DashIcon, PlanIcon, ListIcon, SettIcon, AttachIcon, BriefIcon,
   taskCanFinishLater, taskLatestFinishText, TaskFinishLaterBadge,
   hdrBtnStyle, btnPrimaryStyle, btnSecStyle, btnDangerStyle,
 });
@@ -3043,6 +3016,7 @@ var BottomNav = window.BottomNav = function BottomNav({ screen, onNav, onAdd, is
     {id:'planning', icon:<PlanIcon />, label:'Planning'},
     null,
     {id:'list', icon:<ListIcon />, label:'Tâches'},
+    {id:'briefings', icon:<BriefIcon />, label:'Fiches', adminOnly:true},
     {id:'settings', icon:<SettIcon />, label:'Config', adminOnly:true}
   ].filter(function(i){ return i === null || !i.adminOnly || isAdmin; });
 
@@ -5589,12 +5563,14 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
       id:c.id || slugCompanyId(c.name),
       name:(c.name||'').trim(),
       contact:(c.contact||'').trim(),
+      phone:(c.phone||'').trim(),
+      email:(c.email||'').trim(),
       code:String(c.code||'').trim(),
       tradeId:c.tradeId || c.trade_id || ''
     };
   }
   function companyRow(c) {
-    return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',trade_id:c.tradeId||null};
+    return {id:c.id,name:c.name,contact:c.contact||'',phone:c.phone||'',email:c.email||'',code:c.code||'',trade_id:c.tradeId||null};
   }
   function saveZone(z) {
     var savedZone = Object.assign({}, z, {floor_color:normalizeFloorColorValue(z.floor_color) || floorColorValue(z.floor)});
@@ -5910,6 +5886,10 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                         style={inputSt} placeholder="Nom entreprise" />
                       <input value={editingCompany.contact||''} onChange={e=>setEditingCompany({...editingCompany,contact:e.target.value})}
                         style={inputSt} placeholder="Référent / contact" />
+                      <input value={editingCompany.phone||''} onChange={e=>setEditingCompany({...editingCompany,phone:e.target.value})}
+                        style={inputSt} placeholder="Téléphone (06…)" type="tel" />
+                      <input value={editingCompany.email||''} onChange={e=>setEditingCompany({...editingCompany,email:e.target.value})}
+                        style={inputSt} placeholder="Email" type="email" />
                       <input value={editingCompany.code||''} onChange={e=>setEditingCompany({...editingCompany,code:e.target.value.replace(/\D/g,'').slice(0,4)})}
                         style={inputSt} placeholder="Code PIN 4 chiffres" />
                       <select value={editingCompany.tradeId||''} onChange={e=>setEditingCompany({...editingCompany,tradeId:e.target.value})}
@@ -5951,6 +5931,10 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                   style={inputSt} placeholder="Nom entreprise *" autoFocus />
                 <input value={newCompany.contact||''} onChange={e=>setNewCompany({...newCompany,contact:e.target.value})}
                   style={inputSt} placeholder="Référent / contact" />
+                <input value={newCompany.phone||''} onChange={e=>setNewCompany({...newCompany,phone:e.target.value})}
+                  style={inputSt} placeholder="Téléphone (06…)" type="tel" />
+                <input value={newCompany.email||''} onChange={e=>setNewCompany({...newCompany,email:e.target.value})}
+                  style={inputSt} placeholder="Email" type="email" />
                 <input value={newCompany.code||''} onChange={e=>setNewCompany({...newCompany,code:e.target.value.replace(/\D/g,'').slice(0,4)})}
                   style={inputSt} placeholder="Code PIN 4 chiffres *" />
                 <select value={newCompany.tradeId||''} onChange={e=>setNewCompany({...newCompany,tradeId:e.target.value})}
@@ -7764,6 +7748,372 @@ function ValidatePlanningModal({ open, onClose, onConfirm }) {
 
 
 
+
+
+/* ════════════════════════════════════════════════════════════
+   BRIEFINGS SCREEN — Fiches de mission hebdomadaires
+═══════════════════════════════════════════════════════════ */
+function BriefIcon() {
+  return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="4" width="16" height="13" rx="2"/><path d="M2 8l8 5 8-5"/></svg>;
+}
+
+function BriefingsScreen({ data, zones, trades, companies, session }) {
+  const [weekOff, setWeekOff] = useState(1);
+  const [expanded, setExpanded] = useState(null);
+  const [copied, setCopied] = useState(null);
+  const [sentStatus, setSentStatus] = useState(function() {
+    try { return JSON.parse(localStorage.getItem('planify_briefings_sent') || '{}'); }
+    catch(e) { return {}; }
+  });
+
+  const FR_DAYS  = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const FR_MNTHS = ['jan.','fév.','mar.','avr.','mai','juin','juil.','aoû.','sep.','oct.','nov.','déc.'];
+
+  function fmtShort(ds) {
+    if (!ds) return '';
+    var d = new Date(ds + 'T00:00:00');
+    return d.getDate() + ' ' + FR_MNTHS[d.getMonth()];
+  }
+  function fmtDayShort(ds) {
+    if (!ds) return '';
+    var d = new Date(ds + 'T00:00:00');
+    return FR_DAYS[d.getDay()] + ' ' + d.getDate();
+  }
+  function getWeek(offset) {
+    var today = new Date();
+    var dow = today.getDay();
+    var monday = new Date(today);
+    monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+    monday.setHours(0, 0, 0, 0);
+    var friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    function ds(d) { return d.toISOString().slice(0, 10); }
+    return { start: ds(monday), end: ds(friday) };
+  }
+
+  var week = getWeek(weekOff);
+  var weekLabel = weekOff === 0 ? 'Cette semaine' : weekOff === 1 ? 'Semaine prochaine' : 'Dans ' + weekOff + ' sem.';
+
+  function overlapsWeek(iv) {
+    var s = iv.start || '';
+    var e = iv.end || s;
+    return s <= week.end && e >= week.start;
+  }
+  function getZoneName(zoneId) {
+    var z = (zones || []).find(function(z) { return z.id === zoneId; });
+    if (!z) return zoneId || '—';
+    return (z.floor ? z.floor + ' / ' : '') + z.name;
+  }
+  function fmtPhoneWA(phone) {
+    if (!phone) return '';
+    var p = String(phone).replace(/\s/g, '').replace(/[^\d+]/g, '');
+    if (p.startsWith('00')) p = '+' + p.slice(2);
+    else if (p.startsWith('0')) p = '+33' + p.slice(1);
+    else if (!p.startsWith('+')) p = '+33' + p;
+    return p.replace('+', '');
+  }
+
+  function generateMessage(co, ivs) {
+    var prenom = (co.contact || '').split(' ')[0] || co.name;
+    var wd = weekOff === 0 ? 'cette semaine' : weekOff === 1 ? 'la semaine prochaine' : 'semaine du ' + fmtShort(week.start);
+    var byZone = {};
+    ivs.forEach(function(iv) {
+      var zn = getZoneName(iv.zone);
+      if (!byZone[zn]) byZone[zn] = [];
+      byZone[zn].push(iv);
+    });
+    var lines = [];
+    lines.push('*Planify — HSF Av. Marceau* \uD83C\uDFD7\uFE0F');
+    lines.push('');
+    lines.push('Bonjour ' + prenom + ' \uD83D\uDC4B');
+    lines.push('');
+    lines.push('Vos interventions ' + wd + '\u00A0:');
+    Object.keys(byZone).forEach(function(zn) {
+      var zivs = byZone[zn];
+      var starts = zivs.map(function(iv) { return iv.start || ''; }).filter(Boolean).sort();
+      var ends   = zivs.map(function(iv) { return iv.end || iv.start || ''; }).filter(Boolean).sort().reverse();
+      var dRange = '';
+      if (starts.length) {
+        var s = fmtDayShort(starts[0]);
+        var e = ends[0] && ends[0] !== starts[0] ? ' \u2192 ' + fmtDayShort(ends[0]) : '';
+        dRange = s + e;
+      }
+      lines.push('');
+      lines.push('\uD83D\uDCCD *' + zn + '*' + (dRange ? '  \u2014  ' + dRange : ''));
+      zivs.forEach(function(iv) {
+        var num = iv.task_number ? '[' + iv.task_number + '] ' : '';
+        lines.push('   \u2022 ' + num + iv.task);
+      });
+    });
+    var blocked = ivs.filter(function(iv) { return iv.status === 'bloque'; });
+    if (blocked.length) {
+      lines.push('');
+      lines.push('\u26A0\uFE0F *Point d\u2019attention\u00A0:* ' + blocked.length + ' t\u00E2che(s) bloqu\u00E9e(s) \u2014 \u00E0 confirmer ensemble.');
+    }
+    var prereq = ivs.filter(function(iv) { return iv.prereq && iv.prereq_company; });
+    if (prereq.length) {
+      lines.push('');
+      prereq.forEach(function(iv) {
+        lines.push('\uD83D\uDD17 Pr\u00E9requis\u00A0: ' + iv.prereq_company + ' doit intervenir avant vous sur cette zone.');
+      });
+    }
+    lines.push('');
+    lines.push('\uD83D\uDCCD 66 av. Marceau, Paris 8\u1D49 \u2014 acc\u00E8s d\u00E8s 7h30');
+    lines.push('');
+    lines.push('_Planify \u00B7 Coordination chantier HSF_');
+    return lines.join('\n');
+  }
+
+  function sentKey(id) { return id + '_' + week.start; }
+  function markSent(id) {
+    var k = sentKey(id);
+    var next = Object.assign({}, sentStatus);
+    next[k] = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    setSentStatus(next);
+    try { localStorage.setItem('planify_briefings_sent', JSON.stringify(next)); } catch(e) {}
+  }
+  function doCopy(text, id) {
+    var finish = function() {
+      setCopied(id); markSent(id);
+      setTimeout(function() { setCopied(null); }, 2400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(finish).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta); finish();
+      });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta); finish();
+    }
+  }
+
+  var companyCards = [];
+  (companies || []).forEach(function(co) {
+    var ivs = (data || []).filter(function(iv) {
+      return iv.company === co.name && iv.status !== 'termine' && overlapsWeek(iv);
+    });
+    if (ivs.length > 0) companyCards.push({ co: co, ivs: ivs });
+  });
+
+  var totalTasks    = companyCards.reduce(function(s, x) { return s + x.ivs.length; }, 0);
+  var totalSent     = companyCards.filter(function(x) { return !!sentStatus[sentKey(x.co.id)]; }).length;
+  var totalBlocked  = companyCards.reduce(function(s, x) {
+    return s + x.ivs.filter(function(iv) { return iv.status === 'bloque'; }).length;
+  }, 0);
+
+  var btnSt = {
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    padding: '6px 12px', borderRadius: 'var(--r-xs)',
+    fontSize: 12, fontWeight: 700, cursor: 'pointer',
+    fontFamily: "'DM Sans',sans-serif", textDecoration: 'none',
+    border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)'
+  };
+
+  return (
+    <div style={{ height: '100%', overflowY: 'auto', padding: '16px 14px 100px' }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Fiches de mission</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
+          Générez et envoyez les briefings hebdomadaires. Copiez le message ou ouvrez directement WhatsApp.
+        </div>
+      </div>
+
+      {/* Week selector */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        {[0, 1, 2].map(function(o) {
+          var lbl = o === 0 ? 'Cette semaine' : o === 1 ? 'Sem. prochaine' : 'Dans 2 sem.';
+          var active = weekOff === o;
+          return (
+            <button key={o} onClick={function() { setWeekOff(o); setExpanded(null); }}
+              style={{ ...btnSt, flex: 1, justifyContent: 'center',
+                background: active ? 'var(--primary)' : 'transparent',
+                color: active ? '#fff' : 'var(--text)',
+                border: active ? '1px solid var(--primary)' : '1px solid var(--border)' }}>
+              {lbl}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Week stats bar */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+        {[
+          { v: companyCards.length, l: 'entreprises', c: 'var(--text)' },
+          { v: totalTasks,          l: 'tâches',      c: 'var(--primary)' },
+          { v: totalBlocked,        l: 'bloquées',    c: totalBlocked > 0 ? 'var(--danger)' : 'var(--muted)' },
+          { v: totalSent,           l: 'envoyées',    c: 'var(--success)' },
+        ].map(function(s) {
+          return (
+            <div key={s.l} style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--r-sm)', padding: '8px 10px', textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: s.c }}>{s.v}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{s.l}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Caption */}
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase',
+        letterSpacing: '.06em', marginBottom: 10 }}>
+        {weekLabel} · {fmtShort(week.start)} → {fmtShort(week.end)}
+      </div>
+
+      {/* Empty state */}
+      {companyCards.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '44px 20px', color: 'var(--muted)', fontSize: 14 }}>
+          Aucune intervention planifiée pour cette période.
+        </div>
+      )}
+
+      {/* Company cards */}
+      {companyCards.map(function(item) {
+        var co = item.co, ivs = item.ivs;
+        var id = co.id;
+        var isOpen  = expanded === id;
+        var msg     = generateMessage(co, ivs);
+        var waNum   = fmtPhoneWA(co.phone || '');
+        var waLink  = waNum ? 'https://wa.me/' + waNum + '?text=' + encodeURIComponent(msg) : null;
+        var smsLink = co.phone ? 'sms:' + co.phone.replace(/\s/g,'') + '?body=' + encodeURIComponent(msg) : null;
+        var mailLink = co.email ? 'mailto:' + co.email
+          + '?subject=' + encodeURIComponent('Planning HSF — ' + weekLabel)
+          + '&body=' + encodeURIComponent(msg) : null;
+        var isSent  = !!sentStatus[sentKey(id)];
+        var sentAt  = sentStatus[sentKey(id)];
+        var tr = (trades || []).find(function(t) { return t.id === co.tradeId; });
+        var c  = tr ? getTC(tr.color) : { b: '#3B82F6', bg: '#EFF6FF', t: '#1E3A8A' };
+        var blockedN = ivs.filter(function(iv) { return iv.status === 'bloque'; }).length;
+        var enCoursN = ivs.filter(function(iv) { return iv.status === 'en_cours'; }).length;
+        var hasContact = co.phone || co.email;
+
+        return (
+          <div key={id} style={{ background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--r)', marginBottom: 10, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+
+            {/* Card header — clickable */}
+            <div style={{ padding: '12px 14px', cursor: 'pointer', userSelect: 'none' }}
+              onClick={function() { setExpanded(isOpen ? null : id); }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: c.b, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{co.name}</span>
+                    {tr && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 700,
+                      color: c.t, background: c.bg, border: '1px solid ' + c.b + '40',
+                      borderRadius: 4, padding: '1px 5px' }}>{tr.short}</span>}
+                    {isSent && <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 700 }}>✓ {sentAt}</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                    {co.contact && <span>{co.contact}</span>}
+                    {co.phone   && <span style={{ marginLeft: co.contact ? 8 : 0 }}>· {co.phone}</span>}
+                    {!co.contact && !co.phone && <span style={{ color: 'var(--danger)', fontStyle: 'italic' }}>Contact à renseigner</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-l)', borderRadius: 4, padding: '1px 6px' }}>
+                      {ivs.length} tâche{ivs.length !== 1 ? 's' : ''}
+                    </span>
+                    {blockedN > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-l)', borderRadius: 4, padding: '1px 6px' }}>⚠ {blockedN} bloquée{blockedN > 1 ? 's' : ''}</span>}
+                    {enCoursN > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#D97706', background: '#FFFBEB', borderRadius: 4, padding: '1px 6px' }}>● En cours</span>}
+                    {!hasContact && <span style={{ fontSize: 11, color: 'var(--danger)', background: 'var(--danger-l)', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>Pas de contact</span>}
+                  </div>
+                </div>
+                <span style={{ color: 'var(--muted)', fontSize: 14, flexShrink: 0,
+                  transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>▾</span>
+              </div>
+            </div>
+
+            {/* Expanded content */}
+            {isOpen && (
+              <div style={{ borderTop: '1px solid var(--border)' }}>
+
+                {/* Message preview */}
+                <div style={{ padding: '12px 14px', background: 'var(--surface-2)' }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                    Aperçu du message
+                  </div>
+                  <pre style={{
+                    fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--text)',
+                    lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0,
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--r-xs)', padding: '10px 12px',
+                    maxHeight: 280, overflowY: 'auto'
+                  }}>{msg}</pre>
+                </div>
+
+                {/* No contact warning */}
+                {!hasContact && (
+                  <div style={{ margin: '0 14px 6px', padding: '8px 10px', fontSize: 11, lineHeight: 1.45,
+                    background: '#FFFBEB', border: '1px solid rgba(217,119,6,.3)', borderRadius: 'var(--r-xs)', color: '#92400E' }}>
+                    Ajoutez un téléphone dans <strong>Config → Entreprises</strong> pour activer l'envoi WhatsApp/SMS.
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div style={{ padding: '10px 14px 14px', display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button onClick={function() { doCopy(msg, id); }}
+                    style={{ ...btnSt,
+                      background: copied === id ? 'var(--success)' : 'var(--primary)',
+                      color: '#fff', border: 'none', fontWeight: 800 }}>
+                    {copied === id ? '✓ Copié !' : '⎘ Copier'}
+                  </button>
+
+                  {waLink ? (
+                    <a href={waLink} target="_blank" rel="noopener noreferrer"
+                      onClick={function() { markSent(id); }}
+                      style={{ ...btnSt, background: '#25D366', color: '#fff', border: 'none', fontWeight: 800 }}>
+                      WhatsApp ↗
+                    </a>
+                  ) : (
+                    <span style={{ ...btnSt, color: 'var(--muted)', cursor: 'default', opacity: .5 }}>WhatsApp</span>
+                  )}
+
+                  {smsLink && (
+                    <a href={smsLink} onClick={function() { markSent(id); }}
+                      style={{ ...btnSt, fontWeight: 700 }}>
+                      SMS
+                    </a>
+                  )}
+
+                  {mailLink && (
+                    <a href={mailLink} onClick={function() { markSent(id); }}
+                      style={{ ...btnSt, fontWeight: 700 }}>
+                      ✉ Email
+                    </a>
+                  )}
+
+                  {isSent && (
+                    <button onClick={function() {
+                      var next = Object.assign({}, sentStatus);
+                      delete next[sentKey(id)];
+                      setSentStatus(next);
+                      try { localStorage.setItem('planify_briefings_sent', JSON.stringify(next)); } catch(e) {}
+                    }} style={{ ...btnSt, fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
+                      Effacer statut
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Footer note */}
+      {companyCards.length > 0 && (
+        <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '8px 0 4px' }}>
+          {(companies || []).length - companyCards.length} entreprise{(companies || []).length - companyCards.length !== 1 ? 's' : ''} sans intervention cette semaine
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 /* ════════════════════════════════════════════════════════════
    ROOT APP
 ═══════════════════════════════════════════════════════════ */
@@ -8189,7 +8539,7 @@ function PlanifyApp() {
       if(cData&&cData.length) setCompanies(cData.map(function(c){
         var tradeId = c.trade_id || c.tradeId || '';
         var loc = COMPANIES.find(function(lc){ return lc.id === c.id || (lc.name === c.name && (!tradeId || lc.tradeId === tradeId)); }) || {};
-        return {id:c.id,name:c.name,contact:c.contact||loc.contact||'',code:c.code||loc.code||'',tradeId:tradeId||loc.tradeId||'',updated_at:c.updated_at||''};
+        return {id:c.id,name:c.name,contact:c.contact||loc.contact||'',phone:c.phone||loc.phone||'',email:c.email||loc.email||'',code:c.code||loc.code||'',tradeId:tradeId||loc.tradeId||'',updated_at:c.updated_at||''};
       }));
       if(iData&&iData.length) setData(iData.map(normalizeInterventionRow));
       setCalendarOverrides((calData||[]).map(function(r){
@@ -9500,7 +9850,7 @@ function PlanifyApp() {
     }
   }
 
-  const navScreens = ['dashboard','planning','list',...(isAdmin?['settings']:[])];
+  const navScreens = ['dashboard','planning','list',...(isAdmin?['briefings','settings']:[])];
 
   if (!session) return (
     <>
@@ -9528,6 +9878,7 @@ function PlanifyApp() {
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
+      case 'briefings': return <BriefingsScreen data={data} zones={zones} trades={trades} companies={companies} session={session} />;
       case 'settings':  return <SettingsScreen  zones={zones} trades={trades} companies={companies}
         setZones={setZones} setTrades={setTrades} setCompanies={setCompanies}
         data={data} zoneClipboard={zoneClipboard}
