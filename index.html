@@ -7860,11 +7860,12 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   function waUrl(phone, msg) {
     var num = fmtPhoneWA(phone);
     if (!num) return null;
-    // Array.from iterates by codepoint — emoji stay whole, not split into surrogates
+    // Array.from iterates by Unicode codepoint, not UTF-16 code units.
+    // Emoji (surrogate pairs) become ONE element => encodeURIComponent gets
+    // the full char and produces correct UTF-8 percent-encoding:
+    // wave emoji => %F0%9F%91%8B, which all WhatsApp versions decode correctly.
     var encoded = Array.from(msg).map(function(ch) {
-      var cp = ch.codePointAt(0);
-      if (cp > 0x7F) return ch; // leave Unicode/emoji as raw chars
-      return encodeURIComponent(ch); // encode ASCII special chars
+      return encodeURIComponent(ch);
     }).join('');
     return 'https://wa.me/'+num+'?text='+encoded;
   }
