@@ -7860,7 +7860,13 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   function waUrl(phone, msg) {
     var num = fmtPhoneWA(phone);
     if (!num) return null;
-    return 'https://wa.me/'+num+'?text='+encodeURIComponent(msg);
+    // Array.from iterates by codepoint — emoji stay whole, not split into surrogates
+    var encoded = Array.from(msg).map(function(ch) {
+      var cp = ch.codePointAt(0);
+      if (cp > 0x7F) return ch; // leave Unicode/emoji as raw chars
+      return encodeURIComponent(ch); // encode ASCII special chars
+    }).join('');
+    return 'https://wa.me/'+num+'?text='+encoded;
   }
 
   // ── Message par contact ──────────────────────────────────
@@ -7901,6 +7907,12 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
     }
     var L=[];
     L.push('*Planify \u2014 HSF Av. Marceau*');
+    if(twoWk){
+      L.push('2 semaines \u00e0 venir');
+      L.push('Du lundi '+fmtShort(week1base.start)+' au vendredi '+fmtShort(week2base.end));
+    } else {
+      L.push('Semaine du '+fmtShort(week.start)+' au '+fmtShort(week.end));
+    }
     L.push('');
     L.push('Bonjour '+prenom+' '+E.wave);
     L.push('');
@@ -7968,11 +7980,12 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
       L.push('');
     }
     var L=[], ivIds={}, coSet={};
+    L.push('*Planify \u2014 HSF Av. Marceau*');
     if(twoWk){
-      L.push('*R\u00e9cap chantier HSF \u2014 2 semaines \u00e0 venir*');
+      L.push('R\u00e9cap chantier \u2014 2 semaines \u00e0 venir');
       L.push('Du lundi '+fmtShort(week1base.start)+' au vendredi '+fmtShort(week2base.end));
     } else {
-      L.push('*R\u00e9cap chantier HSF*');
+      L.push('R\u00e9cap chantier');
       L.push('Semaine du '+fmtShort(week.start)+' au '+fmtShort(week.end));
     }
     L.push('');
