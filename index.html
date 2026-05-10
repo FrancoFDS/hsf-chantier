@@ -7819,11 +7819,21 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
     function ds(d){ return d.toISOString().slice(0,10); }
     return {start:ds(mon), end:ds(fri)};
   }
-  var week = getWeek(weekOff);
-  var weekLabel = weekOff===0?'Cette semaine':weekOff===1?'Semaine prochaine':'Dans '+weekOff+' sem.';
+  var week1base = getWeek(weekOff === -1 ? 1 : weekOff);
+  var week2base = weekOff === -1 ? getWeek(2) : null;
+  var week = weekOff === -1
+    ? {start: week1base.start, end: week2base.end}
+    : week1base;
+  var weekLabel = weekOff===-1 ? '2 semaines à venir'
+    : weekOff===0 ? 'Cette semaine'
+    : weekOff===1 ? 'Semaine prochaine'
+    : 'Dans '+weekOff+' sem.';
 
   function overlapsWeek(iv) {
     var s=iv.start||'', e=iv.end||s;
+    if (weekOff === -1) {
+      return (s<=week1base.end&&e>=week1base.start)||(s<=week2base.end&&e>=week2base.start);
+    }
     return s<=week.end && e>=week.start;
   }
   function overlapsDay(iv, dayStr) {
@@ -7863,36 +7873,46 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
       phone: String.fromCodePoint(0x1F4F1),
     };
     var prenom=(contact.name||'').split(' ')[0]||co.name;
-    var wd=weekOff===0?'cette semaine':weekOff===1?'la semaine prochaine':'semaine du '+fmtShort(week.start);
-    var byZone={};
-    ivs.forEach(function(iv){
-      var zn=getZoneName(iv.zone);
-      if(!byZone[zn]) byZone[zn]=[];
-      byZone[zn].push(iv);
-    });
+    var twoWk=(weekOff===-1);
+    var wd=twoWk?'pour les 2 prochaines semaines'
+      :weekOff===0?'cette semaine'
+      :weekOff===1?'la semaine prochaine'
+      :'semaine du '+fmtShort(week.start);
+    function pushZones(theIvs){
+      var byZone={};
+      theIvs.forEach(function(iv){ var zn=getZoneName(iv.zone); if(!byZone[zn])byZone[zn]=[]; byZone[zn].push(iv); });
+      Object.keys(byZone).forEach(function(zn){
+        var zivs=byZone[zn];
+        var starts=zivs.map(function(iv){return iv.start||'';}).filter(Boolean).sort();
+        var ends  =zivs.map(function(iv){return iv.end||iv.start||'';}).filter(Boolean).sort().reverse();
+        var dRange='';
+        if(starts.length){
+          var s=fmtDayShort(starts[0]);
+          var e=ends[0]&&ends[0]!==starts[0]?' \u2192 '+fmtDayShort(ends[0]):'';
+          dRange=s+e;
+        }
+        L.push('');
+        L.push(E.pin+' *'+zn+'*'+(dRange?'  \u2014  '+dRange:''));
+        zivs.forEach(function(iv){
+          var num=iv.task_number?'['+iv.task_number+'] ':'';
+          L.push('   \u2022 '+num+iv.task);
+        });
+      });
+    }
     var L=[];
     L.push('*Planify \u2014 HSF Av. Marceau*');
     L.push('');
     L.push('Bonjour '+prenom+' '+E.wave);
     L.push('');
     L.push('Vos interventions '+wd+'\u00a0:');
-    Object.keys(byZone).forEach(function(zn){
-      var zivs=byZone[zn];
-      var starts=zivs.map(function(iv){return iv.start||'';}).filter(Boolean).sort();
-      var ends  =zivs.map(function(iv){return iv.end||iv.start||'';}).filter(Boolean).sort().reverse();
-      var dRange='';
-      if(starts.length){
-        var s=fmtDayShort(starts[0]);
-        var e=ends[0]&&ends[0]!==starts[0]?' \u2192 '+fmtDayShort(ends[0]):'';
-        dRange=s+e;
-      }
-      L.push('');
-      L.push(E.pin+' *'+zn+'*'+(dRange?'  \u2014  '+dRange:''));
-      zivs.forEach(function(iv){
-        var num=iv.task_number?'['+iv.task_number+'] ':'';
-        L.push('   \u2022 '+num+iv.task);
-      });
-    });
+    if(twoWk){
+      var ivs1=ivs.filter(function(iv){var s=iv.start||'',e=iv.end||s;return s<=week1base.end&&e>=week1base.start;});
+      var ivs2=ivs.filter(function(iv){var s=iv.start||'',e=iv.end||s;return s<=week2base.end&&e>=week2base.start;});
+      if(ivs1.length){L.push('');L.push('*Sem. du '+fmtShort(week1base.start)+' au '+fmtShort(week1base.end)+'*');pushZones(ivs1);}
+      if(ivs2.length){L.push('');L.push('*Sem. du '+fmtShort(week2base.start)+' au '+fmtShort(week2base.end)+'*');pushZones(ivs2);}
+    } else {
+      pushZones(ivs);
+    }
     var blocked=ivs.filter(function(iv){return iv.status==='bloque';});
     if(blocked.length){
       L.push('');
@@ -7926,7 +7946,8 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
       d.setDate(d.getDate()+di);
       var dayStr=d.toISOString().slice(0,10);
       var dayIvs=(data||[]).filter(function(iv){
-        return iv.status!=='termine' && overlapsDay(iv,dayStr);
+        return iv.status!=='termine' && overlapsDay(iv,dayStr)
+          && !((iv.off_days||[]).includes(dayStr));
       });
       if(!dayIvs.length) continue;
       dayIvs.forEach(function(iv){ivIds[iv.id]=true; coSet[iv.company]=true;});
@@ -8022,14 +8043,21 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
       </div>
 
       {/* ── Semaine ── */}
-      <div style={{display:'flex',gap:6,marginBottom:12}}>
+      <div style={{display:'flex',gap:6,marginBottom:6}}>
         {[0,1,2].map(function(o){
-          var lbl=o===0?'Cette semaine':o===1?'Sem. prochaine':'Dans 2 sem.';
+          var lbl=o===0?'Cette sem.':o===1?'Sem. proch.':'Dans 2 sem.';
           var active=weekOff===o;
           return <button key={o} onClick={function(){setWeekOff(o);setExpanded(null);}}
-            style={{...btnSt,flex:1,justifyContent:'center',background:active?'var(--primary)':'transparent',color:active?'#fff':'var(--text)',border:active?'1px solid var(--primary)':'1px solid var(--border)'}}>{lbl}</button>;
+            style={{...btnSt,flex:1,justifyContent:'center',fontSize:11,background:active?'var(--primary)':'transparent',color:active?'#fff':'var(--text)',border:active?'1px solid var(--primary)':'1px solid var(--border)'}}>{lbl}</button>;
         })}
       </div>
+      <button onClick={function(){setWeekOff(-1);setExpanded(null);}}
+        style={{...btnSt,width:'100%',justifyContent:'center',marginBottom:12,fontSize:12,
+          background:weekOff===-1?'#7C3AED':'transparent',
+          color:weekOff===-1?'#fff':'var(--text)',
+          border:weekOff===-1?'1px solid #7C3AED':'1px solid var(--border)'}}>
+        {'\uD83D\uDCC5 2 semaines \u00e0 venir \u2014 S+1 + S+2 en un seul message'}
+      </button>
 
       {/* ── Stats ── */}
       <div style={{display:'flex',gap:8,marginBottom:18}}>
