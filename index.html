@@ -8055,7 +8055,7 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   (companies||[]).forEach(function(co){
     var ivs=(data||[]).filter(function(iv){
       var nameOk=iv.company===co.name;
-      var tradeOk=!co.tradeId||!iv.trade_id||iv.trade_id===co.tradeId;
+      var tradeOk=!co.tradeId||iv.trade_id===co.tradeId;
       return nameOk&&tradeOk&&iv.status!=='termine'&&overlapsWeek(iv);
     });
     if(!ivs.length) return;
@@ -8077,6 +8077,18 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   var inpSt={padding:'6px 8px',borderRadius:'var(--r-xs)',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:12,fontFamily:"'DM Sans',sans-serif",outline:'none'};
   var preSt={fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:'var(--text)',lineHeight:1.7,whiteSpace:'pre-wrap',wordBreak:'break-word',margin:0,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',padding:'14px 16px',overflowY:'auto'};
 
+  function openWA(phone, msg, cardId) {
+    if (cardId) markSent(cardId);
+    if (navigator.share) {
+      navigator.share({text: msg}).catch(function() {
+        var link = waUrl(phone, msg);
+        if (link) window.open(link, '_blank');
+      });
+    } else {
+      var link = waUrl(phone, msg);
+      if (link) window.open(link, '_blank');
+    }
+  }
   var recapMsg = recapOpen ? generateRecap() : '';
   return (
     <div style={{height:'100%',overflowY:'auto',padding:'16px 14px 100px'}}>
@@ -8169,8 +8181,8 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
                 </div>
                 {!ct.phone&&!ct.email&&<div style={{margin:'0 14px 6px',padding:'8px 10px',fontSize:11,lineHeight:1.45,background:'#FFFBEB',border:'1px solid rgba(217,119,6,.3)',borderRadius:'var(--r-xs)',color:'#92400E'}}>Ajoutez un téléphone dans <strong>Config → Entreprises</strong> pour activer l’envoi WhatsApp.</div>}
                 <div style={{padding:'10px 14px 14px',display:'flex',gap:7,flexWrap:'wrap',alignItems:'center'}}>
-                  <button onClick={function(){doCopy(msg,cardId);}} style={{...btnSt,background:copied===cardId?'var(--success)':'var(--primary)',color:'#fff',border:'none',fontWeight:800}}>{copied===cardId?'\u2713 Copi\u00e9 !':'\u2398 Copier'}</button>
-                  {wLink?<a href={wLink} target="_blank" rel="noopener noreferrer" onClick={function(){markSent(cardId);}} style={{...btnSt,background:'#25D366',color:'#fff',border:'none',fontWeight:800}}>WhatsApp \u2197</a>:<span style={{...btnSt,color:'var(--muted)',cursor:'default',opacity:.5}}>WhatsApp</span>}
+                  <button onClick={function(){doCopy(msg,cardId);}} title="Sur Mac/desktop : copiez le message et collez-le dans WhatsApp" style={{...btnSt,background:copied===cardId?'var(--success)':'var(--primary)',color:'#fff',border:'none',fontWeight:800}}>{copied===cardId?'\u2713 Copi\u00e9 !':'\u2398 Copier'}</button>
+                  {ct.phone?<button onClick={function(){openWA(ct.phone,msg,cardId);}} style={{...btnSt,background:'#25D366',color:'#fff',border:'none',fontWeight:800}}>{'WhatsApp \u2197'}</button>:<span style={{...btnSt,color:'var(--muted)',cursor:'default',opacity:.5}}>WhatsApp</span>}
                   {smsLink&&<a href={smsLink} onClick={function(){markSent(cardId);}} style={{...btnSt,fontWeight:700}}>SMS</a>}
                   {mLink&&<a href={mLink} onClick={function(){markSent(cardId);}} style={{...btnSt,fontWeight:700}}>\u2709 Email</a>}
                   {isSent&&<button onClick={function(){var next=Object.assign({},sentStatus);delete next[sentKey(cardId)];setSentStatus(next);try{localStorage.setItem('planify_briefings_sent',JSON.stringify(next));}catch(e){};}} style={{...btnSt,fontSize:11,color:'var(--muted)',marginLeft:'auto'}}>Effacer statut</button>}
@@ -8212,7 +8224,7 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
                     <span style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{sh.name}</span>
                     {sh.phone&&<span style={{fontSize:12,color:'var(--muted)',marginLeft:8}}>{sh.phone}</span>}
                   </div>
-                  {shLink&&<a href={shLink} target='_blank' rel='noopener noreferrer' style={{...btnSt,background:'#25D366',color:'#fff',border:'none',fontSize:11,padding:'4px 10px'}}>{'WA \u2197'}</a>}
+                  {sh.phone&&<button onClick={function(){openWA(sh.phone,recapMsg,null);}} style={{...btnSt,background:'#25D366',color:'#fff',border:'none',fontSize:11,padding:'4px 10px'}}>{'WA \u2197'}</button>}
                   <button onClick={function(){removeSH(i);}} style={{...btnSt,color:'var(--danger)',border:'none',padding:'4px 8px',fontSize:14,background:'transparent'}}>{'\u00d7'}</button>
                 </div>
               );
