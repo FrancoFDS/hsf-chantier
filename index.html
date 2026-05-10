@@ -7816,7 +7816,11 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
     mon.setDate(today.getDate() - (dow===0?6:dow-1) + offset*7);
     mon.setHours(0,0,0,0);
     var fri = new Date(mon); fri.setDate(mon.getDate()+4);
-    function ds(d){ return d.toISOString().slice(0,10); }
+    function ds(d){
+      return d.getFullYear()+'-'
+        +String(d.getMonth()+1).padStart(2,'0')+'-'
+        +String(d.getDate()).padStart(2,'0');
+    }
     return {start:ds(mon), end:ds(fri)};
   }
   var week1base = getWeek(weekOff === -1 ? 1 : weekOff);
@@ -7856,11 +7860,7 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   function waUrl(phone, msg) {
     var num = fmtPhoneWA(phone);
     if (!num) return null;
-    var txt = msg.split('').map(function(ch){
-      var c=ch.charCodeAt(0);
-      return (c<=0x7E && !/[A-Za-z0-9\-_.!~*'()]/.test(ch)) ? encodeURIComponent(ch) : ch;
-    }).join('');
-    return 'https://wa.me/'+num+'?text='+txt;
+    return 'https://wa.me/'+num+'?text='+encodeURIComponent(msg);
   }
 
   // ── Message par contact ──────────────────────────────────
