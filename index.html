@@ -8045,12 +8045,8 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   var companyCards=[];
   (companies||[]).forEach(function(co){
     var ivs=(data||[]).filter(function(iv){
-      // Strict: trade_id on intervention → company tradeId → contact
-      // No trade_id on intervention → only shown if company also has no tradeId
-      var ok = iv.trade_id
-        ? (co.tradeId && iv.trade_id === co.tradeId)
-        : (!co.tradeId && iv.company === co.name);
-      return ok && iv.status !== 'termine' && overlapsWeek(iv);
+      // Match planning exactly: tasks assigned to a company → all contacts of that company
+      return iv.company === co.name && iv.status !== 'termine' && overlapsWeek(iv);
     });
     if(!ivs.length) return;
     var allCt=[];
