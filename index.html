@@ -7217,7 +7217,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
 
   async function handleSave() {
     if (saving) return;
-    if (!form.trade||!form.company||!form.task) { alert('Corps de métier, entreprise et description sont requis.'); return; }
+    if (!form.trade||!form.task) { alert('Corps de métier et description sont requis.'); return; }
     if (form.company_edit_allowed && form.company_edit_start_min && form.company_edit_end_max && form.company_edit_end_max < form.company_edit_start_min) {
       alert('La date limite au plus tard ne peut pas être avant la date au plus tôt.');
       return;
@@ -7311,12 +7311,12 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
             {trades.map(t=><option key={t.id} value={t.id}>{t.short ? t.short+' — '+t.name : t.name}</option>)}
           </Select>
         </Field>
-        <Field label="Entreprise *">
-          <Select value={form.company||''} onChange={e=>set('company',e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {companyNames.map(n=><option key={n} value={n}>{n}</option>)}
-          </Select>
-        </Field>
+        {form.company && (
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:13,padding:'6px 10px',
+            background:'var(--surface-2)',borderRadius:'var(--r-xs)',border:'1px solid var(--border)'}}>
+            <span style={{fontWeight:700,color:'var(--text)'}}>Entreprise : </span>{form.company}
+          </div>
+        )}
         <Field label="Description *">
           <Input value={form.task||''} onChange={e=>set('task',e.target.value)} placeholder="ex : Pose cloisons R+3 plateau Est" />
         </Field>
@@ -8045,8 +8045,12 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   var companyCards=[];
   (companies||[]).forEach(function(co){
     var ivs=(data||[]).filter(function(iv){
-      // Match planning exactly: tasks assigned to a company → all contacts of that company
-      return iv.company === co.name && iv.status !== 'termine' && overlapsWeek(iv);
+      // trade on intervention = tradeId in companies → strict routing to right contact
+      // fallback to company name for legacy tasks without trade set
+      var ok = (iv.trade && co.tradeId)
+        ? (iv.trade === co.tradeId)
+        : (iv.company === co.name);
+      return ok && iv.status !== 'termine' && overlapsWeek(iv);
     });
     if(!ivs.length) return;
     var allCt=[];
