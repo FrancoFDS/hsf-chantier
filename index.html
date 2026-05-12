@@ -190,6 +190,7 @@ const STATUS_META = {
 function effectiveStatus(iv) {
   if (!iv) return 'arealis';
   if (iv.status === 'termine') return 'termine';
+  if (iv.status === 'bloque') return 'bloque';
   var rawDate = iv.end || iv.start;
   if (!rawDate) return iv.status || 'arealis';
   var due = new Date(rawDate + 'T00:00:00');
@@ -3833,10 +3834,10 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
   const myData  = isAdmin ? data : data.filter(i => i.company === myName);
 
   // Key stats
-  const encours = myData.filter(i => i.status === 'encours' && !isTaskFrozenToday(i));
-  const blocked = myData.filter(i => i.status === 'bloque');
-  const termine = myData.filter(i => i.status === 'termine');
-  const overdue = myData.filter(i => isTaskLate(i));
+  const encours = myData.filter(i => effectiveStatus(i) === 'encours' && !isTaskFrozenToday(i));
+  const blocked = myData.filter(i => effectiveStatus(i) === 'bloque');
+  const termine = myData.filter(i => effectiveStatus(i) === 'termine');
+  const overdue = myData.filter(i => effectiveStatus(i) === 'en_retard');
   const todoToday = myData.filter(i => isTaskTodoToday(i));
   const mentionTasks = isAdmin
     ? data.filter(function(i){ return i.prereq_company && i.prereq && i.status !== 'termine'; })
@@ -4196,10 +4197,10 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
     const companyStats = companies.map(co => ({
       name:    co,
       total:   data.filter(i => i.company===co).length,
-      encours: data.filter(i => i.company===co&&i.status==='encours'&&!isTaskFrozenToday(i)).length,
-      bloque:  data.filter(i => i.company===co&&i.status==='bloque').length,
-      retard:  data.filter(i => i.company===co&&isTaskLate(i)).length,
-      termine: data.filter(i => i.company===co&&i.status==='termine').length,
+      encours: data.filter(i => i.company===co&&effectiveStatus(i)==='encours'&&!isTaskFrozenToday(i)).length,
+      bloque:  data.filter(i => i.company===co&&effectiveStatus(i)==='bloque').length,
+      retard:  data.filter(i => i.company===co&&effectiveStatus(i)==='en_retard').length,
+      termine: data.filter(i => i.company===co&&effectiveStatus(i)==='termine').length,
     }));
 
     return (
@@ -4250,10 +4251,10 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
         <SectionCard title="Avancement par zone">
           {zones.map(z => {
             const zivs=data.filter(i=>i.zone===z.id);
-            const done=zivs.filter(i=>i.status==='termine').length;
-            const bloc=zivs.filter(i=>i.status==='bloque').length;
-            const enc=zivs.filter(i=>i.status==='encours'&&!isTaskFrozenToday(i)).length;
-            const late=zivs.filter(i=>isTaskLate(i)).length;
+            const done=zivs.filter(i=>effectiveStatus(i)==='termine').length;
+            const bloc=zivs.filter(i=>effectiveStatus(i)==='bloque').length;
+            const enc=zivs.filter(i=>effectiveStatus(i)==='encours'&&!isTaskFrozenToday(i)).length;
+            const late=zivs.filter(i=>effectiveStatus(i)==='en_retard').length;
             const p=zivs.length?Math.round(done/zivs.length*100):0;
             const wd=workingDaysUntil(z.deadline);
             const dc=z.deadline?(wd<0?'#DC2626':wd<5?'#DC2626':wd<15?'#EA580C':'#16A34A'):'var(--xmuted)';
@@ -4382,10 +4383,10 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
         <SectionCard title="Avancement par zone">
           {myZones.map(function(z){
             var zivs=myData.filter(function(i){return i.zone===z.id;});
-            var done=zivs.filter(function(i){return i.status==='termine';}).length;
-            var bloc=zivs.filter(function(i){return i.status==='bloque';}).length;
-            var enc=zivs.filter(function(i){return i.status==='encours'&&!isTaskFrozenToday(i);}).length;
-            var late=zivs.filter(function(i){return isTaskLate(i);}).length;
+            var done=zivs.filter(function(i){return effectiveStatus(i)==='termine';}).length;
+            var bloc=zivs.filter(function(i){return effectiveStatus(i)==='bloque';}).length;
+            var enc=zivs.filter(function(i){return effectiveStatus(i)==='encours'&&!isTaskFrozenToday(i);}).length;
+            var late=zivs.filter(function(i){return effectiveStatus(i)==='en_retard';}).length;
             var p=zivs.length?Math.round(done/zivs.length*100):0;
             var wdv=workingDaysUntil(z.deadline);
             var dc=z.deadline?(wdv<0?'#DC2626':wdv<5?'#DC2626':wdv<15?'#EA580C':'#16A34A'):'var(--xmuted)';
@@ -4451,7 +4452,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
 
       {/* ── Toutes mes tâches par statut ── */}
       {(function(){
-        var lateIvs=myData.filter(function(i){return isTaskLate(i);});
+        var lateIvs=myData.filter(function(i){return effectiveStatus(i)==='en_retard';});
         var sections=[
           {key:'bloque', label:'Bloquées', color:'#DC2626'},
           {key:'encours', label:'En cours', color:'#2563EB'},
@@ -4467,7 +4468,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
             )}
             {sections.map(function(st){
               var items=myData.filter(function(i){
-                return i.status===st.key && !isTaskLate(i) && !(st.key==='encours' && isTaskFrozenToday(i));
+                return effectiveStatus(i)===st.key && !(st.key==='encours' && isTaskFrozenToday(i));
               });
               if(!items.length) return null;
               return (
@@ -5301,7 +5302,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const todoTodayItems = shownData.filter(function(i){ return isTaskTodoToday(i); });
   const urgentItems = shownData.filter(function(i){ return i.status !== 'termine' && (isTaskLate(i) || i.status === 'bloque'); });
   const allOrdered = [...shownData].sort(function(a,b){
-    var rank = function(iv){ if (iv.status==='bloque') return 0; if (isTaskLate(iv)) return 1; if (iv.status==='encours') return 2; if (iv.status==='arealis') return 3; if (iv.status==='termine') return 5; return 9; };
+    var rank = function(iv){ var es=effectiveStatus(iv); if (es==='bloque') return 0; if (es==='en_retard') return 1; if (es==='encours') return 2; if (es==='arealis') return 3; if (es==='termine') return 5; return 9; };
     var ra=rank(a), rb=rank(b); if (ra!==rb) return ra-rb;
     return (a.start||'').localeCompare(b.start||'');
   });
@@ -5338,10 +5339,10 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const mainTrade = getCompanyMainTrade(myName, data, companies, trades);
   const accent = getTC(mainTrade ? mainTrade.color : 'blue');
   const total = baseData.length;
-  const done = baseData.filter(function(i){ return i.status === 'termine'; }).length;
-  const enc  = baseData.filter(function(i){ return i.status === 'encours' && !isTaskFrozenToday(i) && !isTaskLate(i); }).length;
-  const bloc = baseData.filter(function(i){ return i.status === 'bloque' && !isTaskLate(i); }).length;
-  const late = baseData.filter(function(i){ return isTaskLate(i); }).length;
+  const done = baseData.filter(function(i){ return effectiveStatus(i) === 'termine'; }).length;
+  const enc  = baseData.filter(function(i){ return effectiveStatus(i) === 'encours' && !isTaskFrozenToday(i); }).length;
+  const bloc = baseData.filter(function(i){ return effectiveStatus(i) === 'bloque'; }).length;
+  const late = baseData.filter(function(i){ return effectiveStatus(i) === 'en_retard'; }).length;
   const todoTodayCount = baseData.filter(function(i){ return isTaskTodoToday(i); }).length;
   const progress = pctDone(baseData);
   const reliability = calcReliability(baseData);
