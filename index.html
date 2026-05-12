@@ -185,14 +185,16 @@ const STATUS_META = {
   en_retard:{label:'En retard',  dot:'#EA580C',text:'#9A3412',bg:'rgba(234,88,12,.13)', pill:'#EA580C'},
 };
 
-function isLate(iv) {
-  if (!iv || iv.status === 'termine') return false;
-  var d = new Date();
-  var today = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  return (iv.end || iv.start || '') < today;
-}
+// effectiveStatus: computed display status (uses existing isTaskLate)
+// isTaskLate is defined in planify-screens.jsx scope — fallback to string compare here
 function effectiveStatus(iv) {
-  return (iv && isLate(iv)) ? 'en_retard' : ((iv && iv.status) || 'arealis');
+  if (!iv) return 'arealis';
+  if (iv.status === 'termine') return 'termine';
+  var rawDate = iv.end || iv.start;
+  if (!rawDate) return iv.status || 'arealis';
+  var due = new Date(rawDate + 'T00:00:00');
+  var today = new Date(); today.setHours(0,0,0,0);
+  return due < today ? 'en_retard' : (iv.status || 'arealis');
 }
 
 function getStatusThemeMeta(status) {
@@ -3656,12 +3658,12 @@ function ZoneTaskList({ items, zones, trades, onOpenDetail, isAdmin, title, empt
 
   const counts = ordered.reduce(function(acc, iv) {
     if (!(iv.status === 'encours' && isTaskFrozenToday(iv))) {
-      acc[iv.status] = (acc[iv.status] || 0) + 1;
+      var es = effectiveStatus(iv);
+      acc[es] = (acc[es] || 0) + 1;
     }
-    if (isTaskLate(iv)) acc.retard += 1;
     acc.total += 1;
     return acc;
-  }, { total: 0, termine: 0, encours: 0, bloque: 0, arealis: 0, retard: 0 });
+  }, { total: 0, termine: 0, encours: 0, bloque: 0, arealis: 0, en_retard: 0 });
 
   const stat = function(label, value, color) {
     return (
@@ -3688,7 +3690,7 @@ function ZoneTaskList({ items, zones, trades, onOpenDetail, isAdmin, title, empt
         <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
           {stat('total', counts.total, 'var(--muted)')}
           {counts.bloque > 0 && stat('bloquée' + (counts.bloque > 1 ? 's' : ''), counts.bloque, '#DC2626')}
-          {counts.retard > 0 && stat('en retard', counts.retard, '#EA580C')}
+          {counts.en_retard > 0 && stat('en retard', counts.en_retard, '#EA580C')}
           {counts.encours > 0 && stat('en cours', counts.encours, '#2563EB')}
           {counts.arealis > 0 && stat('à faire', counts.arealis, '#6B7280')}
           {counts.termine > 0 && stat('terminée' + (counts.termine > 1 ? 's' : ''), counts.termine + '/' + counts.total, '#16A34A')}
@@ -4447,20 +4449,35 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
       )}
 
       {/* ── Toutes mes tâches par statut ── */}
-      {[
-        {key:'bloque', label:'Bloquées', color:'#DC2626'},
-        {key:'encours', label:'En cours', color:'#2563EB'},
-        {key:'arealis', label:'À réaliser', color:'var(--muted)'},
-        {key:'termine', label:'Terminées', color:'#16A34A'},
-      ].map(function(st){
-        var items=myData.filter(function(i){return i.status===st.key && !(st.key==='encours' && isTaskFrozenToday(i));});
-        if(!items.length) return null;
+      {(function(){
+        var lateIvs=myData.filter(function(i){return isTaskLate(i);});
+        var sections=[
+          {key:'bloque', label:'Bloquées', color:'#DC2626'},
+          {key:'encours', label:'En cours', color:'#2563EB'},
+          {key:'arealis', label:'À réaliser', color:'var(--muted)'},
+          {key:'termine', label:'Terminées', color:'#16A34A'},
+        ];
         return (
-          <SectionCard key={st.key} title={`${st.label} (${items.length})`} accent={st.color}>
-            {items.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;}) }
-          </SectionCard>
+          <>
+            {lateIvs.length>0&&(
+              <SectionCard title={'En retard (' + lateIvs.length + ')'} accent='#EA580C'>
+                {lateIvs.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})}
+              </SectionCard>
+            )}
+            {sections.map(function(st){
+              var items=myData.filter(function(i){
+                return i.status===st.key && !isTaskLate(i) && !(st.key==='encours' && isTaskFrozenToday(i));
+              });
+              if(!items.length) return null;
+              return (
+                <SectionCard key={st.key} title={st.label+' ('+items.length+')'} accent={st.color}>
+                  {items.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})}
+                </SectionCard>
+              );
+            })}
+          </>
         );
-      })}
+      })()}
     </div>
   );
 }
@@ -5321,8 +5338,8 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const accent = getTC(mainTrade ? mainTrade.color : 'blue');
   const total = baseData.length;
   const done = baseData.filter(function(i){ return i.status === 'termine'; }).length;
-  const enc = baseData.filter(function(i){ return i.status === 'encours' && !isTaskFrozenToday(i); }).length;
-  const bloc = baseData.filter(function(i){ return i.status === 'bloque'; }).length;
+  const enc  = baseData.filter(function(i){ return i.status === 'encours' && !isTaskFrozenToday(i) && !isTaskLate(i); }).length;
+  const bloc = baseData.filter(function(i){ return i.status === 'bloque' && !isTaskLate(i); }).length;
   const late = baseData.filter(function(i){ return isTaskLate(i); }).length;
   const todoTodayCount = baseData.filter(function(i){ return isTaskTodoToday(i); }).length;
   const progress = pctDone(baseData);
@@ -6154,15 +6171,18 @@ function StatusWithNote({ iv, session, onStatusChange }) {
         Mettre à jour le statut
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
-        {Object.entries(STATUS_META).map(function(entry){
+        {Object.entries(STATUS_META)
+          .filter(function(e){ return e[0] !== 'en_retard'; })
+          .map(function(entry){
           var k=entry[0], m=entry[1];
+          var isActive = iv.status===k;
           return (
             <button key={k} disabled={saving} onClick={function(){ setPendingStatus(k); setNoteText(''); setSaved(false); setError(''); }}
               style={{padding:'9px 6px',borderRadius:'var(--r-sm)',
-                border:'1.5px solid '+(iv.status===k?m.dot:'var(--border)'),
-                background:iv.status===k?m.bg:'var(--surface)',
+                border:'1.5px solid '+(isActive?m.dot:'var(--border)'),
+                background:isActive?m.bg:'var(--surface)',
                 cursor:saving?'wait':'pointer',fontSize:12,fontWeight:500,
-                color:iv.status===k?m.text:'var(--text)',opacity:saving ? .65 : 1,
+                color:isActive?m.text:'var(--text)',opacity:saving ? .65 : 1,
                 display:'flex',alignItems:'center',justifyContent:'center',
                 gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
               <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
@@ -8151,7 +8171,7 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
         var isSent=!!sentStatus[sentKey(cardId)], sentAt=sentStatus[sentKey(cardId)];
         var tr=(trades||[]).find(function(t){return t.id===co.tradeId;});
         var c=tr?getTC(tr.color):{b:'#3B82F6',bg:'#EFF6FF',t:'#1E3A8A'};
-        var lateN=ivs.filter(function(iv){return isLate(iv);}).length;
+        var lateN=ivs.filter(function(iv){return isTaskLate(iv);}).length;
         var blockedN=ivs.filter(function(iv){return iv.status==='bloque';}).length;
         var enCoursN=ivs.filter(function(iv){return iv.status==='encours';}).length;
 
@@ -10201,7 +10221,7 @@ function PlanifyApp() {
     }).map(function(iv){
       var z = zones.find(function(x){ return x.id === iv.zone; });
       var tr = trades.find(function(x){ return x.id === iv.trade; });
-      var st = getStatusThemeMeta(iv.status);
+      var st = getStatusThemeMeta(effectiveStatus(iv));
 
       return {
         zone: z ? z.name : iv.zone,
@@ -10625,7 +10645,7 @@ function PlanifyApp() {
             var col = getTC(tr ? tr.color : 'blue');
             var rgb = hexToRgb(col.b);
             var fill = mixWhite(rgb, overviewMode ? 0.90 : 0.88);
-            var st = getStatusThemeMeta(iv.status);
+            var st = getStatusThemeMeta(effectiveStatus(iv));
             var stRgb = hexToRgb(st.dot);
             var stFill = mixWhite(stRgb, 0.86);
 
