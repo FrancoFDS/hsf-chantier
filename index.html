@@ -178,11 +178,22 @@ const COMPANIES = [
 ];
 
 const STATUS_META = {
-  arealis:{label:'À réaliser',dot:'#9CA3AF',text:'#4B5563',bg:'rgba(156,163,175,.13)',pill:'#6B7280'},
-  encours:{label:'En cours',  dot:'#2563EB',text:'#1D4ED8',bg:'rgba(37,99,235,.12)', pill:'#2563EB'},
-  termine:{label:'Terminé',   dot:'#16A34A',text:'#065F46',bg:'rgba(22,163,74,.12)', pill:'#16A34A'},
-  bloque: {label:'Bloqué',    dot:'#DC2626',text:'#991B1B',bg:'rgba(220,38,38,.12)', pill:'#DC2626'},
+  arealis:  {label:'À réaliser', dot:'#9CA3AF',text:'#4B5563',bg:'rgba(156,163,175,.13)',pill:'#6B7280'},
+  encours:  {label:'En cours',   dot:'#2563EB',text:'#1D4ED8',bg:'rgba(37,99,235,.12)', pill:'#2563EB'},
+  termine:  {label:'Terminé',    dot:'#16A34A',text:'#065F46',bg:'rgba(22,163,74,.12)', pill:'#16A34A'},
+  bloque:   {label:'Bloqué',     dot:'#DC2626',text:'#991B1B',bg:'rgba(220,38,38,.12)', pill:'#DC2626'},
+  en_retard:{label:'En retard',  dot:'#EA580C',text:'#9A3412',bg:'rgba(234,88,12,.13)', pill:'#EA580C'},
 };
+
+function isLate(iv) {
+  if (!iv || iv.status === 'termine') return false;
+  var d = new Date();
+  var today = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return (iv.end || iv.start || '') < today;
+}
+function effectiveStatus(iv) {
+  return (iv && isLate(iv)) ? 'en_retard' : ((iv && iv.status) || 'arealis');
+}
 
 function getStatusThemeMeta(status) {
   var base = STATUS_META[status] || STATUS_META.arealis;
@@ -191,13 +202,15 @@ function getStatusThemeMeta(status) {
     arealis:'#E5E7EB',
     encours:'#BFDBFE',
     termine:'#BBF7D0',
-    bloque:'#FECACA'
+    bloque:'#FECACA',
+    en_retard:'#FED7AA'
   }[status] || '#F8FAFC';
   var darkBg = {
     arealis:'rgba(148,163,184,.16)',
     encours:'rgba(96,165,250,.18)',
     termine:'rgba(52,211,153,.18)',
-    bloque:'rgba(248,113,113,.18)'
+    bloque:'rgba(248,113,113,.18)',
+    en_retard:'rgba(234,88,12,.22)'
   }[status] || base.bg;
   return Object.assign({}, base, {
     bg:darkBg,
@@ -1025,7 +1038,7 @@ function ConfirmDialog({ open, message, onConfirm, onCancel }) {
 function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null, criticalVisible = true, dimmed = false, focused = false }) {
   const tr = trades.find(t => t.id === iv.trade);
   const c  = getTC(tr?.color || 'blue');
-  const m  = getStatusThemeMeta(iv.status);
+  const m  = getStatusThemeMeta(effectiveStatus(iv));
   const bg = isDark ? c.bgD : c.bg;
   const bdr= isDark ? `${c.b}60` : `${c.b}35`;
   const hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
@@ -2720,7 +2733,7 @@ var TaskCard = window.TaskCard = function TaskCard({
 }) {
   var tr = (trades || []).find(function(t){ return t.id === iv.trade; });
   var c  = getTC((tr && tr.color) || 'blue');
-  var m  = getStatusThemeMeta(iv.status);
+  var m  = getStatusThemeMeta(effectiveStatus(iv));
   var bg = isDark ? c.bgD : c.bg;
   var hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
   var ccColor = hasCritical ? (criticalPath.color || '#EA580C') : c.b;
@@ -2804,7 +2817,7 @@ var TaskCard = window.TaskCard = function TaskCard({
           {typeof normalizeTaskNumber === 'function' ? normalizeTaskNumber(iv.task_number) : iv.task_number}
         </span>
 
-        <StatusBadge status={iv.status} />
+        <StatusBadge status={effectiveStatus(iv)} />
       </div>
 
       <div style={{
@@ -3486,7 +3499,7 @@ function EnterpriseTaskItem({ iv, zones, trades, onOpenDetail, onStatusChange, c
           </div>
           <div style={{fontSize:13,fontWeight:800,color:'var(--text)',lineHeight:1.35,marginTop:4}}>{iv.task}</div>
         </div>
-        <StatusBadge status={iv.status} size="sm" />
+        <StatusBadge status={effectiveStatus(iv)} size="sm" />
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',fontSize:11,color:'var(--muted)',marginBottom:(iv.prereq||iv.impact||iv.notes||taskCanFinishLater(iv))?6:0}}>
         <span style={{fontFamily:"'DM Mono',monospace"}}>{fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}</span>
@@ -3511,7 +3524,7 @@ function TaskCard2({ iv, zones, trades, onOpenDetail }) {
   var z  = zones.find(function(x){return x.id===iv.zone;});
   var tr = trades.find(function(x){return x.id===iv.trade;});
   var c  = getTC(tr?tr.color:'blue');
-  var m  = getStatusThemeMeta(iv.status);
+  var m  = getStatusThemeMeta(effectiveStatus(iv));
   return (
     <div onClick={function(){onOpenDetail(iv.id);}}
       style={{padding:'11px 12px',marginBottom:8,borderRadius:'var(--r-sm)',cursor:'pointer',
@@ -3583,7 +3596,7 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
           {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--xmuted)',
             background:'var(--surface-2)',padding:'1px 4px',borderRadius:3,border:'1px solid var(--border)'}}>
             {iv.task_number}</span>}
-          <StatusBadge status={iv.status} size="sm" />
+          <StatusBadge status={effectiveStatus(iv)} size="sm" />
         </div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:3,overflow:'hidden',
           display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
@@ -4706,7 +4719,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     if (isMulti) {
       var _tr = trades.find(function(t){return t.id===iv.trade;});
       var _c = getTC(_tr?_tr.color:'blue');
-      var _m = getStatusThemeMeta(iv.status);
+      var _m = getStatusThemeMeta(effectiveStatus(iv));
       var criticalInfo = zoneCritical.roles[iv.id] || null;
       var ccLinked = !!(showCriticalPath && criticalInfo && criticalInfo.linked);
       var ccColor = ccLinked ? (criticalInfo.color || '#EA580C') : _c.b;
@@ -4763,7 +4776,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         data-cc-day={dayStrForCard || ''}
         data-cc-zone={zone && zone.id ? zone.id : ''}
         data-cc-chain-id={showCriticalPath && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].linked ? zoneCritical.roles[iv.id].chainId : undefined}
-        onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, getStatusThemeMeta(iv.status)));}}
+        onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, getStatusThemeMeta(effectiveStatus(iv))));}}
         onMouseMove={function(){}}
         onMouseLeave={function(){setTaskHover(null);}}
         style={{position:'relative',borderRadius:14,outline:selectedForMove?'2px solid var(--primary)':(selectedAsDependencyTarget?'2px solid #7C3AED':'none'),outlineOffset:1,boxShadow:selectedForMove?'0 0 0 5px color-mix(in srgb, var(--primary) 12%, transparent)':(selectedAsDependencyTarget?'0 0 0 5px rgba(124,58,237,.13)':'none')}}>
@@ -6656,7 +6669,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
           <div style={{fontSize:19,fontWeight:700,color:'var(--text)',marginBottom:3}}>{iv.company}</div>
           {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{iv.task_number}</span>}
         </div>
-        <StatusBadge status={iv.status} />
+        <StatusBadge status={effectiveStatus(iv)} />
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
         <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
@@ -8138,8 +8151,9 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
         var isSent=!!sentStatus[sentKey(cardId)], sentAt=sentStatus[sentKey(cardId)];
         var tr=(trades||[]).find(function(t){return t.id===co.tradeId;});
         var c=tr?getTC(tr.color):{b:'#3B82F6',bg:'#EFF6FF',t:'#1E3A8A'};
+        var lateN=ivs.filter(function(iv){return isLate(iv);}).length;
         var blockedN=ivs.filter(function(iv){return iv.status==='bloque';}).length;
-        var enCoursN=ivs.filter(function(iv){return iv.status==='en_cours';}).length;
+        var enCoursN=ivs.filter(function(iv){return iv.status==='encours';}).length;
 
         return (
           <div key={cardId} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',marginBottom:10,overflow:'hidden',boxShadow:'var(--shadow)'}}>
@@ -8160,6 +8174,7 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
                   </div>
                   <div style={{display:'flex',gap:5,marginTop:6,flexWrap:'wrap'}}>
                     <span style={{fontSize:11,fontWeight:700,color:'var(--primary)',background:'var(--primary-l)',borderRadius:4,padding:'1px 6px'}}>{ivs.length} tâche{ivs.length!==1?'s':''}</span>
+                    {lateN>0&&<span style={{fontSize:11,fontWeight:700,color:'#EA580C',background:'rgba(234,88,12,.12)',borderRadius:4,padding:'1px 6px'}}>⏰ {lateN} en retard{lateN>1?'s':''}</span>}
                     {blockedN>0&&<span style={{fontSize:11,fontWeight:700,color:'var(--danger)',background:'var(--danger-l)',borderRadius:4,padding:'1px 6px'}}>⚠ {blockedN} bloquée{blockedN>1?'s':''}</span>}
                     {enCoursN>0&&<span style={{fontSize:11,fontWeight:700,color:'#D97706',background:'#FFFBEB',borderRadius:4,padding:'1px 6px'}}>\u25cf En cours</span>}
                   </div>
