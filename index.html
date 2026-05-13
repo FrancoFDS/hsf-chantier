@@ -178,11 +178,25 @@ const COMPANIES = [
 ];
 
 const STATUS_META = {
-  arealis:{label:'À réaliser',dot:'#9CA3AF',text:'#4B5563',bg:'rgba(156,163,175,.13)',pill:'#6B7280'},
-  encours:{label:'En cours',  dot:'#2563EB',text:'#1D4ED8',bg:'rgba(37,99,235,.12)', pill:'#2563EB'},
-  termine:{label:'Terminé',   dot:'#16A34A',text:'#065F46',bg:'rgba(22,163,74,.12)', pill:'#16A34A'},
-  bloque: {label:'Bloqué',    dot:'#DC2626',text:'#991B1B',bg:'rgba(220,38,38,.12)', pill:'#DC2626'},
+  arealis:  {label:'À réaliser', dot:'#9CA3AF',text:'#4B5563',bg:'rgba(156,163,175,.13)',pill:'#6B7280'},
+  encours:  {label:'En cours',   dot:'#2563EB',text:'#1D4ED8',bg:'rgba(37,99,235,.12)', pill:'#2563EB'},
+  termine:  {label:'Terminé',    dot:'#16A34A',text:'#065F46',bg:'rgba(22,163,74,.12)', pill:'#16A34A'},
+  bloque:   {label:'Bloqué',     dot:'#DC2626',text:'#991B1B',bg:'rgba(220,38,38,.12)', pill:'#DC2626'},
+  en_retard:{label:'En retard',  dot:'#EA580C',text:'#9A3412',bg:'rgba(234,88,12,.13)', pill:'#EA580C'},
 };
+
+// effectiveStatus: computed display status (uses existing isTaskLate)
+// isTaskLate is defined in planify-screens.jsx scope — fallback to string compare here
+function effectiveStatus(iv) {
+  if (!iv) return 'arealis';
+  if (iv.status === 'termine') return 'termine';
+  if (iv.status === 'bloque') return 'bloque';
+  var rawDate = iv.end || iv.start;
+  if (!rawDate) return iv.status || 'arealis';
+  var due = new Date(rawDate + 'T00:00:00');
+  var today = new Date(); today.setHours(0,0,0,0);
+  return due < today ? 'en_retard' : (iv.status || 'arealis');
+}
 
 function getStatusThemeMeta(status) {
   var base = STATUS_META[status] || STATUS_META.arealis;
@@ -191,13 +205,15 @@ function getStatusThemeMeta(status) {
     arealis:'#E5E7EB',
     encours:'#BFDBFE',
     termine:'#BBF7D0',
-    bloque:'#FECACA'
+    bloque:'#FECACA',
+    en_retard:'#FED7AA'
   }[status] || '#F8FAFC';
   var darkBg = {
     arealis:'rgba(148,163,184,.16)',
     encours:'rgba(96,165,250,.18)',
     termine:'rgba(52,211,153,.18)',
-    bloque:'rgba(248,113,113,.18)'
+    bloque:'rgba(248,113,113,.18)',
+    en_retard:'rgba(234,88,12,.22)'
   }[status] || base.bg;
   return Object.assign({}, base, {
     bg:darkBg,
@@ -431,6 +447,7 @@ Object.assign(window, {
   HOLIDAYS_2026, isHoliday, workingDaysUntil,
   getTC, getStatusThemeMeta, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
   genId, genTaskNum, normalizeTaskNumber, daysUntil, deadlineColor,
+  effectiveStatus,
 });
 </script>
 <script>
@@ -1025,7 +1042,7 @@ function ConfirmDialog({ open, message, onConfirm, onCancel }) {
 function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null, criticalVisible = true, dimmed = false, focused = false }) {
   const tr = trades.find(t => t.id === iv.trade);
   const c  = getTC(tr?.color || 'blue');
-  const m  = getStatusThemeMeta(iv.status);
+  const m  = getStatusThemeMeta(effectiveStatus(iv));
   const bg = isDark ? c.bgD : c.bg;
   const bdr= isDark ? `${c.b}60` : `${c.b}35`;
   const hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
@@ -1294,35 +1311,6 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
             style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
               border:'1px solid rgba(255,255,255,.14)',borderRadius:6,minWidth:40,height:26,
               fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace"}}>Hist.</button>
-          {session?.role==='admin' && !planningValidated && (
-            <button onClick={onToggleLock} disabled={!!busyActions.planning_lock} title={planningLocked?'Déverrouiller le planning':'Verrouiller le planning'} aria-label={planningLocked?'Déverrouiller le planning':'Verrouiller le planning'}
-              style={{...hdrBtnStyle,background:planningLocked?'rgba(220,38,38,.22)':'rgba(255,255,255,.08)',
-                border:'1px solid '+(planningLocked?'rgba(248,113,113,.45)':'rgba(255,255,255,.14)'),
-                borderRadius:6,minWidth:34,height:26,fontSize:12,opacity:busyActions.planning_lock ? .65 : 1,cursor:busyActions.planning_lock?'wait':'pointer'}}>
-              {busyActions.planning_lock?'…':(planningLocked?'🔒':'🔓')}
-            </button>
-          )}
-          {session?.role==='admin' && !planningValidated && (
-            <button onClick={onValidatePlanning} disabled={!!busyActions.planning_validate} title="Valider le planning : choisit une date de validité, fige cette version et inscrit l’action dans l’historique." aria-label="Valider le planning"
-              style={{...hdrBtnStyle,background:'rgba(22,163,74,.22)',
-                border:'1px solid rgba(74,222,128,.45)',borderRadius:6,minWidth:48,height:26,
-                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:busyActions.planning_validate ? .65 : 1,cursor:busyActions.planning_validate?'wait':'pointer'}}>{busyActions.planning_validate?'…':'Valider'}</button>
-          )}
-          {session?.role==='admin' && planningValidated && (
-            <button onClick={onReindexPlanning} disabled={!!busyActions.planning_reindex} title="Réindexer une nouvelle version" aria-label="Réindexer une nouvelle version"
-              style={{...hdrBtnStyle,background:'rgba(249,115,22,.22)',
-                border:'1px solid rgba(251,146,60,.55)',borderRadius:6,minWidth:60,height:26,
-                fontSize:10,fontWeight:800,fontFamily:"'DM Mono',monospace",opacity:busyActions.planning_reindex ? .65 : 1,cursor:busyActions.planning_reindex?'wait':'pointer'}}>{busyActions.planning_reindex?'…':'Réindexer'}</button>
-          )}
-          {statusLabel && (
-            <span title={statusLabel} style={{height:26,display:'inline-flex',alignItems:'center',
-              padding:'0 8px',borderRadius:6,background:'rgba(255,255,255,.08)',
-              border:'1px solid rgba(255,255,255,.14)',fontSize:9,fontWeight:800,
-              fontFamily:"'DM Mono',monospace",color:planningValidated?'#86EFAC':'#FCA5A5',
-              whiteSpace:'nowrap',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis'}}>
-              {statusLabel}
-            </span>
-          )}
           <div ref={exportRef} className="planify-export-wrap" style={{position:'relative'}}>
             <button onClick={()=>setExportOpen(o=>!o)} title="Télécharger le planning" aria-label="Ouvrir le menu export"
               style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',
@@ -1487,6 +1475,7 @@ function BottomNav({ screen, onNav, onAdd, isAdmin, canAdd = true }) {
     {id:'planning',  icon: <PlanIcon />, label:'Planning'},
     null, // FAB slot
     {id:'list',      icon: <ListIcon />, label:'Liste'},
+    {id:'briefings', icon: <BriefIcon />, label:'Fiches', adminOnly:true},
     {id:'settings',  icon: <SettIcon />, label:'Config', adminOnly:true},
   ].filter(i => i === null || !i.adminOnly || isAdmin);
 
@@ -1538,7 +1527,7 @@ function DashIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="curren
 function PlanIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="3" width="16" height="15" rx="2"/><line x1="2" y1="7" x2="18" y2="7"/><line x1="7" y1="3" x2="7" y2="18"/></svg>; }
 function ListIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><line x1="6.5" y1="5" x2="17" y2="5"/><line x1="6.5" y1="10" x2="17" y2="10"/><line x1="6.5" y1="15" x2="17" y2="15"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor" stroke="none"/></svg>; }
 function SettIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/></svg>; }
-function RecapIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="3" y="2" width="14" height="16" rx="2"/><line x1="7" y1="6.5" x2="13" y2="6.5"/><line x1="7" y1="9.5" x2="13" y2="9.5"/><line x1="7" y1="12.5" x2="10.5" y2="12.5"/><polyline points="10 13.5 12 15.5 15.5 11.5" strokeWidth="1.8"/></svg>; }
+function BriefIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="4" width="16" height="13" rx="2"/><path d="M2 8l8 5 8-5"/></svg>; }
 function AttachIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16"><path d="M16.5 9.4l-7 7a4.5 4.5 0 0 1-6.36-6.36l7-7a3 3 0 0 1 4.24 4.24l-7.07 7.07a1.5 1.5 0 0 1-2.12-2.12l6.36-6.36"/></svg>; }
 
 /* ── SHARED BUTTON STYLES ─────────────────────────────────── */
@@ -1905,15 +1894,15 @@ Object.assign(window, {
   StatusBadge, TradeBadge, SheetModal, ConfirmDialog, TaskCard, StatChip,
   FilterChips, AppHeader, BottomNav, Field, Input, Select, Textarea,
   AttachmentZone, ZoneProgressBar,
-  DashIcon, PlanIcon, ListIcon, SettIcon, AttachIcon,
+  DashIcon, PlanIcon, ListIcon, SettIcon, AttachIcon, BriefIcon,
   taskCanFinishLater, taskLatestFinishText, TaskFinishLaterBadge,
   hdrBtnStyle, btnPrimaryStyle, btnSecStyle, btnDangerStyle,
 });
 </script>
-<!-- ════════════════════════════════════════════════════════════
+<!-- ============================================================
      PLANIFY — UX LEVEL 2 POLISH
      À coller après le script des composants, avant planify-screens.jsx
-════════════════════════════════════════════════════════════ -->
+============================================================ -->
 <style id="planify-ux-level-2">
 :root,
 [data-theme="terrain"]{
@@ -2311,10 +2300,10 @@ button,select,input,textarea{font-family:var(--font-ui);}
 </style>
 
 <script type="text/babel" data-presets="env,react">
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    PLANIFY — UX LEVEL 2 COMPONENT OVERRIDES
    Ne touche pas à la logique métier : uniquement composants visuels.
-════════════════════════════════════════════════════════════ */
+============================================================ */
 
 var UX2 = {
   mono:"'DM Mono',monospace",
@@ -2748,7 +2737,7 @@ var TaskCard = window.TaskCard = function TaskCard({
 }) {
   var tr = (trades || []).find(function(t){ return t.id === iv.trade; });
   var c  = getTC((tr && tr.color) || 'blue');
-  var m  = getStatusThemeMeta(iv.status);
+  var m  = getStatusThemeMeta(effectiveStatus(iv));
   var bg = isDark ? c.bgD : c.bg;
   var hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
   var ccColor = hasCritical ? (criticalPath.color || '#EA580C') : c.b;
@@ -2832,7 +2821,7 @@ var TaskCard = window.TaskCard = function TaskCard({
           {typeof normalizeTaskNumber === 'function' ? normalizeTaskNumber(iv.task_number) : iv.task_number}
         </span>
 
-        <StatusBadge status={iv.status} />
+        <StatusBadge status={effectiveStatus(iv)} />
       </div>
 
       <div style={{
@@ -3044,7 +3033,7 @@ var BottomNav = window.BottomNav = function BottomNav({ screen, onNav, onAdd, is
     {id:'planning', icon:<PlanIcon />, label:'Planning'},
     null,
     {id:'list', icon:<ListIcon />, label:'Tâches'},
-    {id:'recap', icon:<RecapIcon />, label:'Récap'},
+    {id:'briefings', icon:<BriefIcon />, label:'Fiches', adminOnly:true},
     {id:'settings', icon:<SettIcon />, label:'Config', adminOnly:true}
   ].filter(function(i){ return i === null || !i.adminOnly || isAdmin; });
 
@@ -3352,9 +3341,9 @@ Object.assign(window, {
 // ─────────────────────────────────────────────────────────────
 
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    LOGIN SCREEN
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function LoginScreen({ onLogin, companies, loadingCompanies, theme = 'terrain', onToggleTheme }) {
   const [step, setStep] = useState('pick'); // pick | pin
   const [selected, setSelected] = useState(null);
@@ -3514,7 +3503,7 @@ function EnterpriseTaskItem({ iv, zones, trades, onOpenDetail, onStatusChange, c
           </div>
           <div style={{fontSize:13,fontWeight:800,color:'var(--text)',lineHeight:1.35,marginTop:4}}>{iv.task}</div>
         </div>
-        <StatusBadge status={iv.status} size="sm" />
+        <StatusBadge status={effectiveStatus(iv)} size="sm" />
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',fontSize:11,color:'var(--muted)',marginBottom:(iv.prereq||iv.impact||iv.notes||taskCanFinishLater(iv))?6:0}}>
         <span style={{fontFamily:"'DM Mono',monospace"}}>{fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}</span>
@@ -3532,14 +3521,14 @@ function EnterpriseTaskItem({ iv, zones, trades, onOpenDetail, onStatusChange, c
   );
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    DASHBOARD SCREEN
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function TaskCard2({ iv, zones, trades, onOpenDetail }) {
   var z  = zones.find(function(x){return x.id===iv.zone;});
   var tr = trades.find(function(x){return x.id===iv.trade;});
   var c  = getTC(tr?tr.color:'blue');
-  var m  = getStatusThemeMeta(iv.status);
+  var m  = getStatusThemeMeta(effectiveStatus(iv));
   return (
     <div onClick={function(){onOpenDetail(iv.id);}}
       style={{padding:'11px 12px',marginBottom:8,borderRadius:'var(--r-sm)',cursor:'pointer',
@@ -3611,7 +3600,7 @@ function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
           {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--xmuted)',
             background:'var(--surface-2)',padding:'1px 4px',borderRadius:3,border:'1px solid var(--border)'}}>
             {iv.task_number}</span>}
-          <StatusBadge status={iv.status} size="sm" />
+          <StatusBadge status={effectiveStatus(iv)} size="sm" />
         </div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:3,overflow:'hidden',
           display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
@@ -3671,12 +3660,12 @@ function ZoneTaskList({ items, zones, trades, onOpenDetail, isAdmin, title, empt
 
   const counts = ordered.reduce(function(acc, iv) {
     if (!(iv.status === 'encours' && isTaskFrozenToday(iv))) {
-      acc[iv.status] = (acc[iv.status] || 0) + 1;
+      var es = effectiveStatus(iv);
+      acc[es] = (acc[es] || 0) + 1;
     }
-    if (isTaskLate(iv)) acc.retard += 1;
     acc.total += 1;
     return acc;
-  }, { total: 0, termine: 0, encours: 0, bloque: 0, arealis: 0, retard: 0 });
+  }, { total: 0, termine: 0, encours: 0, bloque: 0, arealis: 0, en_retard: 0 });
 
   const stat = function(label, value, color) {
     return (
@@ -3703,7 +3692,7 @@ function ZoneTaskList({ items, zones, trades, onOpenDetail, isAdmin, title, empt
         <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
           {stat('total', counts.total, 'var(--muted)')}
           {counts.bloque > 0 && stat('bloquée' + (counts.bloque > 1 ? 's' : ''), counts.bloque, '#DC2626')}
-          {counts.retard > 0 && stat('en retard', counts.retard, '#EA580C')}
+          {counts.en_retard > 0 && stat('en retard', counts.en_retard, '#EA580C')}
           {counts.encours > 0 && stat('en cours', counts.encours, '#2563EB')}
           {counts.arealis > 0 && stat('à faire', counts.arealis, '#6B7280')}
           {counts.termine > 0 && stat('terminée' + (counts.termine > 1 ? 's' : ''), counts.termine + '/' + counts.total, '#16A34A')}
@@ -3845,10 +3834,10 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
   const myData  = isAdmin ? data : data.filter(i => i.company === myName);
 
   // Key stats
-  const encours = myData.filter(i => i.status === 'encours' && !isTaskFrozenToday(i));
-  const blocked = myData.filter(i => i.status === 'bloque');
-  const termine = myData.filter(i => i.status === 'termine');
-  const overdue = myData.filter(i => isTaskLate(i));
+  const encours = myData.filter(i => effectiveStatus(i) === 'encours' && !isTaskFrozenToday(i));
+  const blocked = myData.filter(i => effectiveStatus(i) === 'bloque');
+  const termine = myData.filter(i => effectiveStatus(i) === 'termine');
+  const overdue = myData.filter(i => effectiveStatus(i) === 'en_retard');
   const todoToday = myData.filter(i => isTaskTodoToday(i));
   const mentionTasks = isAdmin
     ? data.filter(function(i){ return i.prereq_company && i.prereq && i.status !== 'termine'; })
@@ -4208,10 +4197,10 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
     const companyStats = companies.map(co => ({
       name:    co,
       total:   data.filter(i => i.company===co).length,
-      encours: data.filter(i => i.company===co&&i.status==='encours'&&!isTaskFrozenToday(i)).length,
-      bloque:  data.filter(i => i.company===co&&i.status==='bloque').length,
-      retard:  data.filter(i => i.company===co&&isTaskLate(i)).length,
-      termine: data.filter(i => i.company===co&&i.status==='termine').length,
+      encours: data.filter(i => i.company===co&&effectiveStatus(i)==='encours'&&!isTaskFrozenToday(i)).length,
+      bloque:  data.filter(i => i.company===co&&effectiveStatus(i)==='bloque').length,
+      retard:  data.filter(i => i.company===co&&effectiveStatus(i)==='en_retard').length,
+      termine: data.filter(i => i.company===co&&effectiveStatus(i)==='termine').length,
     }));
 
     return (
@@ -4262,10 +4251,10 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
         <SectionCard title="Avancement par zone">
           {zones.map(z => {
             const zivs=data.filter(i=>i.zone===z.id);
-            const done=zivs.filter(i=>i.status==='termine').length;
-            const bloc=zivs.filter(i=>i.status==='bloque').length;
-            const enc=zivs.filter(i=>i.status==='encours'&&!isTaskFrozenToday(i)).length;
-            const late=zivs.filter(i=>isTaskLate(i)).length;
+            const done=zivs.filter(i=>effectiveStatus(i)==='termine').length;
+            const bloc=zivs.filter(i=>effectiveStatus(i)==='bloque').length;
+            const enc=zivs.filter(i=>effectiveStatus(i)==='encours'&&!isTaskFrozenToday(i)).length;
+            const late=zivs.filter(i=>effectiveStatus(i)==='en_retard').length;
             const p=zivs.length?Math.round(done/zivs.length*100):0;
             const wd=workingDaysUntil(z.deadline);
             const dc=z.deadline?(wd<0?'#DC2626':wd<5?'#DC2626':wd<15?'#EA580C':'#16A34A'):'var(--xmuted)';
@@ -4394,10 +4383,10 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
         <SectionCard title="Avancement par zone">
           {myZones.map(function(z){
             var zivs=myData.filter(function(i){return i.zone===z.id;});
-            var done=zivs.filter(function(i){return i.status==='termine';}).length;
-            var bloc=zivs.filter(function(i){return i.status==='bloque';}).length;
-            var enc=zivs.filter(function(i){return i.status==='encours'&&!isTaskFrozenToday(i);}).length;
-            var late=zivs.filter(function(i){return isTaskLate(i);}).length;
+            var done=zivs.filter(function(i){return effectiveStatus(i)==='termine';}).length;
+            var bloc=zivs.filter(function(i){return effectiveStatus(i)==='bloque';}).length;
+            var enc=zivs.filter(function(i){return effectiveStatus(i)==='encours'&&!isTaskFrozenToday(i);}).length;
+            var late=zivs.filter(function(i){return effectiveStatus(i)==='en_retard';}).length;
             var p=zivs.length?Math.round(done/zivs.length*100):0;
             var wdv=workingDaysUntil(z.deadline);
             var dc=z.deadline?(wdv<0?'#DC2626':wdv<5?'#DC2626':wdv<15?'#EA580C':'#16A34A'):'var(--xmuted)';
@@ -4462,29 +4451,44 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
       )}
 
       {/* ── Toutes mes tâches par statut ── */}
-      {[
-        {key:'bloque', label:'Bloquées', color:'#DC2626'},
-        {key:'encours', label:'En cours', color:'#2563EB'},
-        {key:'arealis', label:'À réaliser', color:'var(--muted)'},
-        {key:'termine', label:'Terminées', color:'#16A34A'},
-      ].map(function(st){
-        var items=myData.filter(function(i){return i.status===st.key && !(st.key==='encours' && isTaskFrozenToday(i));});
-        if(!items.length) return null;
+      {(function(){
+        var lateIvs=myData.filter(function(i){return effectiveStatus(i)==='en_retard';});
+        var sections=[
+          {key:'bloque', label:'Bloquées', color:'#DC2626'},
+          {key:'encours', label:'En cours', color:'#2563EB'},
+          {key:'arealis', label:'À réaliser', color:'var(--muted)'},
+          {key:'termine', label:'Terminées', color:'#16A34A'},
+        ];
         return (
-          <SectionCard key={st.key} title={`${st.label} (${items.length})`} accent={st.color}>
-            {items.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;}) }
-          </SectionCard>
+          <>
+            {lateIvs.length>0&&(
+              <SectionCard title={'En retard (' + lateIvs.length + ')'} accent='#EA580C'>
+                {lateIvs.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})}
+              </SectionCard>
+            )}
+            {sections.map(function(st){
+              var items=myData.filter(function(i){
+                return effectiveStatus(i)===st.key && !(st.key==='encours' && isTaskFrozenToday(i));
+              });
+              if(!items.length) return null;
+              return (
+                <SectionCard key={st.key} title={st.label+' ('+items.length+')'} accent={st.color}>
+                  {items.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})}
+                </SectionCard>
+              );
+            })}
+          </>
         );
-      })}
+      })()}
     </div>
   );
 }
 
 
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    PLANNING SCREEN (weekly grid)
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
   var dc = deadlineColor(zone.deadline);
   var wd = workingDaysUntil(zone.deadline);
@@ -4734,7 +4738,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
     if (isMulti) {
       var _tr = trades.find(function(t){return t.id===iv.trade;});
       var _c = getTC(_tr?_tr.color:'blue');
-      var _m = getStatusThemeMeta(iv.status);
+      var _m = getStatusThemeMeta(effectiveStatus(iv));
       var criticalInfo = zoneCritical.roles[iv.id] || null;
       var ccLinked = !!(showCriticalPath && criticalInfo && criticalInfo.linked);
       var ccColor = ccLinked ? (criticalInfo.color || '#EA580C') : _c.b;
@@ -4791,7 +4795,7 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
         data-cc-day={dayStrForCard || ''}
         data-cc-zone={zone && zone.id ? zone.id : ''}
         data-cc-chain-id={showCriticalPath && zoneCritical.roles[iv.id] && zoneCritical.roles[iv.id].linked ? zoneCritical.roles[iv.id].chainId : undefined}
-        onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, getStatusThemeMeta(iv.status)));}}
+        onMouseEnter={function(e){setTaskHover(compactTaskHoverPayload(e, iv, zone, getStatusThemeMeta(effectiveStatus(iv))));}}
         onMouseMove={function(){}}
         onMouseLeave={function(){setTaskHover(null);}}
         style={{position:'relative',borderRadius:14,outline:selectedForMove?'2px solid var(--primary)':(selectedAsDependencyTarget?'2px solid #7C3AED':'none'),outlineOffset:1,boxShadow:selectedForMove?'0 0 0 5px color-mix(in srgb, var(--primary) 12%, transparent)':(selectedAsDependencyTarget?'0 0 0 5px rgba(124,58,237,.13)':'none')}}>
@@ -5282,9 +5286,9 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
   );
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    LIST SCREEN
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function ListScreen({ data, zones, trades, companies, weekOffset, filter, session, onOpenDetail, onStatusChange, canChangeStatus = true }) {
   const isAdmin = session?.role === 'admin';
   const myName = session?.company?.name || '';
@@ -5298,7 +5302,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const todoTodayItems = shownData.filter(function(i){ return isTaskTodoToday(i); });
   const urgentItems = shownData.filter(function(i){ return i.status !== 'termine' && (isTaskLate(i) || i.status === 'bloque'); });
   const allOrdered = [...shownData].sort(function(a,b){
-    var rank = function(iv){ if (iv.status==='bloque') return 0; if (isTaskLate(iv)) return 1; if (iv.status==='encours') return 2; if (iv.status==='arealis') return 3; if (iv.status==='termine') return 5; return 9; };
+    var rank = function(iv){ var es=effectiveStatus(iv); if (es==='bloque') return 0; if (es==='en_retard') return 1; if (es==='encours') return 2; if (es==='arealis') return 3; if (es==='termine') return 5; return 9; };
     var ra=rank(a), rb=rank(b); if (ra!==rb) return ra-rb;
     return (a.start||'').localeCompare(b.start||'');
   });
@@ -5335,10 +5339,10 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   const mainTrade = getCompanyMainTrade(myName, data, companies, trades);
   const accent = getTC(mainTrade ? mainTrade.color : 'blue');
   const total = baseData.length;
-  const done = baseData.filter(function(i){ return i.status === 'termine'; }).length;
-  const enc = baseData.filter(function(i){ return i.status === 'encours' && !isTaskFrozenToday(i); }).length;
-  const bloc = baseData.filter(function(i){ return i.status === 'bloque'; }).length;
-  const late = baseData.filter(function(i){ return isTaskLate(i); }).length;
+  const done = baseData.filter(function(i){ return effectiveStatus(i) === 'termine'; }).length;
+  const enc  = baseData.filter(function(i){ return effectiveStatus(i) === 'encours' && !isTaskFrozenToday(i); }).length;
+  const bloc = baseData.filter(function(i){ return effectiveStatus(i) === 'bloque'; }).length;
+  const late = baseData.filter(function(i){ return effectiveStatus(i) === 'en_retard'; }).length;
   const todoTodayCount = baseData.filter(function(i){ return isTaskTodoToday(i); }).length;
   const progress = pctDone(baseData);
   const reliability = calcReliability(baseData);
@@ -5492,9 +5496,9 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   );
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    SETTINGS SCREEN
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function SettingsScreen({ zones, trades, companies, setZones, setTrades, setCompanies, data = [], zoneClipboard = null, onCopyZone, onClearZoneClipboard, onPasteZone, onMoveZone, onDeleteZone, onDeleteTrade, onDeleteCompany, calendarOverrides, onSetHolidayWorked, workingWeekdays = DEFAULT_WORKING_WEEKDAYS, onSetWorkingWeekday }) {
   const [tab, setTab] = useState('zones');
   const [editingZone, setEditingZone] = useState(null);
@@ -5587,16 +5591,22 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
       .replace(/^_+|_+$/g,'') || ('co_'+Date.now().toString(36));
   }
   function normalizeCompany(c) {
+    var rawContacts = c.contacts;
+    var contacts = Array.isArray(rawContacts) ? rawContacts
+      : (typeof rawContacts === 'string' && rawContacts ? JSON.parse(rawContacts) : []);
     return {
       id:c.id || slugCompanyId(c.name),
       name:(c.name||'').trim(),
       contact:(c.contact||'').trim(),
+      phone:(c.phone||'').trim(),
+      email:(c.email||'').trim(),
       code:String(c.code||'').trim(),
-      tradeId:c.tradeId || c.trade_id || ''
+      tradeId:c.tradeId || c.trade_id || '',
+      contacts: contacts
     };
   }
   function companyRow(c) {
-    return {id:c.id,name:c.name,contact:c.contact||'',code:c.code||'',trade_id:c.tradeId||null};
+    return {id:c.id,name:c.name,contact:c.contact||'',phone:c.phone||'',email:c.email||'',code:c.code||'',trade_id:c.tradeId||null,contacts:c.contacts||[]};
   }
   function saveZone(z) {
     var savedZone = Object.assign({}, z, {floor_color:normalizeFloorColorValue(z.floor_color) || floorColorValue(z.floor)});
@@ -5912,6 +5922,10 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                         style={inputSt} placeholder="Nom entreprise" />
                       <input value={editingCompany.contact||''} onChange={e=>setEditingCompany({...editingCompany,contact:e.target.value})}
                         style={inputSt} placeholder="Référent / contact" />
+                      <input value={editingCompany.phone||''} onChange={e=>setEditingCompany({...editingCompany,phone:e.target.value})}
+                        style={inputSt} placeholder="Téléphone (06…)" type="tel" />
+                      <input value={editingCompany.email||''} onChange={e=>setEditingCompany({...editingCompany,email:e.target.value})}
+                        style={inputSt} placeholder="Email" type="email" />
                       <input value={editingCompany.code||''} onChange={e=>setEditingCompany({...editingCompany,code:e.target.value.replace(/\D/g,'').slice(0,4)})}
                         style={inputSt} placeholder="Code PIN 4 chiffres" />
                       <select value={editingCompany.tradeId||''} onChange={e=>setEditingCompany({...editingCompany,tradeId:e.target.value})}
@@ -5919,6 +5933,18 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                         <option value="">Lot / corps de métier…</option>
                         {trades.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
                       </select>
+                    </div>
+                    {/* Contacts supplémentaires */}
+                    <div style={{borderTop:'1px solid var(--border)',paddingTop:8}}>
+                      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Contacts supplémentaires</div>
+                      {(editingCompany.contacts||[]).map((ct,ci)=>(
+                        <div key={ci} style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:6,marginBottom:5}}>
+                          <input value={ct.name||''} onChange={e=>{var cs=[...(editingCompany.contacts||[])];cs[ci]={...cs[ci],name:e.target.value};setEditingCompany({...editingCompany,contacts:cs});}} style={inputSt} placeholder="Prénom Nom"/>
+                          <input value={ct.phone||''} onChange={e=>{var cs=[...(editingCompany.contacts||[])];cs[ci]={...cs[ci],phone:e.target.value};setEditingCompany({...editingCompany,contacts:cs});}} style={inputSt} placeholder="Téléphone" type="tel"/>
+                          <button onClick={()=>{var cs=(editingCompany.contacts||[]).filter((_,j)=>j!==ci);setEditingCompany({...editingCompany,contacts:cs});}} style={{...miniBtn,background:'var(--danger-l)',color:'var(--danger)',border:'none',minWidth:28,padding:'0 6px'}}>✕</button>
+                        </div>
+                      ))}
+                      <button onClick={()=>setEditingCompany({...editingCompany,contacts:[...(editingCompany.contacts||[]),{name:'',phone:'',email:''}]})} style={{...miniBtn,fontSize:11}}>+ Contact</button>
                     </div>
                     <div style={{display:'flex',gap:6}}>
                       <button onClick={()=>saveCompany(editingCompany)} style={{...miniBtn,flex:1}}>Enregistrer</button>
@@ -5953,6 +5979,10 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
                   style={inputSt} placeholder="Nom entreprise *" autoFocus />
                 <input value={newCompany.contact||''} onChange={e=>setNewCompany({...newCompany,contact:e.target.value})}
                   style={inputSt} placeholder="Référent / contact" />
+                <input value={newCompany.phone||''} onChange={e=>setNewCompany({...newCompany,phone:e.target.value})}
+                  style={inputSt} placeholder="Téléphone (06…)" type="tel" />
+                <input value={newCompany.email||''} onChange={e=>setNewCompany({...newCompany,email:e.target.value})}
+                  style={inputSt} placeholder="Email" type="email" />
                 <input value={newCompany.code||''} onChange={e=>setNewCompany({...newCompany,code:e.target.value.replace(/\D/g,'').slice(0,4)})}
                   style={inputSt} placeholder="Code PIN 4 chiffres *" />
                 <select value={newCompany.tradeId||''} onChange={e=>setNewCompany({...newCompany,tradeId:e.target.value})}
@@ -6109,9 +6139,9 @@ const inputSt = {padding:'7px 9px',border:'1px solid var(--border)',borderRadius
 const miniBtn = {padding:'5px 10px',borderRadius:'var(--r-xs)',border:'1px solid var(--border)',
   background:'var(--surface-2)',color:'var(--text)',fontSize:12,cursor:'pointer',fontFamily:"'DM Sans',sans-serif"};
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    DETAIL MODAL
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function StatusWithNote({ iv, session, onStatusChange }) {
   var [pendingStatus, setPendingStatus] = React.useState(null);
   var [noteText, setNoteText] = React.useState('');
@@ -6138,20 +6168,32 @@ function StatusWithNote({ iv, session, onStatusChange }) {
 
   return (
     <div style={{marginBottom:14}}>
+      {isTaskLate(iv) && (
+        <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 11px',
+          marginBottom:10,borderRadius:'var(--r-sm)',
+          background:'rgba(234,88,12,.12)',border:'1px solid rgba(234,88,12,.35)',
+          color:'#9A3412',fontSize:12,fontWeight:700,lineHeight:1.35}}>
+          <span style={{fontSize:16,flexShrink:0}}>⏰</span>
+          <span>En retard — date de fin dépassée. Sélectionnez le statut réel ci-dessous.</span>
+        </div>
+      )}
       <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.05em',
         textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
         Mettre à jour le statut
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
-        {Object.entries(STATUS_META).map(function(entry){
+        {Object.entries(STATUS_META)
+          .filter(function(e){ return e[0] !== 'en_retard'; })
+          .map(function(entry){
           var k=entry[0], m=entry[1];
+          var isActive = iv.status===k;
           return (
             <button key={k} disabled={saving} onClick={function(){ setPendingStatus(k); setNoteText(''); setSaved(false); setError(''); }}
               style={{padding:'9px 6px',borderRadius:'var(--r-sm)',
-                border:'1.5px solid '+(iv.status===k?m.dot:'var(--border)'),
-                background:iv.status===k?m.bg:'var(--surface)',
+                border:'1.5px solid '+(isActive?m.dot:'var(--border)'),
+                background:isActive?m.bg:'var(--surface)',
                 cursor:saving?'wait':'pointer',fontSize:12,fontWeight:500,
-                color:iv.status===k?m.text:'var(--text)',opacity:saving ? .65 : 1,
+                color:isActive?m.text:'var(--text)',opacity:saving ? .65 : 1,
                 display:'flex',alignItems:'center',justifyContent:'center',
                 gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif"}}>
               <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
@@ -6658,7 +6700,7 @@ function DetailModal({ open, ivId, data, zones, trades, session, onClose, onStat
           <div style={{fontSize:19,fontWeight:700,color:'var(--text)',marginBottom:3}}>{iv.company}</div>
           {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{iv.task_number}</span>}
         </div>
-        <StatusBadge status={iv.status} />
+        <StatusBadge status={effectiveStatus(iv)} />
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
         <TradeBadge tradeId={iv.trade} trades={trades} size="md" />
@@ -7141,9 +7183,9 @@ function TaskLinksPicker({ label, hint, selectedIds, onChange, data, zones, trad
   );
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    ADD / EDIT MODAL
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, companies, history = [], taskLogs = [], onUpdateStatusNote, onDeleteStatusNote, onClose, onSave, onDelete }) {
   const existing = editId ? data.find(i=>i.id===editId) : null;
   const [form, setForm] = useState({});
@@ -7219,7 +7261,7 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
 
   async function handleSave() {
     if (saving) return;
-    if (!form.trade||!form.company||!form.task) { alert('Corps de métier, entreprise et description sont requis.'); return; }
+    if (!form.trade||!form.task) { alert('Corps de métier et description sont requis.'); return; }
     if (form.company_edit_allowed && form.company_edit_start_min && form.company_edit_end_max && form.company_edit_end_max < form.company_edit_start_min) {
       alert('La date limite au plus tard ne peut pas être avant la date au plus tôt.');
       return;
@@ -7313,12 +7355,12 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
             {trades.map(t=><option key={t.id} value={t.id}>{t.short ? t.short+' — '+t.name : t.name}</option>)}
           </Select>
         </Field>
-        <Field label="Entreprise *">
-          <Select value={form.company||''} onChange={e=>set('company',e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {companyNames.map(n=><option key={n} value={n}>{n}</option>)}
-          </Select>
-        </Field>
+        {form.company && (
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:13,padding:'6px 10px',
+            background:'var(--surface-2)',borderRadius:'var(--r-xs)',border:'1px solid var(--border)'}}>
+            <span style={{fontWeight:700,color:'var(--text)'}}>Entreprise : </span>{form.company}
+          </div>
+        )}
         <Field label="Description *">
           <Input value={form.task||''} onChange={e=>set('task',e.target.value)} placeholder="ex : Pose cloisons R+3 plateau Est" />
         </Field>
@@ -7452,9 +7494,9 @@ function AddEditModal({ open, editId, preZone, preDate, data, zones, trades, com
   );
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    USER MENU MODAL
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function UserMenuModal({ open, session, onClose, onLogout }) {
   return (
     <SheetModal open={open} onClose={onClose}>
@@ -7473,9 +7515,9 @@ function UserMenuModal({ open, session, onClose, onLogout }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    ERROR BOUNDARY
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -7566,9 +7608,9 @@ class ErrorBoundary extends React.Component {
 }
 
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    HISTORY + PLANNING VALIDATION MODALS
-════════════════════════════════════════════════════════════ */
+============================================================ */
 function HistoryModal({ open, history, session, onClose, onRefresh }) {
   function eventLabel(t) {
     return {
@@ -7766,9 +7808,490 @@ function ValidatePlanningModal({ open, onClose, onConfirm }) {
 
 
 
-/* ════════════════════════════════════════════════════════════
+
+
+/* ============================================================
+   BRIEFINGS SCREEN — Fiches de mission hebdomadaires
+=========================================================== */
+function BriefIcon() {
+  return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="4" width="16" height="13" rx="2"/><path d="M2 8l8 5 8-5"/></svg>;
+}
+
+function BriefingsScreen({ data, zones, trades, companies, session }) {
+  const [weekOff,    setWeekOff]    = useState(0);
+  const [expanded,   setExpanded]   = useState(null);
+  const [copied,     setCopied]     = useState(null);
+  const [recapOpen,  setRecapOpen]  = useState(false);
+  const [recapCopied,setRecapCopied]= useState(false);
+  const [addingSH,   setAddingSH]   = useState(false);
+  const [newSH,      setNewSH]      = useState({name:'', phone:''});
+  const [stakeholders, setStakeholders] = useState(function() {
+    try { return JSON.parse(localStorage.getItem('planify_stakeholders') || '[]'); }
+    catch(e) { return []; }
+  });
+  const [sentStatus, setSentStatus] = useState(function() {
+    try { return JSON.parse(localStorage.getItem('planify_briefings_sent') || '{}'); }
+    catch(e) { return {}; }
+  });
+
+  const FR_DAYS      = ['\u0044im','\u004cun','\u004dar','\u004der','\u004aeu','\u0056en','\u0053am'];
+  const FR_DAYS_FULL = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const FR_MNTHS     = ['jan.','f\u00e9v.','mar.','avr.','mai','juin','juil.','ao\u00fb.','sep.','oct.','nov.','d\u00e9c.'];
+  const FR_MNTHS_FULL= ['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre'];
+
+  function fmtShort(ds) {
+    if (!ds) return '';
+    var d = new Date(ds + 'T00:00:00');
+    return d.getDate() + ' ' + FR_MNTHS[d.getMonth()];
+  }
+  function fmtDayShort(ds) {
+    if (!ds) return '';
+    var d = new Date(ds + 'T00:00:00');
+    return FR_DAYS[d.getDay()] + ' ' + d.getDate();
+  }
+  function fmtFull(ds) {
+    if (!ds) return '';
+    var d = new Date(ds + 'T00:00:00');
+    return FR_DAYS_FULL[d.getDay()] + ' ' + d.getDate() + ' ' + FR_MNTHS_FULL[d.getMonth()];
+  }
+  function getWeek(offset) {
+    var today = new Date(), dow = today.getDay();
+    var mon = new Date(today);
+    mon.setDate(today.getDate() - (dow===0?6:dow-1) + offset*7);
+    mon.setHours(0,0,0,0);
+    var fri = new Date(mon); fri.setDate(mon.getDate()+4);
+    function ds(d){
+      return d.getFullYear()+'-'
+        +String(d.getMonth()+1).padStart(2,'0')+'-'
+        +String(d.getDate()).padStart(2,'0');
+    }
+    return {start:ds(mon), end:ds(fri)};
+  }
+  var week0 = getWeek(0);
+  var week1 = getWeek(1);
+  var week2 = getWeek(2);
+  var activeWeeks = [week0, week1, week2].slice(0, weekOff + 1);
+  var week = {start: activeWeeks[0].start, end: activeWeeks[activeWeeks.length-1].end};
+  var weekLabel = weekOff===0 ? 'Semaine en cours'
+    : weekOff===1 ? 'Sem. en cours + S+1'
+    : 'Sem. en cours + S+1 + S+2';
+
+  function overlapsWeek(iv) {
+    var s=iv.start||'', e=iv.end||s;
+    return activeWeeks.some(function(w){ return s<=w.end && e>=w.start; });
+  }
+  function overlapsDay(iv, dayStr) {
+    var s=iv.start||'', e=iv.end||s;
+    return s<=dayStr && e>=dayStr;
+  }
+  function getZoneName(zoneId) {
+    var z=(zones||[]).find(function(z){return z.id===zoneId;});
+    if (!z) return zoneId||'\u2014';
+    return (z.floor?z.floor+' / ':'')+z.name;
+  }
+  function fmtPhoneWA(phone) {
+    if (!phone) return '';
+    var p=String(phone).replace(/\s/g,'').replace(/[^\d+]/g,'');
+    if (p.startsWith('00')) p='+'+p.slice(2);
+    else if (p.startsWith('0')) p='+33'+p.slice(1);
+    else if (!p.startsWith('+')) p='+33'+p;
+    return p.replace('+','');
+  }
+  function waUrl(phone, msg) {
+    var num = fmtPhoneWA(phone);
+    if (!num) return null;
+    // Array.from iterates by Unicode codepoint, not UTF-16 code units.
+    // Emoji (surrogate pairs) become ONE element => encodeURIComponent gets
+    // the full char and produces correct UTF-8 percent-encoding:
+    // wave emoji => %F0%9F%91%8B, which all WhatsApp versions decode correctly.
+    var encoded = Array.from(msg).map(function(ch) {
+      return encodeURIComponent(ch);
+    }).join('');
+    return 'https://wa.me/'+num+'?text='+encoded;
+  }
+
+  // ── Message par contact ──────────────────────────────────
+  function generateMessage(contact, co, ivs) {
+    var E = {
+      wave:  String.fromCodePoint(0x1F44B),
+      pin:   String.fromCodePoint(0x1F4CD),
+      warn:  '\u26A0\uFE0F',
+      link:  String.fromCodePoint(0x1F517),
+      phone: String.fromCodePoint(0x1F4F1),
+    };
+    var prenom=(contact.name||'').split(' ')[0]||co.name;
+    var multiWk=(weekOff>0);
+    var wd=weekOff===0?'cette semaine'
+      :weekOff===1?'les 2 prochaines semaines'
+      :'les 3 prochaines semaines';
+    function pushZones(theIvs){
+      var byZone={};
+      theIvs.forEach(function(iv){ var zn=getZoneName(iv.zone); if(!byZone[zn])byZone[zn]=[]; byZone[zn].push(iv); });
+      Object.keys(byZone).forEach(function(zn){
+        var zivs=byZone[zn];
+        var starts=zivs.map(function(iv){return iv.start||'';}).filter(Boolean).sort();
+        var ends  =zivs.map(function(iv){return iv.end||iv.start||'';}).filter(Boolean).sort().reverse();
+        var dRange='';
+        if(starts.length){
+          var s=fmtDayShort(starts[0]);
+          var e=ends[0]&&ends[0]!==starts[0]?' \u2192 '+fmtDayShort(ends[0]):'';
+          dRange=s+e;
+        }
+        L.push('');
+        L.push(E.pin+' *'+zn+'*'+(dRange?'  \u2014  '+dRange:''));
+        zivs.forEach(function(iv){
+          var num=iv.task_number?'['+iv.task_number+'] ':'';
+          L.push('   \u2022 '+num+iv.task);
+        });
+      });
+    }
+    var L=[];
+    L.push('*Planify \u2014 HSF Av. Marceau*');
+    if(multiWk){
+      L.push('Semaine en cours'+(weekOff===1?' + semaine suivante':' + 2 semaines suivantes'));
+      L.push('Du lundi '+fmtShort(week0.start)+' au vendredi '+fmtShort(activeWeeks[activeWeeks.length-1].end));
+    } else {
+      L.push('Semaine du '+fmtShort(week.start)+' au '+fmtShort(week.end));
+    }
+    L.push('');
+    L.push('Bonjour '+prenom+' '+E.wave);
+    L.push('');
+    L.push('Vos interventions '+wd+'\u00a0:');
+    if(multiWk){
+      activeWeeks.forEach(function(w, wi){
+        var wivs=ivs.filter(function(iv){var s=iv.start||'',e=iv.end||s;return s<=w.end&&e>=w.start;});
+        if(wivs.length){
+          L.push('');
+          L.push('*Sem. du '+fmtShort(w.start)+' au '+fmtShort(w.end)+'*');
+          pushZones(wivs);
+        }
+      });
+    } else {
+      pushZones(ivs);
+    }
+    var blocked=ivs.filter(function(iv){return iv.status==='bloque';});
+    if(blocked.length){
+      L.push('');
+      L.push(E.warn+' *Point d\u2019attention\u00a0:* '+blocked.length+' t\u00e2che(s) bloqu\u00e9e(s) \u2014 merci de confirmer la situation.');
+    }
+    var prereq=ivs.filter(function(iv){return iv.prereq&&iv.prereq_company;});
+    if(prereq.length){
+      L.push('');
+      prereq.forEach(function(iv){
+        L.push(E.link+' *Pr\u00e9requis\u00a0:* '+iv.prereq_company+' doit intervenir avant vous sur cette zone.');
+      });
+    }
+    L.push('');
+    L.push(E.warn+' Le chantier avance avec l\u2019ensemble des \u00e9quipes, donc si tu as le moindre souci pour tenir une de ces interventions, merci de me pr\u00e9venir au plus vite '+E.phone);
+    return L.join('\n');
+  }
+
+  // ── Récap projet ─────────────────────────────────────────
+  function generateRecap() {
+    var E2 = {
+      cal: String.fromCodePoint(0x1F4C5),
+      pin: String.fromCodePoint(0x1F4CD),
+    };
+    var multiWk = (weekOff > 0);
+    var nWeeks = weekOff + 1;
+    function localDs(d) {
+      return d.getFullYear()+'-'
+        +String(d.getMonth()+1).padStart(2,'0')+'-'
+        +String(d.getDate()).padStart(2,'0');
+    }
+    function pushDay(dayStr, ivIds, coSet) {
+      var dayIvs=(data||[]).filter(function(iv){
+        return iv.status!=='termine' && overlapsDay(iv,dayStr)
+          && !((iv.off_days||[]).includes(dayStr));
+      });
+      if(!dayIvs.length) return;
+      dayIvs.forEach(function(iv){ivIds[iv.id]=true; coSet[iv.company]=true;});
+      L.push(E2.cal+' *'+fmtFull(dayStr)+'*');
+      var byZone={};
+      dayIvs.forEach(function(iv){
+        var zn=getZoneName(iv.zone);
+        if(!byZone[zn]) byZone[zn]=[];
+        byZone[zn].push(iv);
+      });
+      Object.keys(byZone).sort().forEach(function(zn){
+        L.push('  '+E2.pin+' '+zn);
+        byZone[zn].forEach(function(iv){
+          var num=iv.task_number?'['+iv.task_number+'] ':'';
+          var co=(companies||[]).find(function(c){return c.name===iv.company;});
+          var ct=co&&co.contact?' ('+co.contact.split(' ')[0]+')':'';
+          L.push('    \u2022 '+iv.company+ct+' \u2014 '+num+iv.task);
+        });
+      });
+      L.push('');
+    }
+    var L=[], ivIds={}, coSet={};
+    L.push('*Planify \u2014 HSF Av. Marceau*');
+    if(multiWk){
+      L.push('R\u00e9cap chantier \u2014 '+(nWeeks===2?'2':'3')+' semaines');
+      L.push('Du lundi '+fmtShort(activeWeeks[0].start)+' au vendredi '+fmtShort(activeWeeks[activeWeeks.length-1].end));
+    } else {
+      L.push('R\u00e9cap chantier');
+      L.push('Semaine du '+fmtShort(week.start)+' au '+fmtShort(week.end));
+    }
+    L.push('');
+    activeWeeks.forEach(function(w, wi){
+      if(multiWk){
+        L.push('*Semaine '+(wi+1)+' \u2014 lundi '+fmtShort(w.start)+' au vendredi '+fmtShort(w.end)+'*');
+        L.push('');
+      }
+      for(var di=0;di<5;di++){
+        var dd=new Date(w.start+'T00:00:00');
+        dd.setDate(dd.getDate()+di);
+        pushDay(localDs(dd), ivIds, coSet);
+      }
+    });
+    var nbCo=Object.keys(coSet).length, nbIv=Object.keys(ivIds).length;
+    var sfx=multiWk?' sur '+nWeeks+' semaines':'';
+    if(nbIv===0){
+      L.push('Aucune intervention planifi\u00e9e'+sfx+'.');
+    } else {
+      L.push(nbCo+' entreprise'+(nbCo>1?'s':'')+' \u00b7 '+nbIv+' intervention'+(nbIv>1?'s':'')+sfx);
+    }
+    return L.join('\n');
+  }
+
+  // ── Utilitaires ──────────────────────────────────────────
+  function sentKey(cardId){ return cardId+'_'+week.start; }
+  function markSent(cardId){
+    var k=sentKey(cardId), next=Object.assign({},sentStatus);
+    next[k]=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    setSentStatus(next);
+    try{localStorage.setItem('planify_briefings_sent',JSON.stringify(next));}catch(e){}
+  }
+  function doCopy(text,cardId){
+    var finish=function(){setCopied(cardId);markSent(cardId);setTimeout(function(){setCopied(null);},2400);};
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(finish).catch(function(){var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);finish();});
+    else{var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);finish();}
+  }
+  function doRecapCopy(text){
+    var finish=function(){setRecapCopied(true);setTimeout(function(){setRecapCopied(false);},2400);};
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(finish).catch(function(){var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);finish();});
+    else{var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);finish();}
+  }
+  function saveSH(list){
+    setStakeholders(list);
+    try{localStorage.setItem('planify_stakeholders',JSON.stringify(list));}catch(e){}
+  }
+  function addSH(){
+    if(!newSH.name&&!newSH.phone) return;
+    saveSH([...stakeholders,{name:newSH.name,phone:newSH.phone}]);
+    setNewSH({name:'',phone:''});
+    setAddingSH(false);
+  }
+  function removeSH(i){ saveSH(stakeholders.filter(function(_,j){return j!==i;})); }
+
+  // ── Construction des cartes (1 par contact) ───────────────
+  var companyCards=[];
+  (companies||[]).forEach(function(co){
+    var ivs=(data||[]).filter(function(iv){
+      // trade on intervention = tradeId in companies → strict routing to right contact
+      // fallback to company name for legacy tasks without trade set
+      var ok = (iv.trade && co.tradeId)
+        ? (iv.trade === co.tradeId)
+        : (iv.company === co.name);
+      return ok && iv.status !== 'termine' && overlapsWeek(iv);
+    });
+    if(!ivs.length) return;
+    var allCt=[];
+    if(co.contact||co.phone) allCt.push({name:co.contact||'',phone:co.phone||'',email:co.email||'',primary:true});
+    (co.contacts||[]).forEach(function(c){if(c.name||c.phone) allCt.push({name:c.name||'',phone:c.phone||'',email:c.email||'',primary:false});});
+    if(!allCt.length) allCt.push({name:'',phone:'',email:'',primary:true});
+    allCt.forEach(function(ct,ci){
+      companyCards.push({co:co, contact:ct, cardId:co.id+'_c'+ci, ivs:ivs});
+    });
+  });
+
+  var totalSent=companyCards.filter(function(x){return !!sentStatus[sentKey(x.cardId)];}).length;
+  var totalBlocked=companyCards.reduce(function(s,x){return s+x.ivs.filter(function(iv){return iv.status==='bloque';}).length;},0);
+  var totalTasks=companyCards.reduce(function(s,x){return s+x.ivs.length;},0);
+
+  // ── Styles locaux ────────────────────────────────────────
+  var btnSt={display:'inline-flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:'var(--r-xs)',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:"'DM Sans',sans-serif",textDecoration:'none',border:'1px solid var(--border)',background:'transparent',color:'var(--text)'};
+  var inpSt={padding:'6px 8px',borderRadius:'var(--r-xs)',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:12,fontFamily:"'DM Sans',sans-serif",outline:'none'};
+  var preSt={fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:'var(--text)',lineHeight:1.7,whiteSpace:'pre-wrap',wordBreak:'break-word',margin:0,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',padding:'14px 16px',overflowY:'auto'};
+
+  function openWA(phone, msg, cardId) {
+    if (cardId) markSent(cardId);
+    if (navigator.share) {
+      navigator.share({text: msg}).catch(function() {
+        var link = waUrl(phone, msg);
+        if (link) window.open(link, '_blank');
+      });
+    } else {
+      var link = waUrl(phone, msg);
+      if (link) window.open(link, '_blank');
+    }
+  }
+  var recapMsg = recapOpen ? generateRecap() : '';
+  return (
+    <div style={{height:'100%',overflowY:'auto',padding:'16px 14px 100px'}}>
+
+      {/* ── Header ── */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:18,fontWeight:700,color:'var(--text)',marginBottom:3}}>Fiches de mission</div>
+        <div style={{fontSize:13,color:'var(--muted)',lineHeight:1.45}}>Briefings hebdomadaires + récap projet pour vos parties prenantes.</div>
+      </div>
+
+      {/* ── Semaine ── */}
+      <div style={{display:'flex',gap:6,marginBottom:12}}>
+        {[
+          {o:0, lbl:'Sem. en cours'},
+          {o:1, lbl:'+ Sem. suivante'},
+          {o:2, lbl:'+ 2 sem. suiv.'},
+        ].map(function(item){
+          var active=weekOff===item.o;
+          return <button key={item.o} onClick={function(){setWeekOff(item.o);setExpanded(null);}}
+            style={{...btnSt,flex:1,justifyContent:'center',fontSize:11,
+              background:active?'var(--primary)':'transparent',
+              color:active?'#fff':'var(--text)',
+              border:active?'1px solid var(--primary)':'1px solid var(--border)'}}>
+            {item.lbl}
+          </button>;
+        })}
+      </div>
+
+      {/* ── Stats ── */}
+      <div style={{display:'flex',gap:8,marginBottom:18}}>
+        {[{v:companyCards.length,l:'contacts',c:'var(--text)'},{v:totalTasks,l:'tâches',c:'var(--primary)'},{v:totalBlocked,l:'bloquées',c:totalBlocked>0?'var(--danger)':'var(--muted)'},{v:totalSent,l:'envoyées',c:'var(--success)'}].map(function(s){
+          return <div key={s.l} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'8px 10px',textAlign:'center'}}>
+            <div style={{fontSize:18,fontWeight:800,color:s.c}}>{s.v}</div>
+            <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{s.l}</div>
+          </div>;
+        })}
+      </div>
+
+      <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:10}}>
+        {weekLabel} \u00b7 {fmtShort(week.start)} \u2192 {fmtShort(week.end)}
+      </div>
+
+      {companyCards.length===0&&<div style={{textAlign:'center',padding:'44px 20px',color:'var(--muted)',fontSize:14}}>Aucune intervention planifiée pour cette période.</div>}
+
+      {/* ── Cartes entreprises/contacts ── */}
+      {companyCards.map(function(item){
+        var co=item.co, ct=item.contact, ivs=item.ivs, cardId=item.cardId;
+        var isOpen=expanded===cardId;
+        var msg=generateMessage(ct,co,ivs);
+        var wLink=waUrl(ct.phone,msg);
+        var smsLink=ct.phone?'sms:'+ct.phone.replace(/\s/g,'')+'?body='+encodeURIComponent(msg):null;
+        var mLink=ct.email?'mailto:'+ct.email+'?subject='+encodeURIComponent('Planning HSF \u2014 '+weekLabel)+'&body='+encodeURIComponent(msg):null;
+        var isSent=!!sentStatus[sentKey(cardId)], sentAt=sentStatus[sentKey(cardId)];
+        var tr=(trades||[]).find(function(t){return t.id===co.tradeId;});
+        var c=tr?getTC(tr.color):{b:'#3B82F6',bg:'#EFF6FF',t:'#1E3A8A'};
+        var lateN=ivs.filter(function(iv){return isTaskLate(iv);}).length;
+        var blockedN=ivs.filter(function(iv){return iv.status==='bloque';}).length;
+        var enCoursN=ivs.filter(function(iv){return iv.status==='encours';}).length;
+
+        return (
+          <div key={cardId} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',marginBottom:10,overflow:'hidden',boxShadow:'var(--shadow)'}}>
+            <div style={{padding:'12px 14px',cursor:'pointer',userSelect:'none'}} onClick={function(){setExpanded(isOpen?null:cardId);}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:10,height:10,borderRadius:'50%',background:c.b,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
+                    <span style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>{co.name}</span>
+                    {tr&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:c.t,background:c.bg,border:'1px solid '+c.b+'40',borderRadius:4,padding:'1px 5px'}}>{tr.short}</span>}
+                    {!ct.primary&&<span style={{fontSize:10,color:'var(--muted)',fontStyle:'italic'}}>contact 2è</span>}
+                    {isSent&&<span style={{fontSize:10,color:'var(--success)',fontWeight:700}}>\u2713 {sentAt}</span>}
+                  </div>
+                  <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>
+                    {ct.name&&<span style={{fontWeight:500,color:'var(--text)'}}>{ct.name}</span>}
+                    {ct.phone&&<span style={{marginLeft:ct.name?8:0}}>\u00b7 {ct.phone}</span>}
+                    {!ct.name&&!ct.phone&&<span style={{color:'var(--danger)',fontStyle:'italic'}}>Contact \u00e0 renseigner dans Config</span>}
+                  </div>
+                  <div style={{display:'flex',gap:5,marginTop:6,flexWrap:'wrap'}}>
+                    <span style={{fontSize:11,fontWeight:700,color:'var(--primary)',background:'var(--primary-l)',borderRadius:4,padding:'1px 6px'}}>{ivs.length} tâche{ivs.length!==1?'s':''}</span>
+                    {lateN>0&&<span style={{fontSize:11,fontWeight:700,color:'#EA580C',background:'rgba(234,88,12,.12)',borderRadius:4,padding:'1px 6px'}}>⏰ {lateN} en retard{lateN>1?'s':''}</span>}
+                    {blockedN>0&&<span style={{fontSize:11,fontWeight:700,color:'var(--danger)',background:'var(--danger-l)',borderRadius:4,padding:'1px 6px'}}>⚠ {blockedN} bloquée{blockedN>1?'s':''}</span>}
+                    {enCoursN>0&&<span style={{fontSize:11,fontWeight:700,color:'#D97706',background:'#FFFBEB',borderRadius:4,padding:'1px 6px'}}>\u25cf En cours</span>}
+                  </div>
+                </div>
+                <span style={{color:'var(--muted)',fontSize:14,flexShrink:0,transform:isOpen?'rotate(180deg)':'none',transition:'transform .2s'}}>▾</span>
+              </div>
+            </div>
+
+            {isOpen&&(
+              <div style={{borderTop:'1px solid var(--border)'}}>
+                <div style={{padding:'12px 14px',background:'var(--surface-2)'}}>
+                  <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Aper\u00e7u du message</div>
+                  <pre style={{...preSt,maxHeight:320}}>{msg}</pre>
+                </div>
+                {!ct.phone&&!ct.email&&<div style={{margin:'0 14px 6px',padding:'8px 10px',fontSize:11,lineHeight:1.45,background:'#FFFBEB',border:'1px solid rgba(217,119,6,.3)',borderRadius:'var(--r-xs)',color:'#92400E'}}>Ajoutez un téléphone dans <strong>Config → Entreprises</strong> pour activer l’envoi WhatsApp.</div>}
+                <div style={{padding:'10px 14px 14px',display:'flex',gap:7,flexWrap:'wrap',alignItems:'center'}}>
+                  <button onClick={function(){doCopy(msg,cardId);}} title="Sur Mac/desktop : copiez le message et collez-le dans WhatsApp" style={{...btnSt,background:copied===cardId?'var(--success)':'var(--primary)',color:'#fff',border:'none',fontWeight:800}}>{copied===cardId?'\u2713 Copi\u00e9 !':'\u2398 Copier'}</button>
+                  {ct.phone?<button onClick={function(){openWA(ct.phone,msg,cardId);}} style={{...btnSt,background:'#25D366',color:'#fff',border:'none',fontWeight:800}}>{'WhatsApp \u2197'}</button>:<span style={{...btnSt,color:'var(--muted)',cursor:'default',opacity:.5}}>WhatsApp</span>}
+                  {smsLink&&<a href={smsLink} onClick={function(){markSent(cardId);}} style={{...btnSt,fontWeight:700}}>SMS</a>}
+                  {mLink&&<a href={mLink} onClick={function(){markSent(cardId);}} style={{...btnSt,fontWeight:700}}>\u2709 Email</a>}
+                  {isSent&&<button onClick={function(){var next=Object.assign({},sentStatus);delete next[sentKey(cardId)];setSentStatus(next);try{localStorage.setItem('planify_briefings_sent',JSON.stringify(next));}catch(e){};}} style={{...btnSt,fontSize:11,color:'var(--muted)',marginLeft:'auto'}}>Effacer statut</button>}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* ── Récap Projet ── */}
+      <div style={{marginTop:20}}>
+        <div style={{height:1,background:'var(--border)',marginBottom:14}}/>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer',userSelect:'none'}} onClick={function(){setRecapOpen(function(o){return !o;});}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>Récap projet</div>
+            <div style={{fontSize:12,color:'var(--muted)'}}>Vue jour / zone / entreprise / tâche — envoi aux parties prenantes</div>
+          </div>
+          <span style={{color:'var(--muted)',fontSize:14,transform:recapOpen?'rotate(180deg)':'none',transition:'transform .2s'}}>▾</span>
+        </div>
+
+        {recapOpen && (
+          <div>
+            <pre style={{...preSt,maxHeight:400,marginBottom:12}}>{recapMsg}</pre>
+            <div style={{display:'flex',gap:7,flexWrap:'wrap',marginBottom:20}}>
+              <button onClick={function(){doRecapCopy(recapMsg);}} style={{...btnSt,background:recapCopied?'var(--success)':'var(--primary)',color:'#fff',border:'none'}}>
+                {recapCopied ? '\u2713 Copi\u00e9 !' : '\u2398 Copier le r\u00e9cap'}
+              </button>
+            </div>
+            <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:10}}>Parties prenantes</div>
+            {stakeholders.length===0&&!addingSH&&(
+              <div style={{fontSize:13,color:'var(--muted)',marginBottom:10}}>{'Aucun destinataire. Ajoutez un architecte, BET, MOA…'}</div>
+            )}
+            {stakeholders.map(function(sh,i){
+              var shLink=waUrl(sh.phone,recapMsg);
+              return (
+                <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--r-xs)',marginBottom:6}}>
+                  <div style={{flex:1}}>
+                    <span style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{sh.name}</span>
+                    {sh.phone&&<span style={{fontSize:12,color:'var(--muted)',marginLeft:8}}>{sh.phone}</span>}
+                  </div>
+                  {sh.phone&&<button onClick={function(){openWA(sh.phone,recapMsg,null);}} style={{...btnSt,background:'#25D366',color:'#fff',border:'none',fontSize:11,padding:'4px 10px'}}>{'WA \u2197'}</button>}
+                  <button onClick={function(){removeSH(i);}} style={{...btnSt,color:'var(--danger)',border:'none',padding:'4px 8px',fontSize:14,background:'transparent'}}>{'\u00d7'}</button>
+                </div>
+              );
+            })}
+            {addingSH ? (
+              <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                <input value={newSH.name} onChange={function(e){setNewSH(function(p){return Object.assign({},p,{name:e.target.value});});}} style={{...inpSt,flex:'1 1 130px'}} placeholder='Nom (ex. Architecte)' autoFocus/>
+                <input value={newSH.phone} onChange={function(e){setNewSH(function(p){return Object.assign({},p,{phone:e.target.value});});}} style={{...inpSt,flex:'1 1 130px'}} placeholder="Téléphone" type='tel'/>
+                <button onClick={addSH} style={{...btnSt,background:'var(--primary)',color:'#fff',border:'none'}}>{'\u2713 Ajouter'}</button>
+                <button onClick={function(){setAddingSH(false);setNewSH({name:'',phone:''});}} style={btnSt}>Annuler</button>
+              </div>
+            ) : (
+              <button onClick={function(){setAddingSH(true);}} style={{...btnSt,marginTop:4}}>{'+ Ajouter une partie prenante'}</button>
+            )}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
+
+/* ============================================================
    ROOT APP
-═══════════════════════════════════════════════════════════ */
+=========================================================== */
 function PlanifyApp() {
   const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
     "theme": "terrain",
@@ -8191,7 +8714,7 @@ function PlanifyApp() {
       if(cData&&cData.length) setCompanies(cData.map(function(c){
         var tradeId = c.trade_id || c.tradeId || '';
         var loc = COMPANIES.find(function(lc){ return lc.id === c.id || (lc.name === c.name && (!tradeId || lc.tradeId === tradeId)); }) || {};
-        return {id:c.id,name:c.name,contact:c.contact||loc.contact||'',code:c.code||loc.code||'',tradeId:tradeId||loc.tradeId||'',updated_at:c.updated_at||''};
+        return {id:c.id,name:c.name,contact:c.contact||loc.contact||'',phone:c.phone||loc.phone||'',email:c.email||loc.email||'',code:c.code||loc.code||'',tradeId:tradeId||loc.tradeId||'',contacts:Array.isArray(c.contacts)?c.contacts:(loc.contacts||[]),updated_at:c.updated_at||''};
       }));
       if(iData&&iData.length) setData(iData.map(normalizeInterventionRow));
       setCalendarOverrides((calData||[]).map(function(r){
@@ -9502,7 +10025,7 @@ function PlanifyApp() {
     }
   }
 
-  const navScreens = ['dashboard','planning','list','recap',...(isAdmin?['settings']:[])];
+  const navScreens = ['dashboard','planning','list',...(isAdmin?['briefings','settings']:[])];
 
   if (!session) return (
     <>
@@ -9530,7 +10053,7 @@ function PlanifyApp() {
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
-      case 'recap':     return <RecapScreen     data={data} zones={zones} trades={trades} companies={companies} session={session} />;
+      case 'briefings': return <BriefingsScreen data={data} zones={zones} trades={trades} companies={companies} session={session} />;
       case 'settings':  return <SettingsScreen  zones={zones} trades={trades} companies={companies}
         setZones={setZones} setTrades={setTrades} setCompanies={setCompanies}
         data={data} zoneClipboard={zoneClipboard}
@@ -9709,7 +10232,7 @@ function PlanifyApp() {
     }).map(function(iv){
       var z = zones.find(function(x){ return x.id === iv.zone; });
       var tr = trades.find(function(x){ return x.id === iv.trade; });
-      var st = getStatusThemeMeta(iv.status);
+      var st = getStatusThemeMeta(effectiveStatus(iv));
 
       return {
         zone: z ? z.name : iv.zone,
@@ -9820,10 +10343,11 @@ function PlanifyApp() {
     }
 
     function statusShort(status) {
+      if (status === 'en_retard') return 'En retard';
       if (status === 'encours') return 'En cours';
       if (status === 'termine') return 'Terminé';
       if (status === 'bloque') return 'Bloqué';
-      return 'À faire';
+      return 'À réaliser';
     }
 
     function drawWrapped(doc, text, x, y, maxW, maxLines, lineH) {
@@ -10133,7 +10657,7 @@ function PlanifyApp() {
             var col = getTC(tr ? tr.color : 'blue');
             var rgb = hexToRgb(col.b);
             var fill = mixWhite(rgb, overviewMode ? 0.90 : 0.88);
-            var st = getStatusThemeMeta(iv.status);
+            var st = getStatusThemeMeta(effectiveStatus(iv));
             var stRgb = hexToRgb(st.dot);
             var stFill = mixWhite(stRgb, 0.86);
 
@@ -10153,7 +10677,7 @@ function PlanifyApp() {
               doc.setFillColor(stRgb[0], stRgb[1], stRgb[2]);
               doc.circle(cardX + cardW - 4.8, cardY + 3.6, 1.1, 'F');
             } else {
-              var statusLabel = statusShort(iv.status);
+              var statusLabel = statusShort(effectiveStatus(iv));
               var statusW = readableMode ? 34 : 24;
               var statusH = readableMode ? 10 : 7;
 
@@ -10324,930 +10848,6 @@ function PlanifyApp() {
     </>
   );
 }
-</script>
-<script type="text/babel" data-presets="env,react">
-/* ════════════════════════════════════════════════════════════
-   PLANIFY — RÉCAP HEBDOMADAIRE v2 (Step 8)
-   In-app + JPEG + PDF · Email · WhatsApp · Note finale
-════════════════════════════════════════════════════════════ */
-
-/* ── Utility belt (local, no conflict with outer scope) ── */
-function rcpMonday(offset) {
-  var d = new Date(); d.setHours(0,0,0,0);
-  var dow = d.getDay(), diff = dow === 0 ? -6 : 1 - dow;
-  d.setDate(d.getDate() + diff + (offset||0)*7);
-  return d;
-}
-function rcpDateStr(d) { return d.toISOString().slice(0,10); }
-function rcpFmt(str) {
-  if (!str) return '';
-  var p = str.split('-');
-  return p[2]+'/'+p[1];
-}
-function rcpWdn(dateStr) {
-  var d = new Date(dateStr+'T00:00:00'), now = new Date();
-  now.setHours(0,0,0,0);
-  return Math.round((d - now)/86400000);
-}
-function rcpWeekNum(d) {
-  var dt = new Date(d); dt.setHours(0,0,0,0);
-  dt.setDate(dt.getDate()+4-(dt.getDay()||7));
-  var ys = new Date(dt.getFullYear(),0,1);
-  return Math.ceil((((dt-ys)/86400000)+1)/7);
-}
-function rcpWeekRange(monday) {
-  var fri = new Date(monday); fri.setDate(fri.getDate()+4);
-  var mo = ['jan.','fev.','mars','avr.','mai','juin','juil.','aout','sept.','oct.','nov.','dec.'];
-  return monday.getDate()+' '+mo[monday.getMonth()]+' — '+fri.getDate()+' '+mo[fri.getMonth()]+' '+fri.getFullYear();
-}
-function rcpWeekLabel(monday) {
-  return 'Semaine '+rcpWeekNum(monday)+'  ·  '+rcpWeekRange(monday);
-}
-function rcpStats(tasks) {
-  return {
-    total: tasks.length,
-    termine: tasks.filter(function(t){return t.status==='termine';}).length,
-    encours: tasks.filter(function(t){return t.status==='encours';}).length,
-    bloque: tasks.filter(function(t){return t.status==='bloque';}).length,
-    arealis: tasks.filter(function(t){return t.status==='arealis';}).length
-  };
-}
-function rcpStatusColor(s){ return{termine:'#16A34A',encours:'#2563EB',bloque:'#DC2626',arealis:'#9CA3AF'}[s]||'#9CA3AF'; }
-function rcpStatusLabel(s){ return{termine:'Termine',encours:'En cours',bloque:'Bloque',arealis:'A faire'}[s]||s; }
-function rcpHex(hex) {
-  var h = String(hex||'#2563EB').replace('#','');
-  if(h.length===3) h=h.split('').map(function(c){return c+c;}).join('');
-  var n=parseInt(h,16); if(isNaN(n)) return[37,99,235];
-  return[(n>>16)&255,(n>>8)&255,n&255];
-}
-function rcpTradeColor(trade) {
-  if(!trade) return '#3B82F6';
-  var c = TRADE_COLORS[trade.color]; return c?c.b:'#3B82F6';
-}
-function rcpFloorDeadlines(zones) {
-  var fd={};
-  (zones||[]).forEach(function(z){ if(!z.deadline)return; if(!fd[z.floor]||fd[z.floor]>z.deadline) fd[z.floor]=z.deadline; });
-  return fd;
-}
-function rcpTruncate(ctx, text, maxW) {
-  var t = String(text||'');
-  while(t.length>2 && ctx.measureText(t).width>maxW) t=t.slice(0,-1);
-  return t===String(text||'')?t:t.trim()+'...';
-}
-function rcpFilterTasks(data, type, entityId) {
-  if(type==='company') return (data||[]).filter(function(iv){return iv.company===entityId;});
-  if(type==='trade')   return (data||[]).filter(function(iv){return iv.trade===entityId;});
-  return data||[];
-}
-
-/* ── In-App Preview Component ── */
-function RecapInAppView({ recap, zones, trades, companies }) {
-  var st = recap.stats;
-  var pct = st.total>0?Math.round(st.termine/st.total*100):0;
-  var hasBlocked = st.bloque>0;
-  var accentColor = recap.accentColor||'#2152C8';
-
-  var chipStyle = function(color, bg) { return {
-    display:'inline-flex',alignItems:'center',gap:5,
-    padding:'4px 10px',borderRadius:99,
-    background:bg,color:color,
-    fontSize:11,fontWeight:700,
-    fontFamily:"'DM Mono',monospace",
-    border:'1px solid '+color+'30'
-  };};
-
-  return (
-    <div style={{fontFamily:"'DM Sans',sans-serif"}}>
-
-      {/* Header */}
-      <div style={{background:'#0F172A',borderRadius:'var(--r)',padding:'16px 18px',marginBottom:10,position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',bottom:0,left:0,right:0,height:4,background:accentColor}}></div>
-        <div style={{fontSize:9,fontWeight:700,color:'rgba(255,255,255,.38)',fontFamily:"'DM Mono',monospace",letterSpacing:.8,marginBottom:6,textTransform:'uppercase'}}>
-          PLANIFY · HSF · 66 Av. Marceau, Paris 8
-        </div>
-        <div style={{fontSize:17,fontWeight:800,color:'#fff',lineHeight:1.3,marginBottom:4}}>
-          {recap.entityLabel || 'Recapitulatif General'}
-        </div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-          <span style={{fontSize:11,fontWeight:700,color:accentColor,fontFamily:"'DM Mono',monospace"}}>
-            {recap.weekLabel}
-          </span>
-          {recap.typeLabel && (
-            <span style={{fontSize:10,color:'rgba(255,255,255,.45)',fontFamily:"'DM Mono',monospace"}}>
-              · {recap.typeLabel}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Stats chips */}
-      <div style={{display:'flex',gap:7,flexWrap:'wrap',marginBottom:10}}>
-        <span style={chipStyle('#16A34A','rgba(22,163,74,.10)')}>{st.termine} terminee{st.termine>1?'s':''}</span>
-        <span style={chipStyle('#2563EB','rgba(37,99,235,.10)')}>{st.encours} en cours</span>
-        {st.bloque>0&&<span style={chipStyle('#DC2626','rgba(220,38,38,.10)')}>{st.bloque} bloquee{st.bloque>1?'s':''}</span>}
-        <span style={chipStyle('#6B7280','rgba(107,114,128,.10)')}>{st.arealis} a faire</span>
-      </div>
-
-      {/* Global progress */}
-      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'10px 13px',marginBottom:10}}>
-        <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-          <span style={{fontSize:11,fontWeight:700,color:'var(--muted)',fontFamily:"'DM Mono',monospace",textTransform:'uppercase',letterSpacing:.5}}>Avancement global</span>
-          <span style={{fontSize:13,fontWeight:800,color:pct===100?'#16A34A':hasBlocked?'#DC2626':'#2563EB',fontFamily:"'DM Mono',monospace"}}>{pct}%</span>
-        </div>
-        <div style={{height:8,background:'var(--border)',borderRadius:4,overflow:'hidden'}}>
-          <div style={{height:'100%',width:pct+'%',borderRadius:4,transition:'width .4s',
-            background:pct===100?'#16A34A':hasBlocked?'#DC2626':'#2563EB'}}></div>
-        </div>
-      </div>
-
-      {/* Zone breakdown */}
-      {recap.zoneBreakdown.map(function(zb){
-        if(!zb.tasks.length) return null;
-        var zc = getZoneFloorColor(zb.zone, zones);
-        var zStats = rcpStats(zb.tasks);
-        var zPct = zb.tasks.length>0?Math.round(zStats.termine/zb.tasks.length*100):0;
-        return (
-          <div key={zb.zone.id} style={{background:'var(--surface)',border:'1px solid var(--border)',
-            borderLeft:'4px solid '+zc,borderRadius:'var(--r-sm)',marginBottom:10,overflow:'hidden'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-              padding:'8px 12px',background:'rgba(0,0,0,.02)',borderBottom:'1px solid var(--border)'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{width:8,height:8,borderRadius:'50%',background:zc,flexShrink:0,display:'inline-block'}}></span>
-                <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{zb.zone.name}</span>
-                {zStats.bloque>0&&<span style={{fontSize:10,color:'#DC2626',fontWeight:700}}>
-                  {'\u26a0'} {zStats.bloque} bloq.
-                </span>}
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                {zb.zone.deadline&&(function(){
-                  var wd=rcpWdn(zb.zone.deadline);
-                  var dc=wd<0||wd<14?'#DC2626':'#64748B';
-                  return <span style={{fontSize:10,fontWeight:700,color:dc,fontFamily:"'DM Mono',monospace"}}>J-{wd<0?'!':wd}</span>;
-                })()}
-                <span style={{fontSize:12,fontWeight:800,color:zPct===100?'#16A34A':'#334155',fontFamily:"'DM Mono',monospace"}}>{zPct}%</span>
-              </div>
-            </div>
-            {zb.tasks.map(function(iv){
-              var sc=rcpStatusColor(iv.status);
-              var tr=(trades||[]).find(function(t){return t.id===iv.trade;});
-              return (
-                <div key={iv.id} style={{padding:'8px 12px',borderBottom:'1px solid var(--border)'}}>
-                  <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
-                    <span style={{width:7,height:7,borderRadius:'50%',background:sc,flexShrink:0,marginTop:4}}></span>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginBottom:2}}>
-                        {iv.task_number&&<span style={{fontSize:9,fontFamily:"'DM Mono',monospace",color:'var(--xmuted)',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:3,padding:'1px 4px'}}>{iv.task_number}</span>}
-                        {recap.type!=='company'&&tr&&<span style={{fontSize:9,fontWeight:700,color:rcpTradeColor(tr),background:'rgba(0,0,0,.04)',borderRadius:3,padding:'1px 5px'}}>{tr.short}</span>}
-                        <span style={{fontSize:10,fontWeight:700,color:sc,fontFamily:"'DM Mono',monospace"}}>
-                          {rcpStatusLabel(iv.status)}
-                        </span>
-                      </div>
-                      <div style={{fontSize:12,color:'var(--text)',lineHeight:1.4,fontWeight:500}}>{iv.task}</div>
-                      {iv.start&&<div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:2}}>
-                        {rcpFmt(iv.start)}{iv.end&&iv.end!==iv.start?' → '+rcpFmt(iv.end):''}
-                      </div>}
-                      {iv.prereq&&<div style={{fontSize:10,color:'#DC2626',background:'rgba(220,38,38,.07)',padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:4}}>
-                        {'\u26a0'} {iv.prereq}
-                      </div>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
-
-      {/* Prochaine semaine */}
-      {recap.nextTasks.length>0&&(
-        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',marginBottom:10,overflow:'hidden'}}>
-          <div style={{padding:'8px 12px',background:'var(--surface-2)',borderBottom:'1px solid var(--border)'}}>
-            <span style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:.5}}>
-              Semaine prochaine — {recap.nextTasks.length} tache{recap.nextTasks.length>1?'s':''}
-            </span>
-          </div>
-          {recap.nextTasks.slice(0,6).map(function(iv){
-            var sc=rcpStatusColor(iv.status);
-            var z=(zones||[]).find(function(x){return x.id===iv.zone;});
-            return (
-              <div key={iv.id} style={{display:'flex',gap:8,padding:'7px 12px',borderBottom:'1px solid var(--border)',alignItems:'flex-start'}}>
-                <span style={{width:6,height:6,borderRadius:'50%',background:'#64748B',flexShrink:0,marginTop:4}}></span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,color:'var(--text)',fontWeight:500,lineHeight:1.35}}>
-                    {iv.task_number?iv.task_number+' · ':''}{iv.task}
-                  </div>
-                  <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:1}}>
-                    {z?z.short:''} · {rcpFmt(iv.start)}{iv.end&&iv.end!==iv.start?' → '+rcpFmt(iv.end):''}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Echeances */}
-      {(function(){
-        var fd=rcpFloorDeadlines(zones);
-        var keys=Object.keys(fd).sort();
-        if(!keys.length) return null;
-        return (
-          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',padding:'10px 13px',marginBottom:10}}>
-            <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:.5,marginBottom:8,fontFamily:"'DM Mono',monospace"}}>Echeances</div>
-            <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-              {keys.map(function(floor){
-                var dl=fd[floor]; var wd=rcpWdn(dl);
-                var dc=wd<0?'#DC2626':wd<14?'#EA580C':'#16A34A';
-                return (
-                  <div key={floor}>
-                    <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace"}}>{floor}</div>
-                    <div style={{fontSize:13,fontWeight:800,color:dc,fontFamily:"'DM Mono',monospace"}}>J-{wd<0?'!':wd}</div>
-                    <div style={{fontSize:10,color:dc,fontFamily:"'DM Mono',monospace"}}>{rcpFmt(dl)}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Note finale */}
-      {recap.note&&recap.note.trim()&&(
-        <div style={{background:'rgba(33,82,200,.06)',border:'1px solid rgba(33,82,200,.18)',borderRadius:'var(--r-sm)',padding:'12px 14px',marginBottom:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:'#2152C8',textTransform:'uppercase',letterSpacing:.5,marginBottom:6,fontFamily:"'DM Mono',monospace"}}>Note / Observation</div>
-          <div style={{fontSize:12,color:'var(--text)',lineHeight:1.55,whiteSpace:'pre-wrap'}}>{recap.note}</div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div style={{borderTop:'1px solid var(--border)',paddingTop:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <span style={{fontSize:9,fontWeight:700,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",letterSpacing:.5}}>PLANIFY · HSF Chantier</span>
-        <span style={{fontSize:9,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace"}}>{new Date().toLocaleDateString('fr-FR')}</span>
-      </div>
-    </div>
-  );
-}
-
-/* ── Canvas JPEG generator ── */
-function rcpGenerateJpeg(recap, zones) {
-  var W=1080, S=2, M=52;
-  var colW=W-M*2;
-  var accentRgb=rcpHex(recap.accentColor||'#2152C8');
-  var accentHex=recap.accentColor||'#2152C8';
-
-  function drawHdr(ctx, y) {
-    ctx.fillStyle='#0F172A'; ctx.fillRect(0,y,W,136);
-    ctx.fillStyle=accentHex; ctx.fillRect(0,y+130,W,6);
-    ctx.font='700 11px "DM Mono",monospace'; ctx.fillStyle='rgba(255,255,255,.35)';
-    ctx.fillText('PLANIFY  ·  HSF 66 Av. Marceau, Paris 8', M, y+26);
-    ctx.textAlign='right';
-    ctx.fillText('RECAP HEBDOMADAIRE  ·  '+recap.typeLabel.toUpperCase(), W-M, y+26);
-    ctx.textAlign='left';
-    ctx.font='700 22px "DM Sans",sans-serif'; ctx.fillStyle='#FFFFFF';
-    ctx.fillText(recap.entityLabel||'Recapitulatif General', M, y+66);
-    ctx.font='600 14px "DM Mono",monospace'; ctx.fillStyle=accentHex;
-    ctx.fillText(recap.weekLabel, M, y+96);
-    return y+136;
-  }
-
-  function drawStrip(ctx, y, stats) {
-    var H=70, bY=y+14, bH=10, bW=colW, total=Math.max(1,stats.total);
-    ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,y,W,H);
-    var segs=[{c:'#16A34A',v:stats.termine},{c:'#2563EB',v:stats.encours},{c:'#E2E8F0',v:stats.arealis},{c:'#DC2626',v:stats.bloque}];
-    var bx=M;
-    segs.forEach(function(s){ var sw=Math.round(bW*s.v/total); if(s.v>0&&sw>0){ctx.fillStyle=s.c;ctx.fillRect(bx,bY,sw,bH);bx+=sw;} });
-    ctx.strokeStyle='rgba(0,0,0,.06)'; ctx.lineWidth=1; ctx.strokeRect(M,bY,bW,bH);
-    var lx=M, ly=bY+bH+16;
-    [{c:'#16A34A',v:stats.termine,l:'terminee'+(stats.termine>1?'s':'')},
-     {c:'#2563EB',v:stats.encours,l:'en cours'},
-     {c:'#9CA3AF',v:stats.arealis,l:'a faire'},
-     {c:'#DC2626',v:stats.bloque,l:'bloquee'+(stats.bloque>1?'s':'')}
-    ].forEach(function(s){
-      if(!s.v)return;
-      ctx.fillStyle=s.c; ctx.beginPath(); ctx.arc(lx+5,ly-4,4.5,0,Math.PI*2); ctx.fill();
-      ctx.font='600 11px "DM Sans",sans-serif'; ctx.fillStyle='#475569';
-      var lbl=s.v+' '+s.l; ctx.fillText(lbl,lx+15,ly);
-      lx+=ctx.measureText(lbl).width+30;
-    });
-    return y+H;
-  }
-
-  function drawZone(ctx, y, zone, tasks) {
-    var zc=getZoneFloorColor(zone,zones);
-    var zRgb=rcpHex(zc);
-    var ZHDR=38, TASK_H=34;
-
-    ctx.fillStyle='rgba('+zRgb[0]+','+zRgb[1]+','+zRgb[2]+',.07)'; ctx.fillRect(M,y,colW,ZHDR);
-    ctx.fillStyle=zc; ctx.fillRect(M,y,4,ZHDR);
-    ctx.font='700 13px "DM Sans",sans-serif'; ctx.fillStyle='#1E293B';
-    ctx.fillText(zone.name, M+14, y+15);
-
-    var zStats=rcpStats(tasks);
-    var zPct=tasks.length?Math.round(zStats.termine/tasks.length*100):0;
-    ctx.textAlign='right';
-    ctx.font='700 12px "DM Mono",monospace'; ctx.fillStyle=zPct===100?'#16A34A':'#334155';
-    ctx.fillText(zPct+'%', M+colW, y+15);
-    if(zone.deadline){ var wd=rcpWdn(zone.deadline); ctx.font='600 10px "DM Mono",monospace'; ctx.fillStyle=wd<14?'#DC2626':'#64748B';
-      ctx.fillText('J-'+(wd<0?'!':wd)+' ('+rcpFmt(zone.deadline)+')', M+colW, y+28); }
-    ctx.textAlign='left';
-
-    var pbW=colW-14;
-    ctx.fillStyle='#E2E8F0'; ctx.fillRect(M+14,y+ZHDR-6,pbW,3);
-    ctx.fillStyle=zStats.bloque?'#DC2626':zPct===100?'#16A34A':'#2563EB';
-    ctx.fillRect(M+14,y+ZHDR-6,Math.round(pbW*zPct/100),3);
-    y+=ZHDR;
-
-    tasks.forEach(function(iv){
-      var sc=rcpStatusColor(iv.status);
-      ctx.fillStyle=sc; ctx.beginPath(); ctx.arc(M+18,y+TASK_H/2,4.5,0,Math.PI*2); ctx.fill();
-      var numW=0;
-      if(iv.task_number){ctx.font='600 10px "DM Mono",monospace';ctx.fillStyle='#94A3B8';ctx.fillText(iv.task_number,M+30,y+TASK_H/2+4);numW=ctx.measureText(iv.task_number).width+8;}
-      ctx.font='500 12px "DM Sans",sans-serif'; ctx.fillStyle='#334155';
-      ctx.fillText(rcpTruncate(ctx,iv.task,colW-numW-200),M+30+numW,y+TASK_H/2+4);
-      ctx.textAlign='right';
-      ctx.font='700 10px "DM Mono",monospace'; ctx.fillStyle=sc;
-      ctx.fillText(rcpStatusLabel(iv.status),W-M,y+TASK_H/2+4);
-      ctx.font='500 10px "DM Mono",monospace'; ctx.fillStyle='#94A3B8';
-      var dr=rcpFmt(iv.start)+(iv.end&&iv.end!==iv.start?' > '+rcpFmt(iv.end):'');
-      ctx.fillText(dr,W-M-90,y+TASK_H/2+4);
-      ctx.textAlign='left';
-      if(iv.prereq&&iv.status==='bloque'){ctx.font='italic 10px "DM Sans",sans-serif';ctx.fillStyle='#DC2626';ctx.fillText(rcpTruncate(ctx,'! '+iv.prereq,colW-40),M+30,y+TASK_H-6);}
-      ctx.fillStyle='#F1F5F9'; ctx.fillRect(M,y+TASK_H-1,colW,1);
-      y+=TASK_H;
-    });
-    return y+10;
-  }
-
-  function drawNote(ctx, y, note) {
-    if(!note||!note.trim()) return y;
-    var lines = note.split('\n');
-    var noteH = 36 + lines.length*18 + 16;
-    ctx.fillStyle='rgba(33,82,200,.06)'; ctx.fillRect(M,y,colW,noteH);
-    ctx.fillStyle='rgba(33,82,200,.25)'; ctx.fillRect(M,y,4,noteH);
-    ctx.font='700 10px "DM Mono",monospace'; ctx.fillStyle='#2152C8';
-    ctx.fillText('NOTE / OBSERVATION', M+12, y+18);
-    ctx.font='500 11px "DM Sans",sans-serif'; ctx.fillStyle='#334155';
-    lines.forEach(function(line,i){ ctx.fillText(line||'', M+12, y+36+i*18); });
-    return y+noteH+12;
-  }
-
-  function drawFooter(ctx, y) {
-    var fd=rcpFloorDeadlines(zones);
-    ctx.fillStyle='#F8FAFC'; ctx.fillRect(0,y,W,76);
-    ctx.fillStyle='#E2E8F0'; ctx.fillRect(0,y,W,1);
-    ctx.font='700 10px "DM Mono",monospace'; ctx.fillStyle='#94A3B8'; ctx.fillText('ECHEANCES', M, y+22);
-    var dlx=M+100;
-    Object.keys(fd).sort().forEach(function(floor){
-      var dl=fd[floor]; var wd=rcpWdn(dl); var dc=wd<0||wd<14?'#DC2626':'#16A34A';
-      ctx.font='700 12px "DM Mono",monospace'; ctx.fillStyle=dc;
-      ctx.fillText(floor+'  J-'+(wd<0?'!':wd)+' ('+rcpFmt(dl)+')',dlx,y+22); dlx+=185;
-    });
-    ctx.textAlign='right';
-    var now=new Date();
-    ctx.font='500 9px "DM Mono",monospace'; ctx.fillStyle='#CBD5E1';
-    ctx.fillText('Genere le '+now.toLocaleDateString('fr-FR')+' a '+now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),W-M,y+22);
-    ctx.textAlign='left';
-    ctx.font='700 11px "DM Mono",monospace'; ctx.fillStyle=accentHex; ctx.fillText('PLANIFY',M,y+50);
-    ctx.font='500 11px "DM Sans",sans-serif'; ctx.fillStyle='#94A3B8'; ctx.fillText('  ·  HSF Chantier · francofds.github.io/hsf-chantier',M+60,y+50);
-  }
-
-  var FOOTER_H=78;
-  var noteLines=(recap.note||'').split('\n').length;
-  var noteH=recap.note&&recap.note.trim()?(36+noteLines*18+28):0;
-
-  var zonesH=recap.zoneBreakdown.reduce(function(acc,zb){
-    if(!zb.tasks.length) return acc;
-    return acc+38+zb.tasks.length*34+10;
-  },0);
-  var nextH=recap.nextTasks.length>0?(12+36+Math.min(recap.nextTasks.length,6)*30+10):0;
-  var totalH=136+70+12+zonesH+nextH+noteH+FOOTER_H+24;
-
-  var canvas=document.createElement('canvas');
-  canvas.width=W*S; canvas.height=totalH*S;
-  var ctx=canvas.getContext('2d'); ctx.scale(S,S);
-  ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,W,totalH);
-
-  var y=0;
-  y=drawHdr(ctx,y);
-  y=drawStrip(ctx,y,recap.stats);
-  y+=12;
-
-  recap.zoneBreakdown.forEach(function(zb){
-    if(!zb.tasks.length) return;
-    y=drawZone(ctx,y,zb.zone,zb.tasks);
-  });
-
-  if(recap.nextTasks.length>0){
-    ctx.fillStyle='#F8FAFC'; ctx.fillRect(0,y,W,36);
-    ctx.fillStyle='#E2E8F0'; ctx.fillRect(0,y,W,1);
-    ctx.font='700 12px "DM Sans",sans-serif'; ctx.fillStyle='#475569';
-    ctx.fillText('Semaine prochaine — '+recap.nextTasks.length+' tache'+(recap.nextTasks.length>1?'s':''),M,y+24);
-    y+=36;
-    recap.nextTasks.slice(0,6).forEach(function(iv){
-      var z=(zones||[]).find(function(x){return x.id===iv.zone;});
-      ctx.fillStyle='#94A3B8'; ctx.beginPath(); ctx.arc(M+12,y+15,3.5,0,Math.PI*2); ctx.fill();
-      ctx.font='500 11px "DM Sans",sans-serif'; ctx.fillStyle='#475569';
-      ctx.fillText(rcpTruncate(ctx,(iv.task_number?iv.task_number+' · ':'')+iv.task,colW-160),M+22,y+19);
-      ctx.textAlign='right'; ctx.font='500 10px "DM Mono",monospace'; ctx.fillStyle='#94A3B8';
-      ctx.fillText(rcpFmt(iv.start)+(iv.end&&iv.end!==iv.start?' > '+rcpFmt(iv.end):''),W-M,y+19); ctx.textAlign='left';
-      ctx.fillStyle='#F1F5F9'; ctx.fillRect(M,y+29,colW,1);
-      y+=30;
-    });
-    y+=10;
-  }
-
-  y=drawNote(ctx,y,recap.note);
-  drawFooter(ctx,totalH-FOOTER_H);
-  return canvas.toDataURL('image/jpeg',0.93);
-}
-
-/* ── PDF generator (jsPDF) ── */
-function rcpGeneratePdf(recap, zones) {
-  var JSPDF=window.jspdf&&window.jspdf.jsPDF;
-  if(!JSPDF){ alert('PDF indisponible — verifiez la connexion internet'); return null; }
-
-  var doc=new JSPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  var pageW=210, pageH=297, M=14, colW=pageW-M*2;
-  var y=M;
-  var accent=recap.accentColor||'#2152C8';
-  var aRgb=rcpHex(accent);
-
-  function setFont(style,size,color){ doc.setFont('helvetica',style); doc.setFontSize(size); if(color){ var c=rcpHex(color); doc.setTextColor(c[0],c[1],c[2]); } }
-  function hline(yy,col){ doc.setDrawColor.apply(doc,rcpHex(col||'#E2E8F0')); doc.setLineWidth(.3); doc.line(M,yy,pageW-M,yy); }
-  function fillRect(x,yy,w,h,col){ doc.setFillColor.apply(doc,rcpHex(col)); doc.rect(x,yy,w,h,'F'); }
-  function statusDot(x,yy,status){ fillRect(x,yy-1.5,3,3,rcpStatusColor(status)); }
-  function newPageIfNeeded(need){ if(y+need>pageH-20){ doc.addPage(); y=M; hline(y,'#E2E8F0'); y+=5; } }
-
-  // Header band
-  fillRect(0,0,pageW,38,'#0F172A');
-  fillRect(0,36,pageW,2,accent);
-  setFont('bold',7,'#ffffff60'); doc.text('PLANIFY  ·  HSF 66 Av. Marceau, Paris 8', M, 8);
-  doc.setTextColor(200,200,200); doc.text(recap.typeLabel.toUpperCase()+'  ·  RECAP HEBDOMADAIRE', pageW-M, 8, {align:'right'});
-  setFont('bold',14,'#FFFFFF'); doc.text(recap.entityLabel||'Recapitulatif General', M, 20);
-  setFont('bold',8); doc.setTextColor(aRgb[0],aRgb[1],aRgb[2]); doc.text(recap.weekLabel, M, 30);
-  y=44;
-
-  // Stats row
-  var chips=[
-    {v:recap.stats.termine,l:'terminee'+(recap.stats.termine>1?'s':''),c:'#16A34A'},
-    {v:recap.stats.encours,l:'en cours',c:'#2563EB'},
-    {v:recap.stats.arealis,l:'a faire',c:'#9CA3AF'},
-    {v:recap.stats.bloque,l:'bloquee'+(recap.stats.bloque>1?'s':''),c:'#DC2626'},
-  ];
-  var cx=M;
-  chips.forEach(function(chip){
-    if(!chip.v) return;
-    var rgb=rcpHex(chip.c);
-    fillRect(cx,y,30,7,chip.c+'18'||'#F1F5F9');
-    doc.setDrawColor(rgb[0],rgb[1],rgb[2]); doc.setLineWidth(.3); doc.rect(cx,y,30,7);
-    setFont('bold',8,chip.c); doc.text(chip.v+' '+chip.l, cx+2, y+5);
-    cx+=34;
-  });
-  y+=12;
-
-  // Global progress bar
-  var pct=recap.stats.total>0?Math.round(recap.stats.termine/recap.stats.total*100):0;
-  fillRect(M,y,colW,4,'#E2E8F0');
-  var barColor=pct===100?'#16A34A':recap.stats.bloque>0?'#DC2626':'#2563EB';
-  fillRect(M,y,Math.round(colW*pct/100),4,barColor);
-  setFont('bold',7,barColor); doc.text(pct+'%',pageW-M,y+3.5,{align:'right'});
-  y+=10;
-  hline(y); y+=4;
-
-  // Zone sections
-  recap.zoneBreakdown.forEach(function(zb){
-    if(!zb.tasks.length) return;
-    newPageIfNeeded(12+zb.tasks.length*7);
-    var zc=getZoneFloorColor(zb.zone,zones);
-    var zRgb=rcpHex(zc);
-    fillRect(M,y,colW,8,'rgba('+zRgb[0]+','+zRgb[1]+','+zRgb[2]+',.08)');
-    fillRect(M,y,1.5,8,zc);
-    setFont('bold',8,'#1E293B'); doc.text(zb.zone.name, M+3, y+5.5);
-    var zStats=rcpStats(zb.tasks); var zPct=zb.tasks.length?Math.round(zStats.termine/zb.tasks.length*100):0;
-    setFont('bold',8,zPct===100?'#16A34A':'#334155'); doc.text(zPct+'%', pageW-M, y+5.5, {align:'right'});
-    if(zb.zone.deadline){ var wd=rcpWdn(zb.zone.deadline); setFont('normal',6,wd<14?'#DC2626':'#64748B');
-      doc.text('J-'+(wd<0?'!':wd)+' ('+rcpFmt(zb.zone.deadline)+')', pageW-M-14, y+5.5, {align:'right'}); }
-    y+=9;
-
-    zb.tasks.forEach(function(iv){
-      newPageIfNeeded(8);
-      statusDot(M+1,y+3.5,iv.status);
-      var num=iv.task_number?iv.task_number+' ':' ';
-      setFont('bold',6,'#94A3B8'); doc.text(num, M+5, y+4);
-      var nw=doc.getTextWidth(num);
-      setFont('normal',7,'#334155');
-      var taskLines=doc.splitTextToSize(iv.task||'',colW-nw-32);
-      taskLines=taskLines.slice(0,2); if(taskLines.length===2&&taskLines[1]&&taskLines[1].length>2) taskLines[1]=taskLines[1].trim()+'...';
-      doc.text(taskLines,M+5+nw,y+4);
-      var dr=rcpFmt(iv.start)+(iv.end&&iv.end!==iv.start?' > '+rcpFmt(iv.end):'');
-      setFont('normal',6,'#94A3B8'); doc.text(dr, pageW-M-22, y+4, {align:'right'});
-      setFont('bold',6,rcpStatusColor(iv.status)); doc.text(rcpStatusLabel(iv.status), pageW-M, y+4, {align:'right'});
-      if(iv.prereq&&iv.status==='bloque'){
-        y+=5; setFont('italic',6,'#DC2626');
-        var pl=doc.splitTextToSize('! '+iv.prereq,colW-10); doc.text(pl.slice(0,1),M+5,y+4);
-      }
-      doc.setDrawColor(241,245,249); doc.setLineWidth(.2); doc.line(M,y+6.5,M+colW,y+6.5);
-      y+=7;
-    });
-    y+=3;
-  });
-
-  // Prochaine semaine
-  if(recap.nextTasks.length>0){
-    newPageIfNeeded(8+recap.nextTasks.length*6);
-    hline(y); y+=4;
-    setFont('bold',8,'#475569'); doc.text('Semaine prochaine — '+recap.nextTasks.length+' tache'+(recap.nextTasks.length>1?'s':''), M, y+4);
-    y+=8;
-    recap.nextTasks.slice(0,6).forEach(function(iv){
-      var z=(zones||[]).find(function(x){return x.id===iv.zone;});
-      fillRect(M,y+2,2,2,'#94A3B8');
-      setFont('normal',6.5,'#475569');
-      var t2=(iv.task_number?iv.task_number+' · ':'')+iv.task;
-      var tl2=doc.splitTextToSize(t2,colW-24);
-      doc.text(tl2.slice(0,1),M+4,y+4.5);
-      setFont('normal',6,'#94A3B8');
-      var dr2=rcpFmt(iv.start)+(iv.end&&iv.end!==iv.start?' > '+rcpFmt(iv.end):'');
-      doc.text(dr2,pageW-M,y+4.5,{align:'right'});
-      y+=6;
-    });
-    y+=4;
-  }
-
-  // Note
-  if(recap.note&&recap.note.trim()){
-    hline(y); y+=4;
-    newPageIfNeeded(20);
-    fillRect(M,y,colW,6,'rgba(33,82,200,.06)');
-    fillRect(M,y,1.5,6,accent);
-    setFont('bold',7,accent); doc.text('NOTE / OBSERVATION', M+3, y+4.5);
-    y+=8;
-    setFont('normal',8,'#334155');
-    var nlines=doc.splitTextToSize(recap.note,colW-4);
-    nlines.forEach(function(l){ newPageIfNeeded(6); doc.text(l,M+2,y+4); y+=5; });
-    y+=4;
-  }
-
-  // Footer
-  hline(pageH-16); 
-  setFont('bold',7,accent); doc.text('PLANIFY', M, pageH-10);
-  setFont('normal',6,'#94A3B8'); doc.text('  ·  HSF Chantier · francofds.github.io/hsf-chantier', M+10, pageH-10);
-  var now2=new Date();
-  doc.text('Genere le '+now2.toLocaleDateString('fr-FR'), pageW-M, pageH-10, {align:'right'});
-
-  // Deadlines band in footer
-  var fd=rcpFloorDeadlines(zones); var dlx2=M+40;
-  setFont('bold',6,'#64748B'); doc.text('ECHEANCES :', M, pageH-5);
-  Object.keys(fd).sort().forEach(function(floor){
-    var dl=fd[floor]; var wd2=rcpWdn(dl); var dc2=wd2<0||wd2<14?'#DC2626':'#16A34A';
-    setFont('bold',6,dc2); doc.text(floor+' J-'+(wd2<0?'!':wd2)+' ('+rcpFmt(dl)+')', dlx2, pageH-5); dlx2+=40;
-  });
-
-  return doc;
-}
-
-/* ── Main RecapScreen ── */
-var RecapScreen = window.RecapScreen = function RecapScreen({ data, zones, trades, companies, session }) {
-  var useState=React.useState, useEffect=React.useEffect, useMemo=React.useMemo;
-  var isAdmin=session&&session.role==='admin';
-
-  var [weekOffset,  setWeekOffset]  = useState(0);
-  var [recapType,   setRecapType]   = useState('trade');   // 'company'|'trade'|'general'
-  var [entityId,    setEntityId]    = useState('');
-  var [note,        setNote]        = useState('');
-  var [recap,       setRecap]       = useState(null);
-  var [jpegUrl,     setJpegUrl]     = useState(null);
-  var [generating,  setGenerating]  = useState(false);
-  var [outputTab,   setOutputTab]   = useState('app');     // 'app'|'image'
-
-  // Init entityId
-  useEffect(function(){
-    if(recapType==='trade' && trades&&trades.length) {
-      if(!isAdmin&&session&&session.company){
-        var myCo=(companies||[]).find(function(c){return c.name===session.company.name;});
-        if(myCo&&myCo.tradeId){setEntityId(myCo.tradeId);return;}
-      }
-      setEntityId(trades[0].id);
-    }
-    if(recapType==='company' && companies&&companies.length) setEntityId(companies[0].name);
-    if(recapType==='general') setEntityId('');
-  },[recapType,trades.length,companies.length]);
-
-  // Unique companies list for selector
-  var companyNames=useMemo(function(){
-    var names={}; (data||[]).forEach(function(iv){if(iv.company)names[iv.company]=true;});
-    return Object.keys(names).sort();
-  },[data]);
-
-  // Week options dropdown
-  var weekOptions=useMemo(function(){
-    var opts=[];
-    for(var i=-4;i<=4;i++){
-      var m=rcpMonday(i), wn=rcpWeekNum(m);
-      opts.push({offset:i,label:'S'+wn+'  ·  '+rcpWeekRange(m)+(i===0?' (cette semaine)':'')});
-    }
-    return opts;
-  },[]);
-
-  function buildRecap() {
-    var monday=rcpMonday(weekOffset);
-    var nextMon=new Date(monday); nextMon.setDate(nextMon.getDate()+7);
-    var mStr=rcpDateStr(monday), fStr=rcpDateStr(new Date(monday.getTime()+6*86400000));
-    var nMStr=rcpDateStr(nextMon), nFStr=rcpDateStr(new Date(nextMon.getTime()+6*86400000));
-
-    var filtered=rcpFilterTasks(data,recapType,entityId);
-    var weekTasks=filtered.filter(function(iv){var s=iv.start||'';var e=iv.end||iv.start||'';return s<=fStr&&e>=mStr;});
-    var nextTasks=filtered.filter(function(iv){var s=iv.start||'';var e=iv.end||iv.start||'';return s<=nFStr&&e>=nMStr&&iv.status!=='termine';});
-    var stats=rcpStats(weekTasks);
-
-    var zoneBreakdown=(zones||[]).map(function(z){
-      return {zone:z,tasks:weekTasks.filter(function(iv){return iv.zone===z.id;})};
-    });
-
-    var entityLabel='';
-    var typeLabel='';
-    var accentColor='#2152C8';
-    if(recapType==='trade'){
-      var tr=(trades||[]).find(function(t){return t.id===entityId;});
-      var co=(companies||[]).find(function(c){return c.tradeId===entityId;});
-      entityLabel=(tr?tr.short+' — '+tr.name:'Lot inconnu')+(co&&co.name?' · '+co.name:'');
-      typeLabel='Par corps de metier';
-      if(tr){var tc=TRADE_COLORS[tr.color];if(tc)accentColor=tc.b;}
-    } else if(recapType==='company'){
-      entityLabel='Entreprise : '+entityId;
-      typeLabel='Par entreprise';
-    } else {
-      entityLabel='Recapitulatif General — Tous corps d\'etat';
-      typeLabel='Vue generale';
-    }
-
-    return {
-      weekLabel:rcpWeekLabel(monday),
-      monday:monday,
-      type:recapType,
-      entityLabel:entityLabel,
-      typeLabel:typeLabel,
-      accentColor:accentColor,
-      note:note,
-      stats:stats,
-      zoneBreakdown:zoneBreakdown,
-      nextTasks:nextTasks,
-      allTasks:filtered
-    };
-  }
-
-  function generate() {
-    if(generating)return;
-    setGenerating(true); setRecap(null); setJpegUrl(null);
-    setTimeout(function(){
-      try {
-        var r=buildRecap();
-        var url=rcpGenerateJpeg(r,zones);
-        setRecap(r); setJpegUrl(url); setOutputTab('app');
-      } catch(e){ console.error('[RecapScreen]',e); alert('Erreur: '+e.message); }
-      finally { setGenerating(false); }
-    },60);
-  }
-
-  function downloadJpeg() {
-    if(!jpegUrl) return;
-    var fname='planify_recap_S'+rcpWeekNum(rcpMonday(weekOffset))+'_'+recapType+'_'+rcpDateStr(rcpMonday(weekOffset))+'.jpg';
-    var a=document.createElement('a'); a.href=jpegUrl; a.download=fname; a.click();
-  }
-
-  function downloadPdf() {
-    if(!recap) return;
-    try {
-      var doc=rcpGeneratePdf(recap,zones);
-      if(!doc) return;
-      var fname='planify_recap_S'+rcpWeekNum(rcpMonday(weekOffset))+'_'+recapType+'_'+rcpDateStr(rcpMonday(weekOffset))+'.pdf';
-      doc.save(fname);
-    } catch(e){ alert('Erreur PDF: '+e.message); }
-  }
-
-  function shareWhatsApp() {
-    if(!jpegUrl||!recap) return;
-    var monday=rcpMonday(weekOffset);
-    var wn=rcpWeekNum(monday);
-    var fname='planify_recap_S'+wn+'_'+recapType+'.jpg';
-    // Try Web Share API first (native on mobile)
-    if(navigator.share&&navigator.canShare){
-      fetch(jpegUrl).then(function(r){return r.blob();}).then(function(blob){
-        var f=new File([blob],fname,{type:'image/jpeg'});
-        if(navigator.canShare({files:[f]})) return navigator.share({files:[f],title:'Recap Planify HSF S'+wn});
-        fallbackWhatsApp();
-      }).catch(fallbackWhatsApp);
-    } else { fallbackWhatsApp(); }
-    function fallbackWhatsApp() {
-      var txt='*Planify HSF — Recap S'+wn+'*\n';
-      txt+=recap.entityLabel+'\n';
-      txt+=recap.weekLabel+'\n';
-      txt+=recap.stats.termine+' terminees · '+recap.stats.encours+' en cours · '+recap.stats.bloque+' bloquees\n';
-      if(note&&note.trim()) txt+='\nNote: '+note;
-      window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
-    }
-  }
-
-  function shareEmail() {
-    if(!recap) return;
-    var monday=rcpMonday(weekOffset);
-    var wn=rcpWeekNum(monday);
-    var subject='Recap Planify HSF — S'+wn+' — '+recap.entityLabel;
-    var body='Recap hebdomadaire — HSF 66 Av. Marceau\n\n';
-    body+=recap.entityLabel+'\n'+recap.weekLabel+'\n\n';
-    body+='BILAN:\n';
-    body+=recap.stats.termine+' terminees\n';
-    body+=recap.stats.encours+' en cours\n';
-    body+=recap.stats.bloque+' bloquees\n';
-    body+=recap.stats.arealis+' a faire\n';
-    body+='\n';
-    var co2=(companies||[]).find(function(c){return recapType==='trade'&&c.tradeId===entityId;});
-    if(co2&&co2.contact) body+='Contact: '+co2.contact+'\n\n';
-    if(note&&note.trim()) body+='NOTE:\n'+note+'\n\n';
-    body+='Planify HSF — francofds.github.io/hsf-chantier';
-    window.location.href='mailto:?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-  }
-
-  // ─── Styles ───────────────────────────────────────────────
-  var cardSt={ background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',
-    padding:'13px 14px',marginBottom:11,boxShadow:'var(--shadow)' };
-  var labelSt={ fontSize:10,fontWeight:700,color:'var(--muted)',fontFamily:"'DM Mono',monospace",
-    textTransform:'uppercase',letterSpacing:.6,marginBottom:9,display:'block' };
-  var selectSt={ width:'100%',padding:'9px 12px',borderRadius:'var(--r-sm)',border:'1px solid var(--border)',
-    background:'var(--surface-2)',color:'var(--text)',fontSize:13,fontWeight:600,
-    fontFamily:"'DM Sans',sans-serif" };
-  var tabBtn=function(active){ return {
-    flex:1,padding:'8px 4px',borderRadius:'var(--r-sm)',border:'1px solid '+(active?'var(--primary)':'var(--border)'),
-    background:active?'var(--primary-l)':'var(--surface-2)',color:active?'var(--primary)':'var(--muted)',
-    fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:"'DM Sans',sans-serif",transition:'all .15s'
-  };};
-  var actionBtn=function(bg,shadow){ return {
-    flex:1,padding:'11px 6px',borderRadius:'var(--r-sm)',border:'none',background:bg,color:'#fff',
-    fontSize:11,fontWeight:800,cursor:'pointer',fontFamily:"'DM Sans',sans-serif",
-    boxShadow:shadow||'none',textAlign:'center',lineHeight:1.3
-  };};
-
-  var monday=rcpMonday(weekOffset);
-  var friday=new Date(monday); friday.setDate(friday.getDate()+4);
-
-  return (
-    <div style={{height:'100%',overflowY:'auto',background:'var(--bg)',padding:'14px 13px 110px'}}>
-
-      {/* Title */}
-      <div style={{marginBottom:14}}>
-        <div style={{fontSize:18,fontWeight:800,color:'var(--text)',marginBottom:3}}>Recapitulatif hebdo</div>
-        <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.4}}>Image JPEG + PDF · partage WhatsApp, email, iOS, Android</div>
-      </div>
-
-      {/* Week selector */}
-      <div style={cardSt}>
-        <span style={labelSt}>Semaine</span>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <button onClick={function(){setWeekOffset(function(o){return o-1;});setRecap(null);setJpegUrl(null);}}
-            style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-            &#8249;
-          </button>
-          <select value={weekOffset} onChange={function(e){setWeekOffset(parseInt(e.target.value,10));setRecap(null);setJpegUrl(null);}} style={Object.assign({},selectSt,{flex:1})}>
-            {weekOptions.map(function(opt){ return <option key={opt.offset} value={opt.offset}>{opt.label}</option>; })}
-          </select>
-          <button onClick={function(){setWeekOffset(function(o){return o+1;});setRecap(null);setJpegUrl(null);}}
-            style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-            &#8250;
-          </button>
-        </div>
-        <div style={{marginTop:7,fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",textAlign:'center'}}>
-          {monday.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short'})} &rarr;&nbsp;
-          {friday.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}
-        </div>
-      </div>
-
-      {/* Type + entity */}
-      <div style={cardSt}>
-        {isAdmin && (
-          <div style={{marginBottom:12}}>
-            <span style={labelSt}>Type de recapitulatif</span>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:7}}>
-              {[{k:'trade',l:'Par lot'},{k:'company',l:'Entreprise'},{k:'general',l:'General'}].map(function(m){
-                var active=recapType===m.k;
-                return (
-                  <button key={m.k} onClick={function(){setRecapType(m.k);setRecap(null);setJpegUrl(null);}}
-                    style={tabBtn(active)}>
-                    {m.l}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {recapType==='trade' && (
-          <div>
-            <span style={labelSt}>Corps de metier</span>
-            {isAdmin ? (
-              <select value={entityId} onChange={function(e){setEntityId(e.target.value);setRecap(null);setJpegUrl(null);}} style={selectSt}>
-                {(trades||[]).map(function(t){return <option key={t.id} value={t.id}>{t.short}  —  {t.name}</option>;})}
-              </select>
-            ):(
-              <div style={{fontSize:13,fontWeight:700,color:'var(--text)',padding:'9px 12px',background:'var(--surface-2)',borderRadius:'var(--r-sm)',border:'1px solid var(--border)'}}>
-                {(trades||[]).find(function(t){return t.id===entityId;}) ? (function(){var tr=(trades||[]).find(function(t){return t.id===entityId;});return tr.short+' — '+tr.name;})() : 'Mon lot'}
-              </div>
-            )}
-          </div>
-        )}
-
-        {recapType==='company' && (
-          <div>
-            <span style={labelSt}>Entreprise</span>
-            <select value={entityId} onChange={function(e){setEntityId(e.target.value);setRecap(null);setJpegUrl(null);}} style={selectSt}>
-              {companyNames.map(function(n){return <option key={n} value={n}>{n}</option>;})}
-            </select>
-          </div>
-        )}
-
-        {recapType==='general' && (
-          <div style={{fontSize:12,color:'var(--muted)',padding:'8px 12px',background:'var(--surface-2)',borderRadius:'var(--r-sm)',border:'1px solid var(--border)'}}>
-            Vue consolidee — tous corps d&#x2019;etat, toutes zones
-          </div>
-        )}
-      </div>
-
-      {/* Note */}
-      <div style={cardSt}>
-        <span style={labelSt}>Note / Observation finale (optionnel)</span>
-        <textarea value={note} onChange={function(e){setNote(e.target.value);}}
-          placeholder={'Ex : RAS cette semaine. Point blocage clim R+3 a resoudre lundi.'}
-          rows={3}
-          style={{width:'100%',padding:'9px 12px',borderRadius:'var(--r-sm)',border:'1px solid var(--border)',
-            background:'var(--surface-2)',color:'var(--text)',fontSize:12,fontFamily:"'DM Sans',sans-serif",
-            resize:'vertical',lineHeight:1.5}} />
-      </div>
-
-      {/* Generate CTA */}
-      <button onClick={generate} disabled={generating}
-        style={{width:'100%',padding:'14px',borderRadius:'var(--r)',border:'none',
-          background:generating?'var(--border-s)':'var(--primary)',color:'#fff',
-          fontSize:14,fontWeight:800,cursor:generating?'not-allowed':'pointer',
-          fontFamily:"'DM Sans',sans-serif",marginBottom:14,
-          boxShadow:generating?'none':'0 6px 20px rgba(33,82,200,.30)',transition:'all .2s'}}>
-        {generating?'Generation...' : '\uD83D\uDDBC  Generer le recapitulatif'}
-      </button>
-
-      {/* Output area */}
-      {recap && (
-        <div>
-          {/* Tab switcher */}
-          <div style={{display:'flex',gap:7,marginBottom:11}}>
-            <button onClick={function(){setOutputTab('app');}} style={tabBtn(outputTab==='app')}>Vue in-app</button>
-            <button onClick={function(){setOutputTab('image');}} style={tabBtn(outputTab==='image')}>Apercu image</button>
-          </div>
-
-          {/* In-App view */}
-          {outputTab==='app'&&(
-            <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',padding:'13px',marginBottom:12,boxShadow:'var(--shadow)'}}>
-              <RecapInAppView recap={recap} zones={zones} trades={trades} companies={companies} />
-            </div>
-          )}
-
-          {/* Image preview */}
-          {outputTab==='image'&&jpegUrl&&(
-            <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',padding:'11px',marginBottom:12,boxShadow:'var(--shadow)'}}>
-              <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',fontFamily:"'DM Mono',monospace",marginBottom:8,textTransform:'uppercase',letterSpacing:.5}}>
-                Image JPEG 1080px @2x — cliquer pour agrandir
-              </div>
-              <img src={jpegUrl} alt="Recap" onClick={function(){window.open(jpegUrl,'_blank');}}
-                style={{width:'100%',borderRadius:'var(--r-sm)',border:'1px solid var(--border)',cursor:'pointer',display:'block'}} />
-            </div>
-          )}
-
-          {/* Action bar */}
-          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',padding:'12px',boxShadow:'var(--shadow)'}}>
-            <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',fontFamily:"'DM Mono',monospace",marginBottom:10,textTransform:'uppercase',letterSpacing:.5}}>
-              Exporter &amp; Partager
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
-              <button onClick={downloadJpeg} style={actionBtn('#1E3A8A','0 4px 12px rgba(30,58,138,.3)')}>
-                &#x2B07;&#xFE0F; Image JPEG
-              </button>
-              <button onClick={downloadPdf} style={actionBtn('#334155','0 4px 12px rgba(51,65,85,.25)')}>
-                &#x2B07;&#xFE0F; PDF A4
-              </button>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-              <button onClick={shareWhatsApp} style={actionBtn('#16A34A','0 4px 12px rgba(22,163,74,.28)')}>
-                &#x1F4F2; WhatsApp
-              </button>
-              <button onClick={shareEmail} style={actionBtn('#DC2626','0 4px 12px rgba(220,38,38,.22)')}>
-                &#x2709;&#xFE0F; Email
-              </button>
-            </div>
-            <div style={{marginTop:9,fontSize:10,color:'var(--xmuted)',textAlign:'center',fontFamily:"'DM Mono',monospace",lineHeight:1.5}}>
-              WhatsApp: partage natif iOS/Android (image) ou lien texte · Email: ouvre votre client mail
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 </script>
 <script type="text/babel" data-presets="env,react">
   const root = ReactDOM.createRoot(document.getElementById('root'));
