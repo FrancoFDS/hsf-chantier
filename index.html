@@ -189,13 +189,14 @@ const STATUS_META = {
 // isTaskLate is defined in planify-screens.jsx scope — fallback to string compare here
 function effectiveStatus(iv) {
   if (!iv) return 'arealis';
-  if (iv.status === 'termine') return 'termine';
-  if (iv.status === 'bloque') return 'bloque';
+  if (iv.status === 'termine')   return 'termine';
+  if (iv.status === 'bloque')    return 'bloque';
+  if (iv.status === 'en_retard') return 'en_retard'; // statut manuel posé en base
   var rawDate = iv.end || iv.start;
   if (!rawDate) return iv.status || 'arealis';
   var due = new Date(rawDate + 'T00:00:00');
   var today = new Date(); today.setHours(0,0,0,0);
-  return due < today ? 'en_retard' : (iv.status || 'arealis');
+  return due < today ? 'en_retard' : (iv.status || 'arealis'); // calcul auto date dépassée
 }
 
 function getStatusThemeMeta(status) {
@@ -4266,8 +4267,8 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
           {(() => {
             const criticalZones = zones.map(function(z){
               const zivs = data.filter(function(i){ return i.zone === z.id; });
-              const late = zivs.filter(function(i){ return isTaskLate(i); }).length;
-              const bloc = zivs.filter(function(i){ return i.status === 'bloque'; }).length;
+              const late = zivs.filter(function(i){ return effectiveStatus(i)==='en_retard'; }).length;
+              const bloc = zivs.filter(function(i){ return effectiveStatus(i)==='bloque'; }).length;
               const wd = workingDaysUntil(z.deadline);
               const critical = late > 0 || bloc > 0 || (z.deadline && wd <= 5 && wd >= 0);
               return critical ? {z:z, late:late, bloc:bloc, wd:wd} : null;
@@ -6210,61 +6211,64 @@ const miniBtn = {padding:'5px 10px',borderRadius:'var(--r-xs)',border:'1px solid
 =========================================================== */
 function StatusWithNote({ iv, session, onStatusChange }) {
   var [pendingStatus, setPendingStatus] = React.useState(null);
-  var [noteText, setNoteText] = React.useState('');
-  var [saved, setSaved] = React.useState(false);
-  var [saving, setSaving] = React.useState(false);
-  var [error, setError] = React.useState('');
+  var [noteText,      setNoteText]      = React.useState('');
+  var [saved,         setSaved]         = React.useState(false);
+  var [saving,        setSaving]        = React.useState(false);
+  var [error,         setError]         = React.useState('');
   var m2 = pendingStatus ? getStatusThemeMeta(pendingStatus) : null;
 
   async function confirm() {
     if (saving || !pendingStatus) return;
-    setSaving(true);
-    setError('');
+    setSaving(true); setError('');
     try {
       await onStatusChange(iv.id, pendingStatus, noteText.trim());
       setSaved(true);
       setTimeout(function(){ setSaved(false); setPendingStatus(null); setNoteText(''); }, 1600);
     } catch(e) {
-      setError(e&&e.message?e.message:'Erreur de sauvegarde. Actualisez puis réessayez.');
-    } finally {
-      setSaving(false);
-    }
+      setError(e&&e.message?e.message:'Erreur. Actualisez puis réessayez.');
+    } finally { setSaving(false); }
   }
   function cancel() { if (!saving) { setPendingStatus(null); setNoteText(''); setError(''); } }
 
   var effSt  = effectiveStatus(iv);
   var effMeta = getStatusThemeMeta(effSt);
   var isLateComputed = effSt === 'en_retard';
-  var isFuture = iv.start && (function(){ var d=new Date(iv.start+'T00:00:00'); var n=new Date(); n.setHours(0,0,0,0); return d>n; })();
-
-  // Days overdue
+  var isFuture = iv.start && (function(){
+    var d=new Date(iv.start+'T00:00:00'), n=new Date(); n.setHours(0,0,0,0); return d>n;
+  })();
   var daysOver = 0;
   if (isLateComputed && iv.end) {
-    var _due=new Date(iv.end+'T00:00:00'); var _now=new Date(); _now.setHours(0,0,0,0);
+    var _due=new Date(iv.end+'T00:00:00'), _now=new Date(); _now.setHours(0,0,0,0);
     daysOver = Math.round((_now-_due)/(1000*60*60*24));
   }
+
+  // Status buttons — ordered for UX: arealis | encours | en_retard | bloque | termine
+  var STATUS_ORDER = ['arealis','encours','en_retard','bloque','termine'];
 
   return (
     <div style={{marginBottom:14}}>
 
-      {/* ── Statut actuel calculé ── */}
+      {/* ── Statut actuel (calculé ou manuel) ── */}
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,
         padding:'9px 12px',borderRadius:'var(--r-sm)',
-        background:effMeta.bg,border:'1px solid '+effMeta.dot+'55'}}>
-        <span style={{width:10,height:10,borderRadius:'50%',background:effMeta.dot,flexShrink:0}}></span>
+        background:effMeta.bg,border:'1.5px solid '+effMeta.dot+'66'}}>
+        <span style={{width:10,height:10,borderRadius:'50%',background:effMeta.dot,flexShrink:0,
+          boxShadow:'0 0 0 3px '+effMeta.dot+'22'}}></span>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:12,fontWeight:700,color:effMeta.dot}}>
             Statut actuel&nbsp;: {effMeta.label}
             {isLateComputed && daysOver>0 && (
-              <span style={{fontWeight:400,color:effMeta.text}}> — {daysOver} jour{daysOver>1?'s':''} de dépassement</span>
+              <span style={{fontWeight:500,color:effMeta.text,fontSize:11}}>&nbsp;— {daysOver}&nbsp;jour{daysOver>1?'s':''} de dépassement</span>
             )}
             {isFuture && (
-              <span style={{fontWeight:400,color:effMeta.text}}> — tâche à venir</span>
+              <span style={{fontWeight:400,color:effMeta.text,fontSize:11}}>&nbsp;— tâche à venir</span>
             )}
           </div>
           {isLateComputed && (
             <div style={{fontSize:11,color:effMeta.text,marginTop:2,lineHeight:1.4}}>
-              Date de fin dépassée. Marquez la tâche terminée ou mettez à jour les dates.
+              {iv.status==='en_retard'
+                ? 'Statut posé manuellement comme «\u00a0En retard\u00a0».'
+                : 'Date de fin dépassée — calculé automatiquement.'}
             </div>
           )}
         </div>
@@ -6274,70 +6278,83 @@ function StatusWithNote({ iv, session, onStatusChange }) {
         textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8}}>
         Changer le statut
       </div>
+
+      {/* 5 boutons en grille 2+2+1 */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
-        {Object.entries(STATUS_META)
-          .filter(function(e){ return e[0] !== 'en_retard'; })
-          .map(function(entry){
-          var k=entry[0], m=entry[1];
-          // isActive: highlight the real effective status (mapped to nearest manual status)
-          var isActive = pendingStatus ? pendingStatus===k : (effSt===k || (isLateComputed && k==='encours'));
+        {STATUS_ORDER.map(function(k, idx){
+          var m = STATUS_META[k];
+          if (!m) return null;
+          var isActive = pendingStatus ? pendingStatus===k : effSt===k;
+          var isLast = idx === STATUS_ORDER.length - 1;
           return (
-            <button key={k} disabled={saving} onClick={function(){ setPendingStatus(k); setNoteText(''); setSaved(false); setError(''); }}
-              style={{padding:'9px 6px',borderRadius:'var(--r-sm)',
+            <button key={k}
+              disabled={saving}
+              onClick={function(){ setPendingStatus(k); setNoteText(''); setSaved(false); setError(''); }}
+              style={{
+                gridColumn: isLast ? '1 / -1' : undefined,
+                padding:'10px 8px',
+                borderRadius:'var(--r-sm)',
                 border:'1.5px solid '+(isActive?m.dot:'var(--border)'),
                 background:isActive?m.bg:'var(--surface)',
-                cursor:saving?'wait':'pointer',fontSize:12,fontWeight:500,
-                color:isActive?m.text:'var(--text)',opacity:saving ? .65 : 1,
-                display:'flex',alignItems:'center',justifyContent:'center',
-                gap:6,transition:'all .15s',fontFamily:"'DM Sans',sans-serif",
-                boxShadow:isActive?'0 0 0 2px '+m.dot+'22':'none'}}>
-              <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
+                cursor:saving?'wait':'pointer',
+                fontSize:12, fontWeight:isActive?700:500,
+                color:isActive?m.dot:'var(--text)',
+                opacity:saving?.65:1,
+                display:'flex',alignItems:'center',justifyContent:'center',gap:7,
+                transition:'all .15s',fontFamily:"'DM Sans',sans-serif",
+                boxShadow:isActive?('0 0 0 2px '+m.dot+'28,inset 0 0 0 1px '+m.dot+'18'):'none',
+                textAlign:'center',
+              }}>
+              <span style={{width:8,height:8,borderRadius:'50%',background:m.dot,
+                flexShrink:0,boxShadow:isActive?'0 0 0 3px '+m.dot+'22':'none'}}></span>
               {m.label}
-              {isLateComputed && k==='encours' && <span style={{fontSize:9,opacity:.7}}> (actuel)</span>}
+              {k==='en_retard' && !isLateComputed && !isActive && (
+                <span style={{fontSize:9,opacity:.6,fontWeight:400}}>(manuel)</span>
+              )}
             </button>
           );
         })}
       </div>
+
       {pendingStatus && !saved && (
         <div style={{marginTop:10,padding:'12px',background:'var(--surface-2)',
           border:'1.5px solid '+(m2?m2.dot:'var(--border)'),borderRadius:'var(--r-sm)'}}>
           <div style={{fontSize:11,fontWeight:700,color:m2?m2.dot:'var(--muted)',
             marginBottom:8,fontFamily:"'DM Mono',monospace"}}>
-            {m2?m2.label:'?'} — note optionnelle
+            {m2?m2.label:'?'}&nbsp;— note optionnelle
           </div>
-          <textarea
-            value={noteText}
-            disabled={saving}
+          <textarea value={noteText} disabled={saving}
             onChange={function(e){ setNoteText(e.target.value); }}
-            placeholder="Ajouter un commentaire..."
+            placeholder="Ajouter un commentaire (cause du retard, prochaine action…)"
             style={{width:'100%',padding:'9px 11px',border:'1px solid var(--border)',
               borderRadius:'var(--r-sm)',fontSize:13,fontFamily:"'DM Sans',sans-serif",
               color:'var(--text)',background:'var(--surface)',resize:'vertical',
-              minHeight:64,marginBottom:10,opacity:saving ? .7 : 1}}
+              minHeight:64,marginBottom:10,opacity:saving?.7:1}}
           />
-          {error && <div style={{fontSize:12,color:'var(--danger)',fontWeight:600,marginBottom:8,
-            lineHeight:1.4}}>{error}</div>}
+          {error&&<div style={{fontSize:12,color:'var(--danger)',fontWeight:600,
+            marginBottom:8,lineHeight:1.4}}>{error}</div>}
           <div style={{display:'flex',gap:8}}>
             <button onClick={confirm} disabled={saving}
               style={{flex:1,padding:'10px',borderRadius:'var(--r-sm)',border:'none',
                 background:m2?m2.dot:'var(--primary)',color:'#fff',fontSize:13,fontWeight:700,
-                cursor:saving?'wait':'pointer',opacity:saving ? .7 : 1,fontFamily:"'DM Sans',sans-serif"}}>
+                cursor:saving?'wait':'pointer',opacity:saving?.7:1,
+                fontFamily:"'DM Sans',sans-serif"}}>
               {saving?'Enregistrement…':'Confirmer'}
             </button>
             <button onClick={cancel} disabled={saving}
               style={{padding:'10px 14px',borderRadius:'var(--r-sm)',
                 border:'1px solid var(--border)',background:'var(--surface)',
-                color:'var(--muted)',fontSize:13,cursor:saving?'wait':'pointer',opacity:saving ? .6 : 1,
-                fontFamily:"'DM Sans',sans-serif"}}>
+                color:'var(--muted)',fontSize:13,cursor:saving?'wait':'pointer',
+                opacity:saving?.6:1,fontFamily:"'DM Sans',sans-serif"}}>
               Annuler
             </button>
           </div>
         </div>
       )}
-      {saved && (
+      {saved&&(
         <div style={{marginTop:8,padding:'8px 12px',background:'var(--success-l)',
-          borderRadius:'var(--r-sm)',fontSize:12,color:'var(--success)',fontWeight:600,
-          textAlign:'center'}}>Statut sauvegardé ✓</div>
+          borderRadius:'var(--r-sm)',fontSize:12,color:'var(--success)',
+          fontWeight:600,textAlign:'center'}}>Statut sauvegardé ✓</div>
       )}
     </div>
   );
@@ -8725,7 +8742,7 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
     } else {
       pushZones(ivs);
     }
-    var blocked=ivs.filter(function(iv){return iv.status==='bloque';});
+    var blocked=ivs.filter(function(iv){return effectiveStatus(iv)==='bloque';});
     if(blocked.length){
       L.push('');
       L.push(E.warn+' *Point d\u2019attention\u00a0:* '+blocked.length+' t\u00e2che(s) bloqu\u00e9e(s) \u2014 merci de confirmer la situation.');
@@ -9003,9 +9020,9 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
         var isSent=!!sentStatus[sentKey(cardId)], sentAt=sentStatus[sentKey(cardId)];
         var tr=(trades||[]).find(function(t){return t.id===co.tradeId;});
         var c=tr?getTC(tr.color):{b:'#3B82F6',bg:'#EFF6FF',t:'#1E3A8A'};
-        var lateN=ivs.filter(function(iv){return isTaskLate(iv);}).length;
-        var blockedN=ivs.filter(function(iv){return iv.status==='bloque';}).length;
-        var enCoursN=ivs.filter(function(iv){return iv.status==='encours';}).length;
+        var lateN    = ivs.filter(function(iv){ return effectiveStatus(iv)==='en_retard'; }).length;
+        var blockedN = ivs.filter(function(iv){ return effectiveStatus(iv)==='bloque'; }).length;
+        var enCoursN = ivs.filter(function(iv){ return effectiveStatus(iv)==='encours'; }).length;
 
         return (
           <div key={cardId} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',marginBottom:10,overflow:'hidden',boxShadow:'var(--shadow)'}}>
