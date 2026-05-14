@@ -9218,9 +9218,9 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
         <div style={{fontSize:13,color:'var(--muted)',lineHeight:1.45}}>Briefings hebdomadaires + récap projet pour vos parties prenantes.</div>
       </div>
 
-      {/* ── Récap fin de semaine — COCKPIT ── */}
+      {/* ── SITUATION CHANTIER À DATE ── */}
       {(function(){
-        var today = new Date();
+        var today = new Date(); today.setHours(0,0,0,0);
         var dow = today.getDay();
         var mon = new Date(today); mon.setDate(today.getDate()-(dow===0?6:dow-1));
         var fri = new Date(mon); fri.setDate(mon.getDate()+4);
@@ -9229,117 +9229,180 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
         function fmtD2(d){ return d.getDate()+' '+FR_MNTHS2[d.getMonth()]; }
         var todayName = FR_DAYS2[today.getDay()];
 
-        // Moteur d'avancement temporel
-        var ph = computeProjectHealth(data||[], zones||[]);
-        var riskChains2 = detectRiskPropagation(data||[]);
+        var allData = data || [];
+        var allZones = zones || [];
 
-        var avtCol  = ph.avancementReel>=80?'#16A34A':ph.avancementReel>=50?'#2563EB':'#EA580C';
-        var derCol  = ph.derive>0?'#16A34A':ph.derive>-10?'#EA580C':'#DC2626';
-        var fibCol  = ph.fiabilite>=80?'#16A34A':ph.fiabilite>=60?'#EA580C':'#DC2626';
-        var projCol = ph.projectionDays===null?'var(--muted)':ph.projectionDays<=0?'#16A34A':ph.projectionDays<=7?'#EA580C':'#DC2626';
+        // ── Compteurs métier ──────────────────────────────────
+        var cntTermine  = allData.filter(function(iv){ return iv.status==='termine'; }).length;
+        var cntEncours  = allData.filter(function(iv){ return effectiveStatus(iv)==='encours'; }).length;
+        var cntBloque   = allData.filter(function(iv){ return effectiveStatus(iv)==='bloque'; }).length;
+        var cntRetard   = allData.filter(function(iv){ return effectiveStatus(iv)==='en_retard'; }).length;
+        var cntTotal    = allData.length;
 
-        var projTxt = ph.projectionDays===null ? '—'
-          : ph.projectionDays<=0 ? 'Dans les temps'
-          : '+'+ph.projectionDays+'j';
+        // ── Phrase de situation globale ───────────────────────
+        var situationPhrase = '';
+        var situationColor = '#16A34A';
+        if (cntBloque > 0 || cntRetard > 0) {
+          situationColor = cntBloque > 0 ? '#DC2626' : '#EA580C';
+          var parts = [];
+          if (cntBloque > 0) parts.push(cntBloque+' tâche'+(cntBloque>1?'s':'')+' bloquée'+(cntBloque>1?'s':''));
+          if (cntRetard > 0) parts.push(cntRetard+' en retard');
+          situationPhrase = '\u26a0\ufe0f '+parts.join(' \u00b7 ')+' \u2014 action requise';
+        } else if (cntEncours > 0) {
+          situationPhrase = '\u2705 Cadence conforme au planning';
+        } else {
+          situationPhrase = 'Aucune activité en cours cette semaine';
+          situationColor = 'var(--muted)';
+        }
+
+        // ── Activités en cours (moteur temporel) ─────────────
+        // On trie : bloquées d'abord, puis retard, puis en cours
+        var activesRaw = allData.filter(function(iv){
+          var es = effectiveStatus(iv);
+          return es === 'encours' || es === 'bloque' || es === 'en_retard';
+        });
+        activesRaw.sort(function(a,b){
+          var order = {bloque:0, en_retard:1, encours:2};
+          return (order[effectiveStatus(a)]||3) - (order[effectiveStatus(b)]||3);
+        });
+
+        function computeTemporalDisplay(iv) {
+          var startD = iv.start ? new Date(iv.start+'T00:00:00') : null;
+          var endD   = iv.end   ? new Date(iv.end+'T00:00:00')   : null;
+          if (!endD && startD) endD = new Date(startD);
+          if (!startD) return null;
+          var totalDays = endD ? Math.max(1, Math.round((endD - startD) / 86400000) + 1) : 1;
+          var elapsed   = Math.max(0, Math.round((today - startD) / 86400000));
+          var overrun   = (endD && today > endD) ? Math.round((today - endD) / 86400000) : 0;
+          return { elapsed, totalDays, overrun };
+        }
+
+        // ── Bloc bloquants : tâches bloquées avec successeurs ─
+        var blockedTasks = allData.filter(function(iv){ return effectiveStatus(iv)==='bloque'; });
+        var dataMap = {};
+        allData.forEach(function(iv){ dataMap[iv.id]=iv; });
+        // Cherche les successeurs impactés
+        function getSuccessors(iv) {
+          return allData.filter(function(s){ return s.predecessor_id===iv.id && s.status!=='termine'; });
+        }
+
+        // ── Échéances proches (deadline zone ou end date dans 7j) ──
+        var soonDeadlines = [];
+        allZones.forEach(function(z){
+          if (!z.deadline) return;
+          var dl = new Date(z.deadline+'T00:00:00');
+          var dj = Math.round((dl - today) / 86400000);
+          if (dj >= 0 && dj <= 10) {
+            var zTasks = allData.filter(function(iv){ return iv.zone===z.id && iv.status!=='termine'; });
+            soonDeadlines.push({label: z.short||z.name, days: dj, remaining: zTasks.length, isZone: true});
+          }
+        });
+        soonDeadlines.sort(function(a,b){ return a.days-b.days; });
+
+        // ── Helpers style ─────────────────────────────────────
+        function sectionLabel(txt, color) {
+          return <div style={{fontSize:9,fontWeight:800,fontFamily:"'DM Mono',monospace",
+            color:color||'var(--muted)',textTransform:'uppercase',letterSpacing:'.07em',
+            marginBottom:8}}>{txt}</div>;
+        }
+        function zoneDot(zoneId) {
+          var z = allZones.find(function(z2){ return z2.id===zoneId; });
+          var fc = z ? getZoneFloorColor(z, allZones) : '#9CA3AF';
+          return <span style={{display:'inline-block',width:8,height:8,borderRadius:2,
+            background:fc,marginRight:6,flexShrink:0,verticalAlign:'middle'}}/>;
+        }
+        function getZoneName2(zoneId) {
+          var z = allZones.find(function(z2){ return z2.id===zoneId; });
+          return z ? (z.short||z.name) : (zoneId||'—');
+        }
 
         return (
-          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',marginBottom:14,overflow:'hidden',boxShadow:'var(--shadow)'}}>
-            {/* Header barre sombre */}
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',
+            borderRadius:'var(--r)',marginBottom:14,overflow:'hidden',boxShadow:'var(--shadow)'}}>
+
+            {/* ── HEADER barre sombre ── */}
             <div style={{background:'#1A1A1A',padding:'11px 14px',display:'flex',alignItems:'center',gap:10}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:700,color:'#FFFFFF'}}>Cockpit chantier</div>
-                <div style={{fontSize:10,color:'#9CA3AF',marginTop:2}}>{todayName+' '+fmtD2(today)+' \u00b7 Sem. du '+fmtD2(mon)+' au '+fmtD2(fri)}</div>
+                <div style={{fontSize:13,fontWeight:700,color:'#FFFFFF'}}>Situation chantier</div>
+                <div style={{fontSize:10,color:'#9CA3AF',marginTop:2}}>
+                  {todayName+' '+fmtD2(today)+' \u00b7 Sem. du '+fmtD2(mon)+' au '+fmtD2(fri)}
+                </div>
               </div>
               <button onClick={function(){ setRecapPreviewOpen(true); }}
                 style={{background:'#2152C8',color:'#fff',border:'none',
                   borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:700,
                   cursor:'pointer',display:'flex',alignItems:'center',gap:7,flexShrink:0,
                   fontFamily:"'DM Sans',sans-serif"}}>
-                {'\uD83D\uDC41 Aper\u00e7u + export'}
+                {'\uD83D\uDC41 Export'}
               </button>
             </div>
 
-            {/* KPI row 1 — 4 indicateurs */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',borderBottom:'1px solid var(--border)'}}>
-              {[
-                {v:ph.avancementReel+'%', lbl:'Avancement réel',  sub:'moteur temporel',  c:avtCol, bg:ph.avancementReel>=80?'rgba(22,163,74,.06)':ph.avancementReel>=50?'rgba(37,99,235,.05)':'rgba(234,88,12,.05)'},
-                {v:ph.cadenceCible+'%',   lbl:'Cadence cible',    sub:'objectif planning', c:'var(--muted)', bg:'transparent'},
-                {v:(ph.derive>0?'+':'')+ph.derive+'%', lbl:'Dérive planning', sub:ph.derive>0?'en avance':ph.derive===0?'dans les temps':'en retard', c:derCol, bg:ph.derive<-10?'rgba(220,38,38,.05)':ph.derive>0?'rgba(22,163,74,.05)':'transparent'},
-                {v:ph.fiabilite+'%',      lbl:'Fiabilité semaine', sub:'tâches livrées vs dues', c:fibCol, bg:'transparent'},
-              ].map(function(k,i){
-                return (
-                  <div key={i} style={{padding:'12px 8px',textAlign:'center',
-                    borderRight:i<3?'1px solid var(--border)':'none',
-                    background:k.bg}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:20,fontWeight:900,color:k.c,lineHeight:1.1}}>{k.v}</div>
-                    <div style={{fontSize:10,color:'var(--text)',marginTop:4,fontWeight:700,lineHeight:1.2}}>{k.lbl}</div>
-                    <div style={{fontSize:9,color:k.c,marginTop:2,fontWeight:600,fontFamily:"'DM Mono',monospace",textTransform:'uppercase'}}>{k.sub}</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Barre graphique Avancement vs Cadence */}
-            <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',background:'var(--surface-2)'}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                <span style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em'}}>Avancement réel vs cadence cible</span>
-                <span style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",color:derCol}}>{ph.derive>0?'+':''}{ph.derive}%</span>
-              </div>
-              {/* Barre cible */}
-              <div style={{position:'relative',height:8,borderRadius:4,background:'var(--border)',marginBottom:4,overflow:'visible'}}>
-                <div style={{position:'absolute',left:0,top:0,height:'100%',borderRadius:4,
-                  width:ph.cadenceCible+'%',background:'#CBD5E1',transition:'width .3s'}}/>
-              </div>
-              {/* Barre réelle */}
-              <div style={{position:'relative',height:8,borderRadius:4,background:'var(--border)',overflow:'visible'}}>
-                <div style={{position:'absolute',left:0,top:0,height:'100%',borderRadius:4,
-                  width:ph.avancementReel+'%',background:avtCol,transition:'width .3s'}}/>
-              </div>
-              <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
-                <span style={{fontSize:8,color:'#9CA3AF',fontFamily:"'DM Mono',monospace"}}>CIBLE {ph.cadenceCible}%</span>
-                <span style={{fontSize:8,color:avtCol,fontFamily:"'DM Mono',monospace",fontWeight:700}}>RÉEL {ph.avancementReel}%</span>
-              </div>
-            </div>
-
-            {/* Projection fin chantier */}
-            <div style={{padding:'10px 14px',background:ph.projectionDays!==null&&ph.projectionDays>7?'rgba(220,38,38,.04)':'transparent',
-              borderBottom: ph.alertes.length>0||ph.riskyZones.length>0 ? '1px solid var(--border)':'none',
-              display:'flex',alignItems:'center',gap:10}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:2}}>Projection livraison</div>
-                <div style={{fontSize:12,fontWeight:700,color:projCol}}>
-                  {ph.projectionDays===null ? 'Données insuffisantes'
-                   : ph.projectionDays<=0 ? '\u2713 Livraison maintenable au rythme actuel'
-                   : '\u26a0 D\u00e9rive estim\u00e9e : +'+ph.projectionDays+' jours au rythme actuel'}
-                </div>
-              </div>
-              {ph.riskyZones.length>0 && (
-                <div style={{background:'rgba(220,38,38,.1)',border:'1px solid rgba(220,38,38,.3)',borderRadius:6,padding:'4px 8px',flexShrink:0}}>
-                  <div style={{fontSize:9,fontWeight:700,color:'#DC2626',fontFamily:"'DM Mono',monospace"}}>{ph.riskyZones.length} zone(s) à risque</div>
-                </div>
-              )}
-            </div>
-
-            {/* Zones à risque */}
-            {ph.riskyZones.length>0 && (
-              <div style={{padding:'8px 14px',borderBottom:'1px solid var(--border)',background:'rgba(220,38,38,.03)'}}>
-                <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",color:'#991B1B',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>
-                  \u26d4 Zones à risque \u2014 Propagation de dérive
-                </div>
-                {ph.riskyZones.slice(0,3).map(function(rz, ri){
-                  var fc = getZoneFloorColor(rz.zone, zones||[]);
+            {/* ── BLOC 1 : Situation globale ── */}
+            <div style={{padding:'12px 14px',borderBottom:'1px solid var(--border)',
+              background: cntBloque>0 ? 'rgba(220,38,38,.04)' : cntRetard>0 ? 'rgba(234,88,12,.04)' : 'transparent'}}>
+              {/* Compteurs statuts */}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6,marginBottom:10}}>
+                {[
+                  {n:cntTermine,  lbl:'Terminées',  dot:'#16A34A', bg:'rgba(22,163,74,.1)',   tc:'#065F46'},
+                  {n:cntEncours,  lbl:'En cours',   dot:'#2563EB', bg:'rgba(37,99,235,.1)',   tc:'#1D4ED8'},
+                  {n:cntBloque,   lbl:'Bloquées',   dot:'#DC2626', bg:'rgba(220,38,38,.1)',   tc:'#991B1B'},
+                  {n:cntRetard,   lbl:'En retard',  dot:'#EA580C', bg:'rgba(234,88,12,.12)',  tc:'#9A3412'},
+                ].map(function(s,si){
                   return (
-                    <div key={ri} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',
-                      borderBottom:ri<Math.min(2,ph.riskyZones.length-1)?'1px solid var(--border)':'none'}}>
-                      <div style={{width:8,height:8,borderRadius:2,background:fc,flexShrink:0}}/>
-                      <div style={{flex:1,minWidth:0}}>
-                        <span style={{fontSize:10,fontWeight:700,color:'var(--text)',fontFamily:"'DM Mono',monospace"}}>{rz.zone.short}</span>
-                        <span style={{fontSize:10,color:'var(--muted)',marginLeft:6}}>{rz.zone.name.split('\u2014').pop().trim()}</span>
-                      </div>
-                      <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-                        {rz.blocked>0&&<span style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",color:'#DC2626',background:'rgba(220,38,38,.1)',border:'1px solid rgba(220,38,38,.3)',borderRadius:3,padding:'1px 5px'}}>{rz.blocked} BLOQ.</span>}
-                        {rz.late>0&&<span style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",color:'#EA580C',background:'rgba(234,88,12,.1)',border:'1px solid rgba(234,88,12,.3)',borderRadius:3,padding:'1px 5px'}}>{rz.late} RETARD</span>}
-                        <span style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",color:rz.derive<0?'#DC2626':'#16A34A'}}>{rz.derive>0?'+':''}{rz.derive}%</span>
+                    <div key={si} style={{background:s.n>0&&si>=2?s.bg:'var(--surface-2)',
+                      border:'1px solid '+(s.n>0&&si>=2?s.dot+'33':'var(--border)'),
+                      borderRadius:'var(--r-sm)',padding:'8px 6px',textAlign:'center'}}>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:22,fontWeight:900,
+                        color:s.n>0?s.dot:'var(--xmuted)',lineHeight:1.1}}>{s.n}</div>
+                      <div style={{fontSize:9,fontWeight:700,color:s.n>0?s.tc:'var(--xmuted)',
+                        marginTop:3,lineHeight:1.2}}>{s.lbl}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Phrase de situation */}
+              <div style={{fontSize:12,fontWeight:700,color:situationColor,lineHeight:1.4}}>
+                {situationPhrase}
+              </div>
+              <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>
+                {cntTotal} tâches au total \u00b7 {cntTermine} terminées
+              </div>
+            </div>
+
+            {/* ── BLOC 2 : Points bloquants (priorité max) ── */}
+            {blockedTasks.length > 0 && (
+              <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',
+                background:'rgba(220,38,38,.04)'}}>
+                {sectionLabel('\u26d4 Points bloquants \u2014 Action requise', '#991B1B')}
+                {blockedTasks.slice(0,5).map(function(iv, bi){
+                  var succs = getSuccessors(iv);
+                  var zname = getZoneName2(iv.zone);
+                  return (
+                    <div key={iv.id} style={{
+                      padding:'8px 10px',marginBottom:bi<blockedTasks.length-1?6:0,
+                      background:'rgba(220,38,38,.06)',border:'1px solid rgba(220,38,38,.2)',
+                      borderRadius:'var(--r-xs)'}}>
+                      <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                        <span style={{fontSize:13,flexShrink:0,marginTop:1}}>🚫</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:2}}>
+                            {zoneDot(iv.zone)}
+                            <span style={{fontSize:10,fontWeight:700,fontFamily:"'DM Mono',monospace",
+                              color:'#DC2626'}}>{zname}</span>
+                            <span style={{fontSize:11,fontWeight:700,color:'var(--text)',flex:1,minWidth:0,
+                              overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{iv.task}</span>
+                          </div>
+                          {succs.length > 0 && (
+                            <div style={{fontSize:10,color:'#EA580C',marginTop:2}}>
+                              {'⛓ Bloque : '+succs.map(function(s){return s.task;}).join(', ')}
+                            </div>
+                          )}
+                          {iv.note && (
+                            <div style={{fontSize:10,color:'var(--muted)',marginTop:2,fontStyle:'italic'}}>
+                              {iv.note}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -9347,20 +9410,97 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
               </div>
             )}
 
-            {/* Alertes critiques */}
-            {ph.alertes.length>0 && (
-              <div style={{padding:'8px 14px',background:'rgba(217,119,6,.05)'}}>
-                <div style={{fontSize:9,fontWeight:700,fontFamily:"'DM Mono',monospace",color:'#92400E',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:5}}>
-                  \u26a0 Alertes critiques
-                </div>
-                {ph.alertes.slice(0,3).map(function(a,ai){
+            {/* ── BLOC 3 : Activités en cours (lecture temporelle) ── */}
+            {activesRaw.length > 0 && (
+              <div style={{padding:'10px 14px',borderBottom:soonDeadlines.length>0?'1px solid var(--border)':'none'}}>
+                {sectionLabel('Activités en cours', 'var(--muted)')}
+                {activesRaw.slice(0,8).map(function(iv, ii){
+                  var es = effectiveStatus(iv);
+                  var td = computeTemporalDisplay(iv);
+                  var zname = getZoneName2(iv.zone);
+                  var statusColor = es==='bloque'?'#DC2626':es==='en_retard'?'#EA580C':'#2563EB';
+                  var statusBg    = es==='bloque'?'rgba(220,38,38,.1)':es==='en_retard'?'rgba(234,88,12,.1)':'rgba(37,99,235,.1)';
+
+                  // Libellé temporel terrain : Jour X/Y ou +Xj de retard ou "dans Nj"
+                  var temporalLabel = '';
+                  if (td) {
+                    if (!iv.start || today < new Date(iv.start+'T00:00:00')) {
+                      var startD2 = new Date(iv.start+'T00:00:00');
+                      var daysUntil = Math.max(0, Math.round((startD2 - today) / 86400000));
+                      temporalLabel = 'Démarrage dans '+daysUntil+'j';
+                    } else if (td.overrun > 0) {
+                      temporalLabel = '+'+td.overrun+'j de retard';
+                    } else {
+                      temporalLabel = 'Jour '+Math.min(td.elapsed+1, td.totalDays)+'/'+td.totalDays;
+                    }
+                  }
+
                   return (
-                    <div key={ai} style={{display:'flex',alignItems:'flex-start',gap:6,marginBottom:ai<ph.alertes.length-1?4:0}}>
-                      <span style={{fontSize:10,color:a.type==='danger'?'#DC2626':'#EA580C',flexShrink:0,marginTop:1}}>{a.type==='danger'?'\u25cf':'\u25b2'}</span>
-                      <span style={{fontSize:11,color:'var(--text)',fontWeight:500,lineHeight:1.35}}>{a.msg}</span>
+                    <div key={iv.id} style={{display:'flex',alignItems:'center',gap:8,
+                      padding:'7px 0',borderBottom:ii<activesRaw.slice(0,8).length-1?'1px solid var(--border)':'none'}}>
+                      {zoneDot(iv.zone)}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+                          <span style={{fontSize:10,fontWeight:700,fontFamily:"'DM Mono',monospace",
+                            color:'var(--muted)',flexShrink:0}}>{zname}</span>
+                          <span style={{fontSize:11,fontWeight:600,color:'var(--text)',
+                            overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160}}>{iv.task}</span>
+                        </div>
+                        {iv.company && (
+                          <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{iv.company}</div>
+                        )}
+                      </div>
+                      <div style={{flexShrink:0,textAlign:'right'}}>
+                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:800,
+                          color:statusColor,background:statusBg,borderRadius:4,
+                          padding:'2px 7px',lineHeight:1.4}}>
+                          {temporalLabel || STATUS_META[es]?.label || es}
+                        </div>
+                        {td && td.overrun > 0 && (
+                          <div style={{fontSize:9,color:'#EA580C',marginTop:2,textAlign:'right',
+                            fontFamily:"'DM Mono',monospace"}}>
+                            prévu {td.totalDays}j
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* ── BLOC 4 : Échéances proches ── */}
+            {soonDeadlines.length > 0 && (
+              <div style={{padding:'10px 14px',background:'rgba(217,119,6,.04)'}}>
+                {sectionLabel('\u23f0 \u00c9ch\u00e9ances proches', '#92400E')}
+                {soonDeadlines.slice(0,4).map(function(dl, di){
+                  var urgColor = dl.days===0?'#DC2626':dl.days<=3?'#EA580C':'#D97706';
+                  var urgBg    = dl.days===0?'rgba(220,38,38,.1)':dl.days<=3?'rgba(234,88,12,.1)':'rgba(217,119,6,.1)';
+                  var dlTxt    = dl.days===0 ? "Aujourd'hui !" : dl.days===1 ? 'Demain' : 'Dans '+dl.days+'j';
+                  return (
+                    <div key={di} style={{display:'flex',alignItems:'center',gap:8,
+                      padding:'6px 0',borderBottom:di<soonDeadlines.slice(0,4).length-1?'1px solid var(--border)':'none'}}>
+                      <div style={{flex:1}}>
+                        <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{dl.label}</span>
+                        {dl.remaining > 0 && (
+                          <span style={{fontSize:10,color:'var(--muted)',marginLeft:6}}>
+                            {dl.remaining} tâche{dl.remaining>1?'s':''} restante{dl.remaining>1?'s':''}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:800,
+                        color:urgColor,background:urgBg,borderRadius:4,padding:'2px 8px'}}>
+                        {dlTxt}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {activesRaw.length===0 && blockedTasks.length===0 && soonDeadlines.length===0 && (
+              <div style={{padding:'16px 14px',textAlign:'center',color:'var(--muted)',fontSize:13}}>
+                Aucune activité active sur cette période.
               </div>
             )}
           </div>
