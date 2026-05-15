@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr" data-theme="terrain">
 <head>
@@ -23,17 +22,12 @@
   } catch(e) {}
 })();
 </script>
-<style>:root,[data-theme="terrain"]{--bg:#F4F2EE;--surface:#FFFFFF;--surface-2:#F9F8F5;--hdr:#1A1A1A;--hdr-text:#FFFFFF;--primary:#2152C8;--primary-l:#EEF2FC;--text:#1A1A1A;--muted:#6B6860;--xmuted:#ABA8A0;--border:#E8E4DC;--border-s:#C8C4BB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#16A34A;--success-l:#F0FDF4;--r:12px;--r-sm:8px;--r-xs:5px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.10);--shadow-lg:0 8px 32px rgba(0,0,0,.16)}
-[data-theme="nuit"]{--bg:#0D0D10;--surface:#18181C;--surface-2:#1F1F26;--hdr:#0D0D10;--hdr-text:#F1F1F5;--primary:#60A5FA;--primary-l:rgba(96,165,250,.14);--text:#F1F1F5;--muted:#8A8A9A;--xmuted:#55555F;--border:#28282F;--border-s:#38383F;--danger:#F87171;--danger-l:rgba(248,113,113,.12);--success:#34D399;--success-l:rgba(52,211,153,.12);--r:12px;--r-sm:8px;--r-xs:5px}
-[data-theme="studio"]{--bg:#EEF0F8;--surface:#FFFFFF;--surface-2:#F6F7FB;--hdr:#3730A3;--primary:#4338CA;--primary-l:#EEF2FF;--text:#111827;--muted:#6B7280;--xmuted:#9CA3AF;--border:#E5E7EB;--border-s:#D1D5DB;--danger:#DC2626;--danger-l:#FEF2F2;--success:#059669;--success-l:#ECFDF5;--r:16px;--r-sm:12px;--r-xs:8px}
+<style id="planify-base">
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;transition:background .3s,color .3s}
 #root{height:100%;display:flex;flex-direction:column}
 @keyframes fadeIn{from{opacity:0}}@keyframes slideUp{from{transform:translateY(100%)}}@keyframes spin{to{transform:rotate(360deg)}}
-*{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
-::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-button,select,input,textarea{font-family:'DM Sans',sans-serif}</style>
+</style>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" crossorigin="anonymous"></script>
@@ -85,7 +79,7 @@ function planifyHexToRgb(hex) {
     b:parseInt(clean.slice(4,6),16) || 246
   };
 }
-function planifyRgba(hex, alpha) {
+function rgbaCss(hex, alpha) {
   var rgb = planifyHexToRgb(hex);
   return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
 }
@@ -96,12 +90,12 @@ function getTC(colorId) {
   // Mode sombre : on garde la couleur métier comme accent, mais on force les textes
   // et les fonds de cartes sur une palette sombre lisible.
   return Object.assign({}, base, {
-    bg: planifyRgba(base.b, .18),
-    bgD: planifyRgba(base.b, .24),
+    bg: rgbaCss(base.b, .18),
+    bgD: rgbaCss(base.b, .24),
     t: '#F8FAFC',
     text: '#F8FAFC',
     mutedText: '#CBD5E1',
-    border: planifyRgba(base.b, .58)
+    border: rgbaCss(base.b, .58)
   });
 }
 
@@ -430,7 +424,7 @@ function getStatusThemeMeta(status) {
   return Object.assign({}, base, {
     bg:darkBg,
     text:darkText,
-    border:planifyRgba(base.dot, .45)
+    border:rgbaCss(base.dot, .45)
   });
 }
 
@@ -718,7 +712,7 @@ function workingDaysUntil(ds) {
 // Expose all globals so Babel-compiled scripts can access them
 Object.assign(window, {
   ZONES, TRADES, COMPANIES, INTERVENTIONS, TRADE_COLORS, STATUS_META, CHANGE_REQUEST_STATUS_META, TASK_CHANGE_FIELDS, FLOOR_COLORS, getZoneFloorColor, normalizeFloorColorValue, DAYS_FR,
-  planifyIsDarkTheme, planifyHexToRgb, planifyRgba,
+  planifyIsDarkTheme, planifyHexToRgb, rgbaCss,
   HOLIDAYS_2026, isHoliday, workingDaysUntil,
   getTC, getStatusThemeMeta, getMonday, weekDays, multiWeekDays, dateStr, dateFR, fmtDate, isToday, inDay, isTaskFrozenOn, isTaskActiveOn, isTaskFrozenToday, isTaskActiveToday,
   genId, genTaskNum, normalizeTaskNumber, daysUntil, deadlineColor,
@@ -810,489 +804,11 @@ Object.assign(window, {
   console.log('[Planify] Supabase addon loaded');
 })();
 </script>
-<script type="text/babel" data-presets="env,react">
-// tweaks-panel.jsx
-// Reusable Tweaks shell + form-control helpers.
-//
-// Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
-// posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
-// individual prototypes don't re-roll it. Ships a consistent set of controls so you
-// don't hand-draw <input type="range">, segmented radios, steppers, etc.
-//
-// Usage (in an HTML file that loads React + Babel):
-//
-//   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-//     "primaryColor": "#D97757",
-//     "fontSize": 16,
-//     "density": "regular",
-//     "dark": false
-//   }/*EDITMODE-END*/;
-//
-//   function App() {
-//     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-//     return (
-//       <div style={{ fontSize: t.fontSize, color: t.primaryColor }}>
-//         Hello
-//         <TweaksPanel>
-//           <TweakSection label="Typography" />
-//           <TweakSlider label="Font size" value={t.fontSize} min={10} max={32} unit="px"
-//                        onChange={(v) => setTweak('fontSize', v)} />
-//           <TweakRadio  label="Density" value={t.density}
-//                        options={['compact', 'regular', 'comfy']}
-//                        onChange={(v) => setTweak('density', v)} />
-//           <TweakSection label="Theme" />
-//           <TweakColor  label="Primary" value={t.primaryColor}
-//                        onChange={(v) => setTweak('primaryColor', v)} />
-//           <TweakToggle label="Dark mode" value={t.dark}
-//                        onChange={(v) => setTweak('dark', v)} />
-//         </TweaksPanel>
-//       </div>
-//     );
-//   }
-//
-// ─────────────────────────────────────────────────────────────────────────────
 
-const __TWEAKS_STYLE = `
-  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
-    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
-    background:rgba(250,249,247,.78);color:#29261b;
-    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
-    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
-    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
-    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
-  .twk-hd{display:flex;align-items:center;justify-content:space-between;
-    padding:10px 8px 10px 14px;cursor:move;user-select:none}
-  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
-  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
-    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
-  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
-  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
-    overflow-y:auto;overflow-x:hidden;min-height:0;
-    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
-  .twk-body::-webkit-scrollbar{width:8px}
-  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
-  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
-    border:2px solid transparent;background-clip:content-box}
-  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
-    border:2px solid transparent;background-clip:content-box}
-  .twk-row{display:flex;flex-direction:column;gap:5px}
-  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
-  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
-    color:rgba(41,38,27,.72)}
-  .twk-lbl>span:first-child{font-weight:500}
-  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
-
-  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-    color:rgba(41,38,27,.45);padding:10px 0 0}
-  .twk-sect:first-child{padding-top:0}
-
-  .twk-field{appearance:none;width:100%;height:26px;padding:0 8px;
-    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
-    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
-  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
-  select.twk-field{padding-right:22px;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
-    background-repeat:no-repeat;background-position:right 8px center}
-
-  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
-    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
-  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
-    width:14px;height:14px;border-radius:50%;background:#fff;
-    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
-  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
-    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
-
-  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
-    background:rgba(0,0,0,.06);user-select:none}
-  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
-    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
-    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
-  .twk-seg.dragging .twk-seg-thumb{transition:none}
-  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
-    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
-    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
-    overflow-wrap:anywhere}
-
-  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
-    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
-  .twk-toggle[data-on="1"]{background:#34c759}
-  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
-    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
-  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
-
-  .twk-num{display:flex;align-items:center;height:26px;padding:0 0 0 8px;
-    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
-  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
-    user-select:none;padding-right:8px}
-  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
-    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
-    outline:none;color:inherit;-moz-appearance:textfield}
-  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
-    -webkit-appearance:none;margin:0}
-  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
-
-  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
-    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
-  .twk-btn:hover{background:rgba(0,0,0,.88)}
-  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
-  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
-
-  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
-    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
-    background:transparent;flex-shrink:0}
-  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
-  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
-  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
-`;
-
-// ── useTweaks ───────────────────────────────────────────────────────────────
-// Single source of truth for tweak values. setTweak persists via the host
-// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
-function useTweaks(defaults) {
-  const [values, setValues] = React.useState(defaults);
-  // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
-  // useState-style call doesn't write a "[object Object]" key into the persisted
-  // JSON block.
-  const setTweak = React.useCallback((keyOrEdits, val) => {
-    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
-      ? keyOrEdits : { [keyOrEdits]: val };
-    setValues((prev) => ({ ...prev, ...edits }));
-    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
-  }, []);
-  return [values, setTweak];
-}
-
-// ── TweaksPanel ─────────────────────────────────────────────────────────────
-// Floating shell. Registers the protocol listener BEFORE announcing
-// availability — if the announce ran first, the host's activate could land
-// before our handler exists and the toolbar toggle would silently no-op.
-// The close button posts __edit_mode_dismissed so the host's toolbar toggle
-// flips off in lockstep; the host echoes __deactivate_edit_mode back which
-// is what actually hides the panel.
-function TweaksPanel({ title = 'Tweaks', children }) {
-  const [open, setOpen] = React.useState(false);
-  const dragRef = React.useRef(null);
-  const offsetRef = React.useRef({ x: 16, y: 16 });
-  const PAD = 16;
-
-  const clampToViewport = React.useCallback(() => {
-    const panel = dragRef.current;
-    if (!panel) return;
-    const w = panel.offsetWidth, h = panel.offsetHeight;
-    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
-    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
-    offsetRef.current = {
-      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
-      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
-    };
-    panel.style.right = offsetRef.current.x + 'px';
-    panel.style.bottom = offsetRef.current.y + 'px';
-  }, []);
-
-  React.useEffect(() => {
-    if (!open) return;
-    clampToViewport();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', clampToViewport);
-      return () => window.removeEventListener('resize', clampToViewport);
-    }
-    const ro = new ResizeObserver(clampToViewport);
-    ro.observe(document.documentElement);
-    return () => ro.disconnect();
-  }, [open, clampToViewport]);
-
-  React.useEffect(() => {
-    const onMsg = (e) => {
-      const t = e?.data?.type;
-      if (t === '__activate_edit_mode') setOpen(true);
-      else if (t === '__deactivate_edit_mode') setOpen(false);
-    };
-    window.addEventListener('message', onMsg);
-    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
-    return () => window.removeEventListener('message', onMsg);
-  }, []);
-
-  const dismiss = () => {
-    setOpen(false);
-    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
-  };
-
-  const onDragStart = (e) => {
-    const panel = dragRef.current;
-    if (!panel) return;
-    const r = panel.getBoundingClientRect();
-    const sx = e.clientX, sy = e.clientY;
-    const startRight = window.innerWidth - r.right;
-    const startBottom = window.innerHeight - r.bottom;
-    const move = (ev) => {
-      offsetRef.current = {
-        x: startRight - (ev.clientX - sx),
-        y: startBottom - (ev.clientY - sy),
-      };
-      clampToViewport();
-    };
-    const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-  };
-
-  if (!open) return null;
-  return (
-    <>
-      <style>{__TWEAKS_STYLE}</style>
-      <div ref={dragRef} className="twk-panel"
-           style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
-        <div className="twk-hd" onMouseDown={onDragStart}>
-          <b>{title}</b>
-          <button className="twk-x" aria-label="Close tweaks"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={dismiss}>✕</button>
-        </div>
-        <div className="twk-body">{children}</div>
-      </div>
-    </>
-  );
-}
-
-// ── Layout helpers ──────────────────────────────────────────────────────────
-
-function TweakSection({ label, children }) {
-  return (
-    <>
-      <div className="twk-sect">{label}</div>
-      {children}
-    </>
-  );
-}
-
-function TweakRow({ label, value, children, inline = false }) {
-  return (
-    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
-      <div className="twk-lbl">
-        <span>{label}</span>
-        {value != null && <span className="twk-val">{value}</span>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-// ── Controls ────────────────────────────────────────────────────────────────
-
-function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
-  return (
-    <TweakRow label={label} value={`${value}${unit}`}>
-      <input type="range" className="twk-slider" min={min} max={max} step={step}
-             value={value} onChange={(e) => onChange(Number(e.target.value))} />
-    </TweakRow>
-  );
-}
-
-function TweakToggle({ label, value, onChange }) {
-  return (
-    <div className="twk-row twk-row-h">
-      <div className="twk-lbl"><span>{label}</span></div>
-      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
-              role="switch" aria-checked={!!value}
-              onClick={() => onChange(!value)}><i /></button>
-    </div>
-  );
-}
-
-function TweakRadio({ label, value, options, onChange }) {
-  const trackRef = React.useRef(null);
-  const [dragging, setDragging] = React.useState(false);
-  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
-  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
-  const n = opts.length;
-
-  // The active value is read by pointer-move handlers attached for the lifetime
-  // of a drag — ref it so a stale closure doesn't fire onChange for every move.
-  const valueRef = React.useRef(value);
-  valueRef.current = value;
-
-  const segAt = (clientX) => {
-    const r = trackRef.current.getBoundingClientRect();
-    const inner = r.width - 4;
-    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
-    return opts[Math.max(0, Math.min(n - 1, i))].value;
-  };
-
-  const onPointerDown = (e) => {
-    setDragging(true);
-    const v0 = segAt(e.clientX);
-    if (v0 !== valueRef.current) onChange(v0);
-    const move = (ev) => {
-      if (!trackRef.current) return;
-      const v = segAt(ev.clientX);
-      if (v !== valueRef.current) onChange(v);
-    };
-    const up = () => {
-      setDragging(false);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
-
-  return (
-    <TweakRow label={label}>
-      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
-           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
-        <div className="twk-seg-thumb"
-             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
-                      width: `calc((100% - 4px) / ${n})` }} />
-        {opts.map((o) => (
-          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </TweakRow>
-  );
-}
-
-function TweakSelect({ label, value, options, onChange }) {
-  return (
-    <TweakRow label={label}>
-      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map((o) => {
-          const v = typeof o === 'object' ? o.value : o;
-          const l = typeof o === 'object' ? o.label : o;
-          return <option key={v} value={v}>{l}</option>;
-        })}
-      </select>
-    </TweakRow>
-  );
-}
-
-function TweakText({ label, value, placeholder, onChange }) {
-  return (
-    <TweakRow label={label}>
-      <input className="twk-field" type="text" value={value} placeholder={placeholder}
-             onChange={(e) => onChange(e.target.value)} />
-    </TweakRow>
-  );
-}
-
-function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
-  const clamp = (n) => {
-    if (min != null && n < min) return min;
-    if (max != null && n > max) return max;
-    return n;
-  };
-  const startRef = React.useRef({ x: 0, val: 0 });
-  const onScrubStart = (e) => {
-    e.preventDefault();
-    startRef.current = { x: e.clientX, val: value };
-    const decimals = (String(step).split('.')[1] || '').length;
-    const move = (ev) => {
-      const dx = ev.clientX - startRef.current.x;
-      const raw = startRef.current.val + dx * step;
-      const snapped = Math.round(raw / step) * step;
-      onChange(clamp(Number(snapped.toFixed(decimals))));
-    };
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
-  return (
-    <div className="twk-num">
-      <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
-      <input type="number" value={value} min={min} max={max} step={step}
-             onChange={(e) => onChange(clamp(Number(e.target.value)))} />
-      {unit && <span className="twk-num-unit">{unit}</span>}
-    </div>
-  );
-}
-
-function TweakColor({ label, value, onChange }) {
-  return (
-    <div className="twk-row twk-row-h">
-      <div className="twk-lbl"><span>{label}</span></div>
-      <input type="color" className="twk-swatch" value={value}
-             onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-
-function TweakButton({ label, onClick, secondary = false }) {
-  return (
-    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
-            onClick={onClick}>{label}</button>
-  );
-}
-
-Object.assign(window, {
-  useTweaks, TweaksPanel, TweakSection, TweakRow,
-  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
-  TweakText, TweakNumber, TweakColor, TweakButton,
-});
-</script>
 <script type="text/babel" data-presets="env,react">// planify-components.jsx — Shared UI components
 // Exports all to window.*
 
 // hooks via screens script
-
-
-/* ── STATUS BADGE ─────────────────────────────────────────── */
-function StatusBadge({ status, size = 'md' }) {
-  const m = getStatusThemeMeta(status);
-  const pad = size === 'sm' ? '2px 7px' : '3px 10px';
-  const fs  = size === 'sm' ? '10px' : '11px';
-  return (
-    <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:pad,borderRadius:20,
-      background:m.bg,color:m.text,fontSize:fs,fontWeight:600,fontFamily:"'DM Mono',monospace",
-      border:`1px solid ${m.dot}30`,whiteSpace:'nowrap'}}>
-      <span style={{width:6,height:6,borderRadius:'50%',background:m.dot,flexShrink:0,display:'block'}}></span>
-      {m.label}
-    </span>
-  );
-}
-
-/* ── TRADE BADGE ──────────────────────────────────────────── */
-function TradeBadge({ tradeId, trades, size = 'sm' }) {
-  const tr = trades.find(t => t.id === tradeId);
-  if (!tr) return null;
-  const c = getTC(tr.color);
-  const pad = size === 'sm' ? '2px 8px' : '3px 11px';
-  const fs  = size === 'sm' ? '10px' : '11px';
-  return (
-    <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:pad,borderRadius:20,
-      background:c.bg,color:c.t,border:`1px solid ${c.b}40`,fontSize:fs,fontWeight:600,
-      fontFamily:"'DM Mono',monospace",whiteSpace:'nowrap'}}>
-      <span style={{width:5,height:5,borderRadius:'50%',background:c.b,flexShrink:0}}></span>
-      {tr.short}
-    </span>
-  );
-}
-
-/* ── SHEET MODAL ──────────────────────────────────────────── */
-function SheetModal({ open, onClose, children, maxH = '92vh' }) {
-  useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [open]);
-  if (!open) return null;
-  return (
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:200,
-      display:'flex',alignItems:'flex-end',animation:'fadeIn .15s'}}>
-      <div onClick={e => e.stopPropagation()} style={{background:'var(--surface)',borderRadius:'20px 20px 0 0',
-        width:'100%',maxHeight:maxH,overflowY:'auto',WebkitOverflowScrolling:'touch',
-        padding:'0 18px 40px',animation:'slideUp .22s cubic-bezier(.32,.72,0,1)'}}>
-        <div style={{width:36,height:4,borderRadius:2,background:'var(--border)',margin:'12px auto 18px'}}></div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 /* ── CONFIRM DIALOG ───────────────────────────────────────── */
 function ConfirmDialog({ open, message, onConfirm, onCancel }) {
@@ -1309,97 +825,6 @@ function ConfirmDialog({ open, message, onConfirm, onCancel }) {
           <button onClick={onConfirm} style={btnDangerStyle}>Supprimer</button>
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ── TASK CARD (planning grid) ────────────────────────────── */
-function TaskCard({ iv, trades, data = [], isDark, onClick, criticalPath = null, criticalVisible = true, dimmed = false, focused = false }) {
-  const tr = trades.find(t => t.id === iv.trade);
-  const c  = getTC(tr?.color || 'blue');
-  const m  = getStatusThemeMeta(effectiveStatus(iv));
-  const bg = isDark ? c.bgD : c.bg;
-  const bdr= isDark ? `${c.b}60` : `${c.b}35`;
-  const hasCritical = !!(criticalVisible && criticalPath && criticalPath.linked);
-  const ccColor = hasCritical ? (criticalPath.color || '#EA580C') : c.b;
-  const ccBg = hasCritical ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.11)+', '+rgbaCss(ccColor,.11)+'), '+bg) : bg;
-  const ccBorder = hasCritical ? ('1.5px dashed '+rgbaCss(ccColor,.90)) : ('1px solid '+bdr);
-  const ccShadow = hasCritical
-    ? ('0 0 0 2px '+rgbaCss(ccColor,.22)+', 0 0 0 5px '+rgbaCss(ccColor,.07)+', 0 2px 8px '+rgbaCss(ccColor,.10))
-    : 'none';
-  return (
-    <div onClick={onClick} style={{borderRadius:7,padding:'3px 6px 3px 8px',marginBottom:2,cursor:'pointer',
-      background:ccBg,borderLeft:`3px solid ${hasCritical ? ccColor : c.b}`,border:ccBorder,
-      boxShadow:ccShadow,
-      transition:'opacity .12s, box-shadow .15s, border-color .15s, background .15s',userSelect:'none',position:'relative',
-      opacity:dimmed ? .34 : 1,filter:dimmed?'saturate(.65)':'none'}}
-      onMouseEnter={e=>{e.currentTarget.style.opacity=dimmed?'.5':'.90';}}
-      onMouseLeave={e=>{e.currentTarget.style.opacity=dimmed?'.34':'1';}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:1}}>
-        <span style={{fontFamily:"'DM Mono',monospace",fontSize:'7.5px',color:c.t,opacity:.7,fontWeight:600}}>
-          {iv.task_number}
-        </span>
-        <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'1px 5px',borderRadius:999,
-          background:m.bg,color:m.text,border:`1px solid ${m.dot}66`,fontSize:7.5,fontWeight:900,
-          fontFamily:"'DM Mono',monospace",lineHeight:1,whiteSpace:'nowrap',flexShrink:0}}>
-          <span style={{width:5,height:5,borderRadius:'50%',background:m.dot,flexShrink:0,display:'block'}}></span>
-          {m.label}
-        </span>
-      </div>
-      <div style={{fontSize:10,fontWeight:700,color:c.t,marginBottom:1,lineHeight:1.15}}>{iv.company}</div>
-      <div style={{fontSize:9,color:c.t,opacity:.85,lineHeight:1.32,overflow:'hidden'}}>{iv.task}</div>
-      <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:2}}>
-        <TaskDependencyBadges iv={iv} data={data} compact />
-        {hasCritical ? <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'1px 5px',borderRadius:20,background:rgbaCss(ccColor,.16),color:ccColor,border:'1.5px dashed '+rgbaCss(ccColor,.55),fontSize:7.5,fontWeight:900,fontFamily:"'DM Mono',monospace"}}>{criticalPath.chainLabel || 'CC'}</span> : null}
-      </div>
-      {iv.prereq && <div style={{fontSize:'7.5px',marginTop:2,color:'#DC2626',opacity:.85,display:'flex',gap:3,alignItems:'flex-start'}}>
-        <span>⚠</span><span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{iv.prereq.slice(0,40)}</span>
-      </div>}
-      {taskCanFinishLater(iv) && (
-        <div style={{marginTop:2}}>
-          <TaskFinishLaterBadge iv={iv} compact />
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── STAT CHIP ────────────────────────────────────────────── */
-function StatChip({ value, label, color, bg, onClick }) {
-  return (
-    <div onClick={onClick} style={{background:'var(--surface)',border:'1px solid var(--border)',
-      borderRadius:'var(--r-sm)',padding:'11px 8px',textAlign:'center',cursor:onClick?'pointer':'default',
-      boxShadow:'var(--shadow)',transition:'transform .1s',flex:1}}
-      onMouseEnter={e=>{if(onClick)e.currentTarget.style.transform='translateY(-1px)';}}
-      onMouseLeave={e=>{e.currentTarget.style.transform='';}}> 
-      <div style={{fontSize:24,fontWeight:700,color,fontFamily:"'DM Mono',monospace",lineHeight:1}}>{value}</div>
-      <div style={{fontSize:10,color:'var(--muted)',marginTop:3,fontWeight:500}}>{label}</div>
-    </div>
-  );
-}
-
-/* ── FILTER CHIPS ─────────────────────────────────────────── */
-function FilterChips({ trades, filter, onFilter }) {
-  return (
-    <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>
-      {[{id:'all',short:'Tous',color:''},...trades].map(tr => {
-        const isAll = tr.id === 'all';
-        const active = filter === tr.id;
-        const c = !isAll ? getTC(tr.color) : null;
-        return (
-          <button key={tr.id} onClick={() => onFilter(tr.id)}
-            style={{padding:'5px 12px',borderRadius:20,
-              border:`1px solid ${active?(isAll?'var(--primary)':c.b):`${c?c.b+'60':'rgba(255,255,255,.2)'}`}`,
-              background:active?(isAll?'#fff':c.bg):'rgba(255,255,255,.08)',
-              color:active?(isAll?'var(--hdr)':c.t):'rgba(255,255,255,.8)',
-              fontSize:12,fontWeight:active?600:400,cursor:'pointer',whiteSpace:'nowrap',
-              display:'flex',alignItems:'center',gap:5,transition:'all .15s',flexShrink:0}}>
-            {c && <span style={{width:7,height:7,borderRadius:'50%',background:c.b,flexShrink:0,
-              opacity:active?1:0.7}}></span>}
-            {tr.short}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -1743,60 +1168,6 @@ function AppHeader({ session, weekOffset, onWeekChange, onSettings, onUserMenu, 
   );
 }
 
-/* ── BOTTOM NAV ───────────────────────────────────────────── */
-function BottomNav({ screen, onNav, onAdd, isAdmin, canAdd = true }) {
-  const items = [
-    {id:'dashboard', icon: <DashIcon />, label:'Tableau'},
-    {id:'planning',  icon: <PlanIcon />, label:'Planning'},
-    null, // FAB slot
-    {id:'list',      icon: <ListIcon />, label:'Liste'},
-    {id:'briefings', icon: <BriefIcon />, label:'Fiches', adminOnly:true},
-    {id:'settings',  icon: <SettIcon />, label:'Config', adminOnly:true},
-  ].filter(i => i === null || !i.adminOnly || isAdmin);
-
-  // ensure FAB slot present
-  const hasFab = isAdmin;
-  const navItems = hasFab ? items : items.filter(i=>i!==null);
-
-  return (
-    <nav style={{position:'fixed',bottom:0,left:0,right:0,background:'var(--surface)',
-      borderTop:'1px solid var(--border)',display:'flex',alignItems:'center',
-      justifyContent:'space-around',padding:'8px 0',
-      paddingBottom:`max(10px, env(safe-area-inset-bottom))`,zIndex:100,
-      boxShadow:'0 -1px 0 var(--border)'}}>
-      {navItems.map((item, idx) => {
-        if (item === null) return (
-          <button key="fab" onClick={canAdd ? onAdd : undefined} disabled={!canAdd}
-            title={canAdd?'Ajouter une intervention':'Planning verrouillé ou validé'}
-            style={{width:46,height:46,borderRadius:'50%',
-            background:canAdd?'var(--primary)':'var(--border-s)',color:'#fff',border:'none',fontSize:22,
-            cursor:canAdd?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',marginTop:-18,
-            boxShadow:canAdd?'0 4px 16px color-mix(in srgb, var(--primary) 45%, transparent)':'none',
-            opacity:canAdd?1:.65,transition:'transform .15s'}}
-            onMouseEnter={e=>{if(canAdd)e.currentTarget.style.transform='scale(1.08)';}}
-            onMouseLeave={e=>{e.currentTarget.style.transform='';}}>
-            +
-          </button>
-        );
-        const active = screen === item.id;
-        return (
-          <button key={item.id} onClick={() => onNav(item.id)}
-            style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,
-              background:'transparent',border:'none',cursor:'pointer',
-              color:active?'var(--primary)':'var(--muted)',padding:'4px 0',
-              fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:active?600:400,
-              transition:'color .15s'}}>
-            <span style={{width:20,height:20,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              {item.icon}
-            </span>
-            {item.label}
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
 /* ── SVG ICONS ────────────────────────────────────────────── */
 function DashIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>; }
 function PlanIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="3" width="16" height="15" rx="2"/><line x1="2" y1="7" x2="18" y2="7"/><line x1="7" y1="3" x2="7" y2="18"/></svg>; }
@@ -2059,45 +1430,6 @@ function buildAlignedTaskSlots(cards, zoneCritical, alignedChains, showCriticalP
   return slots;
 }
 
-/* ── FORM FIELD ───────────────────────────────────────────── */
-function Field({ label, children, hint }) {
-  return (
-    <div style={{marginBottom:13}}>
-      <label style={{fontSize:12,fontWeight:600,color:'var(--muted)',display:'block',marginBottom:5}}>
-        {label}{hint&&<span style={{fontWeight:400,marginLeft:4,color:'var(--xmuted)'}}>{hint}</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-function Input({ value, onChange, placeholder, type='text', ...rest }) {
-  return <input type={type} value={value} onChange={onChange} placeholder={placeholder}
-    style={{width:'100%',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-      fontSize:14,color:'var(--text)',background:'var(--surface)',fontFamily:"'DM Sans',sans-serif",
-      outline:'none',transition:'border-color .15s',...rest?.style}}
-    onFocus={e=>e.target.style.borderColor='var(--primary)'}
-    onBlur={e=>e.target.style.borderColor='var(--border)'}
-    {...rest} />;
-}
-function Select({ value, onChange, children, ...rest }) {
-  return <select value={value} onChange={onChange}
-    style={{width:'100%',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-      fontSize:14,color:'var(--text)',background:'var(--surface)',fontFamily:"'DM Sans',sans-serif",
-      outline:'none',appearance:'none',backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7280' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
-      backgroundRepeat:'no-repeat',backgroundPosition:'right 12px center'}}
-    onFocus={e=>e.target.style.borderColor='var(--primary)'}
-    onBlur={e=>e.target.style.borderColor='var(--border)'}
-    {...rest}>{children}</select>;
-}
-function Textarea({ value, onChange, placeholder, rows=3, fixed=false }) {
-  return <textarea value={value} onChange={onChange} placeholder={placeholder} rows={rows}
-    style={{width:'100%',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',
-      fontSize:14,color:'var(--text)',background:'var(--surface)',fontFamily:"'DM Sans',sans-serif",
-      outline:'none',resize:fixed?'none':'vertical',lineHeight:1.5}}
-    onFocus={e=>e.target.style.borderColor='var(--primary)'}
-    onBlur={e=>e.target.style.borderColor='var(--border)'} />;
-}
-
 /* ── ATTACHMENT DROPZONE ──────────────────────────────────── */
 function AttachmentZone({ files, setFiles }) {
   const [dragging, setDragging] = useState(false);
@@ -2141,37 +1473,13 @@ function AttachmentZone({ files, setFiles }) {
   );
 }
 
-/* ── ZONE PROGRESS BAR ────────────────────────────────────── */
-function ZoneProgressBar({ zone, interventions }) {
-  const zivs = interventions.filter(i => i.zone === zone.id);
-  const total = zivs.length;
-  const done  = zivs.filter(i => i.status === 'termine').length;
-  const pct   = total ? Math.round(done / total * 100) : 0;
-  const blocked = zivs.some(i => i.status === 'bloque');
-  return (
-    <div style={{marginBottom:10}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-        <span style={{fontSize:12,fontWeight:500,color:'var(--text)'}}>{zone.name}</span>
-        <div style={{display:'flex',alignItems:'center',gap:6}}>
-          {blocked && <span style={{fontSize:10,color:'#DC2626',fontWeight:600}}>⚠</span>}
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--muted)'}}>{pct}%</span>
-        </div>
-      </div>
-      <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
-        <div style={{height:'100%',width:`${pct}%`,background:blocked?'#DC2626':'var(--success)',
-          borderRadius:3,transition:'width .3s ease'}}></div>
-      </div>
-    </div>
-  );
-}
 
 Object.assign(window, {
-  StatusBadge, TradeBadge, SheetModal, ConfirmDialog, TaskCard, StatChip,
-  FilterChips, AppHeader, BottomNav, Field, Input, Select, Textarea,
-  AttachmentZone, ZoneProgressBar,
+  ConfirmDialog, AppHeader,
   DashIcon, PlanIcon, ListIcon, SettIcon, AttachIcon, BriefIcon,
   taskCanFinishLater, taskLatestFinishText, TaskFinishLaterBadge,
   hdrBtnStyle, btnPrimaryStyle, btnSecStyle, btnDangerStyle,
+  AttachmentZone,
 });
 </script>
 <!-- ============================================================
@@ -2588,7 +1896,7 @@ var UX2 = {
   transition:'all .16s cubic-bezier(.2,.8,.2,1)'
 };
 
-function ux2Rgba(hex, alpha){
+function rgbaCss(hex, alpha){
   if (typeof rgbaCss === 'function') return rgbaCss(hex, alpha);
   var clean = String(hex || '#2563EB').replace('#','').trim();
   if (clean.length === 3) clean = clean.split('').map(function(c){return c+c;}).join('');
@@ -2662,7 +1970,7 @@ var TradeBadge = window.TradeBadge = function TradeBadge({ tradeId, trades, size
         height:7,
         borderRadius:'50%',
         background:c.b,
-        boxShadow:'0 0 0 3px '+ux2Rgba(c.b,.12),
+        boxShadow:'0 0 0 3px '+rgbaCss(c.b,.12),
         flexShrink:0
       }} />
       {tr.short}
@@ -2708,7 +2016,7 @@ var StatChip = window.StatChip = function StatChip({ value, label, color, bg, on
         width:68,
         height:68,
         borderRadius:'50%',
-        background:ux2Rgba(color || '#2563EB', .10)
+        background:rgbaCss(color || '#2563EB', .10)
       }} />
       <div style={{
         position:'relative',
@@ -2987,7 +2295,7 @@ var FilterChips = window.FilterChips = function FilterChips({ trades, filter, on
                 height:7,
                 borderRadius:'50%',
                 background:c.b,
-                boxShadow:'0 0 0 3px '+ux2Rgba(c.b,.14),
+                boxShadow:'0 0 0 3px '+rgbaCss(c.b,.14),
                 flexShrink:0
               }} />
             )}
@@ -3037,12 +2345,12 @@ var TaskCard = window.TaskCard = function TaskCard({
         marginBottom:6,
         cursor:'pointer',
         background:hasCritical
-          ? 'linear-gradient(0deg, '+ux2Rgba(ccColor,.12)+', '+ux2Rgba(ccColor,.12)+'), '+bg
+          ? 'linear-gradient(0deg, '+rgbaCss(ccColor,.12)+', '+rgbaCss(ccColor,.12)+'), '+bg
           : bg,
-        border:'1px solid '+(hasCritical ? ux2Rgba(ccColor,.72) : c.b+'34'),
+        border:'1px solid '+(hasCritical ? rgbaCss(ccColor,.72) : c.b+'34'),
         borderLeft:'5px solid '+(hasCritical ? ccColor : c.b),
         boxShadow:hasCritical
-          ? '0 0 0 2px '+ux2Rgba(ccColor,.18)+', 0 8px 24px '+ux2Rgba(ccColor,.12)
+          ? '0 0 0 2px '+rgbaCss(ccColor,.18)+', 0 8px 24px '+rgbaCss(ccColor,.12)
           : '0 1px 2px rgba(0,0,0,.04)',
         transition:UX2.transition,
         userSelect:'none',
@@ -3052,14 +2360,14 @@ var TaskCard = window.TaskCard = function TaskCard({
       onMouseEnter={function(e){
         e.currentTarget.style.transform='translateY(-1px)';
         e.currentTarget.style.boxShadow=hasCritical
-          ? '0 0 0 2px '+ux2Rgba(ccColor,.25)+', 0 12px 30px '+ux2Rgba(ccColor,.18)
+          ? '0 0 0 2px '+rgbaCss(ccColor,.25)+', 0 12px 30px '+rgbaCss(ccColor,.18)
           : '0 10px 24px rgba(17,19,21,.10)';
         e.currentTarget.style.opacity=dimmed ? .52 : 1;
       }}
       onMouseLeave={function(e){
         e.currentTarget.style.transform='';
         e.currentTarget.style.boxShadow=hasCritical
-          ? '0 0 0 2px '+ux2Rgba(ccColor,.18)+', 0 8px 24px '+ux2Rgba(ccColor,.12)
+          ? '0 0 0 2px '+rgbaCss(ccColor,.18)+', 0 8px 24px '+rgbaCss(ccColor,.12)
           : '0 1px 2px rgba(0,0,0,.04)';
         e.currentTarget.style.opacity=dimmed ? .34 : 1;
       }}
@@ -3071,7 +2379,7 @@ var TaskCard = window.TaskCard = function TaskCard({
         width:72,
         height:72,
         borderRadius:'50%',
-        background:ux2Rgba(hasCritical ? ccColor : c.b, .10)
+        background:rgbaCss(hasCritical ? ccColor : c.b, .10)
       }} />
 
       <div style={{
@@ -3112,7 +2420,7 @@ var TaskCard = window.TaskCard = function TaskCard({
           borderRadius:'50%',
           background:c.b,
           flexShrink:0,
-          boxShadow:'0 0 0 3px '+ux2Rgba(c.b,.13)
+          boxShadow:'0 0 0 3px '+rgbaCss(c.b,.13)
         }} />
         <div style={{
           fontSize:'var(--fz-task-company)',
@@ -3159,9 +2467,9 @@ var TaskCard = window.TaskCard = function TaskCard({
             gap:5,
             padding:'2px 7px',
             borderRadius:999,
-            background:ux2Rgba(ccColor,.16),
+            background:rgbaCss(ccColor,.16),
             color:ccColor,
-            border:'1px solid '+ux2Rgba(ccColor,.45),
+            border:'1px solid '+rgbaCss(ccColor,.45),
             fontSize:9,
             fontWeight:900,
             fontFamily:UX2.mono,
@@ -3756,140 +3064,170 @@ function getCompanyMainTrade(companyName, data, companies, trades) {
   var tr = trades.find(function(t){ return t.id === tradeId; });
   return tr || trades[0] || null;
 }
-
-function EnterpriseTaskItem({ iv, zones, trades, onOpenDetail, onStatusChange, canChangeStatus, compact = false }) {
-  var z = zones.find(function(x){ return x.id === iv.zone; });
-  var tr = trades.find(function(t){ return t.id === iv.trade; });
-  var c = getTC(tr ? tr.color : 'blue');
-  var late = isTaskLate(iv);
-  return (
-    <div onClick={function(){onOpenDetail(iv.id);}}
-      style={{background:'var(--surface)',border:'1px solid '+(late?'rgba(234,88,12,.4)':'var(--border)'),
-        borderLeft:'4px solid '+(late?'#EA580C':c.b),borderRadius:'var(--r-sm)',padding:compact?'9px 10px':'11px 13px',
-        marginBottom:8,cursor:'pointer',boxShadow:'var(--shadow)',transition:'all .15s'}}
-      onMouseEnter={function(e){e.currentTarget.style.transform='translateX(2px)';e.currentTarget.style.boxShadow='var(--shadow-md)';}}
-      onMouseLeave={function(e){e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='var(--shadow)';}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:5}}>
-        <div style={{minWidth:0}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-            {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 5px',borderRadius:4,border:'1px solid var(--border)'}}>{iv.task_number}</span>}
-            {z && <span style={{fontSize:10,color:c.t,background:c.bg,padding:'1px 6px',borderRadius:10,fontWeight:700}}>{z.short}</span>}
-            {late && <span style={{fontSize:10,color:'#EA580C',fontWeight:800}}>⏱ En retard</span>}
-          </div>
-          <div style={{fontSize:13,fontWeight:800,color:'var(--text)',lineHeight:1.35,marginTop:4}}>{iv.task}</div>
-        </div>
-        <StatusBadge status={effectiveStatus(iv)} size="sm" />
-      </div>
-      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',fontSize:11,color:'var(--muted)',marginBottom:(iv.prereq||iv.impact||iv.notes||taskCanFinishLater(iv))?6:0}}>
-        <span style={{fontFamily:"'DM Mono',monospace"}}>{fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}</span>
-        {tr && <TradeBadge tradeId={iv.trade} trades={trades} />}
-        <TaskFinishLaterBadge iv={iv} />
-        <TaskDependencyBadges iv={iv} data={window.PLANIFY_CURRENT_DATA || []} />
-      </div>
-      {iv.prereq && <div style={{fontSize:11,color:'#DC2626',background:'rgba(220,38,38,.08)',borderLeft:'2px solid #DC2626',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>⚠ {iv.prereq}{iv.prereq_company ? ' · '+iv.prereq_company : ''}</div>}
-      {iv.impact && <div style={{fontSize:11,color:'#92400E',background:'rgba(202,138,4,.10)',borderLeft:'2px solid #CA8A04',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>↪ Impact : {iv.impact}</div>}
-      {!compact && iv.notes && iv.notes.trim() && !iv.notes.startsWith('Etage') && !iv.notes.startsWith('Étage') && <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',marginTop:5}}>{iv.notes}</div>}
-      <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:8}}>
-        Cliquer pour ouvrir la fiche
-      </div>
-    </div>
-  );
-}
-
 /* ============================================================
    DASHBOARD SCREEN
 =========================================================== */
-function TaskCard2({ iv, zones, trades, onOpenDetail }) {
-  var z  = zones.find(function(x){return x.id===iv.zone;});
-  var tr = trades.find(function(x){return x.id===iv.trade;});
-  var c  = getTC(tr?tr.color:'blue');
+/* ── UNIFIED TASK ITEM (replaces TaskCard2, EnterpriseTaskItem, TaskRowAdmin) ── */
+function TaskItem({ iv, zones, trades, onOpenDetail, onStatusChange, canChangeStatus, compact = false, mode = 'dashboard' }) {
+  var z  = zones.find(function(x){ return x.id === iv.zone; });
+  var tr = trades.find(function(t){ return t.id === iv.trade; });
+  var c  = getTC(tr ? tr.color : 'blue');
   var es = effectiveStatus(iv);
   var m  = getStatusThemeMeta(es);
-  var isLate  = es === 'en_retard';
+  var isLate   = es === 'en_retard';
   var isBloque = es === 'bloque';
-  // Days overdue
-  var daysLate = 0;
-  if (isLate && iv.end) {
-    var endD = new Date(iv.end+'T00:00:00');
-    var nowD = new Date(); nowD.setHours(0,0,0,0);
-    daysLate = Math.round((nowD - endD)/(1000*60*60*24));
-  }
-  // Border color: status takes priority over trade for late/bloque
   var borderColor = isLate ? '#EA580C' : isBloque ? '#DC2626' : c.b;
   var borderAlpha = isLate ? 'rgba(234,88,12,.3)' : isBloque ? 'rgba(220,38,38,.3)' : 'var(--border)';
 
-  return (
-    <div onClick={function(){onOpenDetail(iv.id);}}
-      style={{marginBottom:8,borderRadius:'var(--r-sm)',cursor:'pointer',
-        background:'var(--surface)',border:'1px solid '+borderAlpha,
-        borderLeft:'4px solid '+borderColor,
-        boxShadow:'var(--shadow)',transition:'box-shadow .15s',overflow:'hidden'}}
-      onMouseEnter={function(e){e.currentTarget.style.boxShadow='var(--shadow-md)';}}
-      onMouseLeave={function(e){e.currentTarget.style.boxShadow='var(--shadow)';}}>
+  // Admin row mode (compact horizontal layout)
+  if (mode === 'admin-row') {
+    return (
+      <div onClick={function(){ onOpenDetail(iv.id); }}
+        style={{display:'flex',gap:10,padding:'10px 0',borderBottom:'1px solid var(--border)',
+          cursor:'pointer',alignItems:'flex-start'}}
+        onMouseEnter={function(e){ e.currentTarget.style.opacity = '.7'; }}
+        onMouseLeave={function(e){ e.currentTarget.style.opacity = '1'; }}>
+        <div style={{width:3,alignSelf:'stretch',borderRadius:2,background:c.b,flexShrink:0}}></div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+            <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{iv.company}</span>
+            {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--xmuted)',
+              background:'var(--surface-2)',padding:'1px 4px',borderRadius:3,border:'1px solid var(--border)'}}>
+              {iv.task_number}</span>}
+            <StatusBadge status={es} size="sm" />
+          </div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:3,overflow:'hidden',
+            display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
+          {iv.prereq && iv.prereq.trim() && <div style={{fontSize:10,color:'#DC2626',background:'#FEF2F2',
+            padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:2}}>
+            ⚠ {iv.prereq}
+          </div>}
+          {iv.impact && iv.impact.trim() && <div style={{fontSize:10,color:'#92400E',background:'rgba(202,138,4,.10)',
+            padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #CA8A04',marginTop:2}}>
+            ↪ {iv.impact}
+          </div>}
+          <div style={{display:'flex',gap:8,marginTop:4,alignItems:'center'}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
+              {fmtDate(iv.start)}{iv.end && iv.end !== iv.start ? ' → ' + fmtDate(iv.end) : ''}
+            </span>
+            {z && <span style={{fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',
+              padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>{z.short}</span>}
+            <TaskFinishLaterBadge iv={iv} />
+            <TaskDependencyBadges iv={iv} data={window.PLANIFY_CURRENT_DATA || []} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-      {/* Late banner */}
-      {isLate&&(
+  // Enterprise mode (company view, with status change)
+  if (mode === 'enterprise') {
+    var late = isLate;
+    return (
+      <div onClick={function(){ onOpenDetail(iv.id); }}
+        style={{background:'var(--surface)',border:'1px solid ' + (late ? 'rgba(234,88,12,.4)' : 'var(--border)'),
+          borderLeft:'4px solid ' + (late ? '#EA580C' : c.b),borderRadius:'var(--r-sm)',padding:compact ? '9px 10px' : '11px 13px',
+          marginBottom:8,cursor:'pointer',boxShadow:'var(--shadow)',transition:'all .15s'}}
+        onMouseEnter={function(e){ e.currentTarget.style.transform = 'translateX(2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+        onMouseLeave={function(e){ e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--shadow)'; }}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:5}}>
+          <div style={{minWidth:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+              {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 5px',borderRadius:4,border:'1px solid var(--border)'}}>{iv.task_number}</span>}
+              {z && <span style={{fontSize:10,color:c.t,background:c.bg,padding:'1px 6px',borderRadius:10,fontWeight:700}}>{z.short}</span>}
+              {late && <span style={{fontSize:10,color:'#EA580C',fontWeight:800}}>⏱ En retard</span>}
+            </div>
+            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',lineHeight:1.35,marginTop:4}}>{iv.task}</div>
+          </div>
+          <StatusBadge status={es} size="sm" />
+        </div>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',fontSize:11,color:'var(--muted)',marginBottom:(iv.prereq||iv.impact||iv.notes||taskCanFinishLater(iv))?6:0}}>
+          <span style={{fontFamily:"'DM Mono',monospace"}}>{fmtDate(iv.start)}{iv.end && iv.end !== iv.start ? ' → ' + fmtDate(iv.end) : ''}</span>
+          {tr && <TradeBadge tradeId={iv.trade} trades={trades} />}
+          <TaskFinishLaterBadge iv={iv} />
+          <TaskDependencyBadges iv={iv} data={window.PLANIFY_CURRENT_DATA || []} />
+        </div>
+        {iv.prereq && <div style={{fontSize:11,color:'#DC2626',background:'rgba(220,38,38,.08)',borderLeft:'2px solid #DC2626',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>⚠ {iv.prereq}{iv.prereq_company ? ' · ' + iv.prereq_company : ''}</div>}
+        {iv.impact && <div style={{fontSize:11,color:'#92400E',background:'rgba(202,138,4,.10)',borderLeft:'2px solid #CA8A04',padding:'4px 7px',borderRadius:'0 4px 4px 0',marginTop:5}}>↪ Impact : {iv.impact}</div>}
+        {!compact && iv.notes && iv.notes.trim() && !iv.notes.startsWith('Etage') && !iv.notes.startsWith('Étage') && <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',marginTop:5}}>{iv.notes}</div>}
+        <div style={{fontSize:10,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",marginTop:8}}>Cliquer pour ouvrir la fiche</div>
+      </div>
+    );
+  }
+
+  // Default: dashboard card mode (TaskCard2 behavior)
+  var daysLate = 0;
+  if (isLate && iv.end) {
+    var endD = new Date(iv.end + 'T00:00:00');
+    var nowD = new Date(); nowD.setHours(0, 0, 0, 0);
+    daysLate = Math.round((nowD - endD) / (1000 * 60 * 60 * 24));
+  }
+  return (
+    <div onClick={function(){ onOpenDetail(iv.id); }}
+      style={{marginBottom:8,borderRadius:'var(--r-sm)',cursor:'pointer',
+        background:'var(--surface)',border:'1px solid ' + borderAlpha,
+        borderLeft:'4px solid ' + borderColor,
+        boxShadow:'var(--shadow)',transition:'box-shadow .15s',overflow:'hidden'}}
+      onMouseEnter={function(e){ e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+      onMouseLeave={function(e){ e.currentTarget.style.boxShadow = 'var(--shadow)'; }}>
+      {isLate && (
         <div style={{background:'#FFF7ED',borderBottom:'1px solid rgba(234,88,12,.25)',
           padding:'5px 12px',display:'flex',alignItems:'center',gap:8}}>
           <span style={{fontSize:12}}>⏱</span>
           <span style={{fontSize:11,fontWeight:700,color:'#9A3412',flex:1}}>
-            En retard de {daysLate} jour{daysLate>1?'s':''}
-            {iv.end?' — fin prévue le '+fmtDate(iv.end):''}
+            En retard de {daysLate} jour{daysLate > 1 ? 's' : ''}
+            {iv.end ? ' — fin prévue le ' + fmtDate(iv.end) : ''}
           </span>
           <span style={{fontSize:10,fontWeight:700,color:'#EA580C',background:'rgba(234,88,12,.12)',
             padding:'2px 6px',borderRadius:10}}>RETARD</span>
         </div>
       )}
-
       <div style={{padding:'10px 12px'}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:4}}>
           <div style={{display:'flex',alignItems:'center',gap:5,flex:1,minWidth:0,flexWrap:'wrap'}}>
-            {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,
+            {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,
               color:'var(--xmuted)',background:'var(--surface-2)',padding:'1px 5px',
               borderRadius:3,border:'1px solid var(--border)',flexShrink:0}}>{iv.task_number}</span>}
-            {z&&<span style={{fontSize:10,fontWeight:600,flexShrink:0,
+            {z && <span style={{fontSize:10,fontWeight:600,flexShrink:0,
               padding:'2px 7px',borderRadius:10,
-              color:getZoneFloorColor(z,zones),
-              background:getZoneFloorColor(z,zones)+'18',
-              border:'1px solid '+getZoneFloorColor(z,zones)+'40'}}>{z.short}</span>}
-            {tr&&<span style={{fontSize:10,color:c.t,background:c.bg,
+              color:getZoneFloorColor(z, zones),
+              background:getZoneFloorColor(z, zones) + '18',
+              border:'1px solid ' + getZoneFloorColor(z, zones) + '40'}}>{z.short}</span>}
+            {tr && <span style={{fontSize:10,color:c.t,background:c.bg,
               padding:'1px 5px',borderRadius:4,fontWeight:500,flexShrink:0,
-              border:'1px solid '+c.b+'30'}}>{tr.short}</span>}
+              border:'1px solid ' + c.b + '30'}}>{tr.short}</span>}
           </div>
           <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,marginLeft:6}}>
             <span style={{width:7,height:7,borderRadius:'50%',background:m.dot,flexShrink:0}}></span>
             <span style={{fontSize:11,fontWeight:600,color:m.dot}}>{m.label}</span>
           </div>
         </div>
-
         <div style={{fontSize:13,fontWeight:600,color:'var(--text)',lineHeight:1.45,marginBottom:6}}>{iv.task}</div>
-
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:iv.prereq||iv.notes?5:0}}>
           <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
-            {fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}
+            {fmtDate(iv.start)}{iv.end && iv.end !== iv.start ? ' → ' + fmtDate(iv.end) : ''}
           </span>
-          {iv.off_days&&iv.off_days.length>0&&(
+          {iv.off_days && iv.off_days.length > 0 && (
             <span style={{fontSize:9,color:'var(--danger)',fontFamily:"'DM Mono',monospace"}}>
-              {iv.off_days.length} jour{iv.off_days.length>1?'s':''} gelé{iv.off_days.length>1?'s':''}
+              {iv.off_days.length} jour{iv.off_days.length > 1 ? 's' : ''} gelé{iv.off_days.length > 1 ? 's' : ''}
             </span>
           )}
           <TaskFinishLaterBadge iv={iv} />
           <TaskDependencyBadges iv={iv} data={window.PLANIFY_CURRENT_DATA || []} />
         </div>
-
-        {iv.prereq&&iv.prereq.trim()&&(
+        {iv.prereq && iv.prereq.trim() && (
           <div style={{fontSize:11,color:'#DC2626',background:'#FEF2F2',padding:'4px 8px',
             borderRadius:3,borderLeft:'3px solid #DC2626',marginBottom:4}}>
-            ⚠ Prérequis : {iv.prereq}{iv.prereq_company ? ' · '+iv.prereq_company : ''}
+            ⚠ Prérequis : {iv.prereq}{iv.prereq_company ? ' · ' + iv.prereq_company : ''}
           </div>
         )}
-        {iv.impact&&iv.impact.trim()&&(
+        {iv.impact && iv.impact.trim() && (
           <div style={{fontSize:11,color:'#92400E',background:'rgba(202,138,4,.10)',padding:'4px 8px',
             borderRadius:3,borderLeft:'3px solid #CA8A04',marginBottom:4}}>
             ↪ Impact : {iv.impact}
           </div>
         )}
-        {iv.notes&&iv.notes.trim()&&!iv.notes.startsWith('Etage')&&!iv.notes.startsWith('Étage')&&(
+        {iv.notes && iv.notes.trim() && !iv.notes.startsWith('Etage') && !iv.notes.startsWith('Étage') && (
           <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',marginTop:2}}>
             {iv.notes}
           </div>
@@ -3898,52 +3236,6 @@ function TaskCard2({ iv, zones, trades, onOpenDetail }) {
     </div>
   );
 }
-
-function TaskRowAdmin({ iv, zones, trades, onOpenDetail }) {
-  var z  = zones.find(function(x){return x.id===iv.zone;});
-  var tr = trades.find(function(x){return x.id===iv.trade;});
-  var c  = getTC(tr?tr.color:'blue');
-  return (
-    <div onClick={function(){onOpenDetail(iv.id);}}
-      style={{display:'flex',gap:10,padding:'10px 0',borderBottom:'1px solid var(--border)',
-        cursor:'pointer',alignItems:'flex-start'}}
-      onMouseEnter={function(e){e.currentTarget.style.opacity='.7';}}
-      onMouseLeave={function(e){e.currentTarget.style.opacity='1';}}>
-      <div style={{width:3,alignSelf:'stretch',borderRadius:2,background:c.b,flexShrink:0}}></div>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
-          <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{iv.company}</span>
-          {iv.task_number&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'var(--xmuted)',
-            background:'var(--surface-2)',padding:'1px 4px',borderRadius:3,border:'1px solid var(--border)'}}>
-            {iv.task_number}</span>}
-          <StatusBadge status={effectiveStatus(iv)} size="sm" />
-        </div>
-        <div style={{fontSize:12,color:'var(--muted)',marginBottom:3,overflow:'hidden',
-          display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{iv.task}</div>
-        {iv.prereq&&iv.prereq.trim()&&<div style={{fontSize:10,color:'#DC2626',background:'#FEF2F2',
-          padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #DC2626',marginTop:2}}>
-          ⚠ {iv.prereq}
-        </div>}
-        {iv.impact&&iv.impact.trim()&&<div style={{fontSize:10,color:'#92400E',background:'rgba(202,138,4,.10)',
-          padding:'3px 7px',borderRadius:3,borderLeft:'2px solid #CA8A04',marginTop:2}}>
-          ↪ {iv.impact}
-        </div>}
-        <div style={{display:'flex',gap:8,marginTop:4,alignItems:'center'}}>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>
-            {fmtDate(iv.start)}{iv.end&&iv.end!==iv.start?' → '+fmtDate(iv.end):''}
-          </span>
-          {z&&<span style={{fontSize:10,color:'var(--xmuted)',background:'var(--surface-2)',
-            padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>{z.short}</span>}
-          <TaskFinishLaterBadge iv={iv} />
-          <TaskDependencyBadges iv={iv} data={window.PLANIFY_CURRENT_DATA || []} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
 function isTaskLate(iv) {
   if (!iv || iv.status === 'termine') return false;
   const rawDate = iv.end || iv.start;
@@ -4031,8 +3323,8 @@ function ZoneTaskList({ items, zones, trades, onOpenDetail, isAdmin, title, empt
         <div>
           {ordered.map(function(iv) {
             return isAdmin
-              ? <TaskRowAdmin key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />
-              : <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;
+              ? <TaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} mode="admin-row" />
+              : <TaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;
           })}
         </div>
       )}
@@ -4780,14 +4072,14 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
       <SectionCard title={`Cette semaine — ${weekIvs.length} tâche${weekIvs.length!==1?'s':''}`}>
         {weekIvs.length===0
           ? <div style={{padding:'12px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>Aucune tâche planifiée cette semaine</div>
-          : weekIvs.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})
+          : weekIvs.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})
         }
       </SectionCard>
 
       {/* ── Prochaines tâches à démarrer (10j) ── */}
       {soon.length > 0 && (
         <SectionCard title={`Prochaines échéances — ${soon.length} tâche${soon.length!==1?'s':''}`}>
-          {soon.map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;}) }
+          {soon.map(function(iv){return <TaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;}) }
         </SectionCard>
       )}
 
@@ -4804,7 +4096,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
           <>
             {lateIvs.length>0&&(
               <SectionCard title={'En retard (' + lateIvs.length + ')'} accent='#EA580C'>
-                {lateIvs.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})}
+                {lateIvs.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})}
               </SectionCard>
             )}
             {sections.map(function(st){
@@ -4814,7 +4106,7 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
               if(!items.length) return null;
               return (
                 <SectionCard key={st.key} title={st.label+' ('+items.length+')'} accent={st.color}>
-                  {items.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskCard2 key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})}
+                  {items.sort(function(a,b){return a.start.localeCompare(b.start);}).map(function(iv){return <TaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />;})}
                 </SectionCard>
               );
             })}
@@ -5670,7 +4962,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
             <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.06em',textTransform:'uppercase',fontFamily:"'DM Mono',monospace",marginBottom:8,paddingBottom:5,borderBottom:'1px solid var(--border)'}}>
               {fmtDate(date)} — {new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long'})}
             </div>
-            {ivs.map(iv=><TaskRowAdmin key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} />)}
+            {ivs.map(iv=><TaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} mode="admin-row" />)}
           </div>
         ))}
       </div>
@@ -5698,7 +4990,7 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
   function TaskSection({title,subtitle,items,empty,accentColor}) {
     return <SectionCard title={title} accent={accentColor}>
       {subtitle && <div style={{fontSize:12,color:'var(--muted)',marginBottom:10,lineHeight:1.4}}>{subtitle}</div>}
-      {items.length ? items.map(function(iv){ return <EnterpriseTaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} onStatusChange={onStatusChange} canChangeStatus={canChangeStatus} />; }) :
+      {items.length ? items.map(function(iv){ return <TaskItem key={iv.id} iv={iv} zones={zones} trades={trades} onOpenDetail={onOpenDetail} onStatusChange={onStatusChange} canChangeStatus={canChangeStatus} mode="enterprise" />; }) :
         <div style={{padding:'12px 0',textAlign:'center',fontSize:12,color:'var(--muted)'}}>{empty || 'Aucune tâche.'}</div>}
     </SectionCard>;
   }
@@ -5758,8 +5050,8 @@ function ListScreen({ data, zones, trades, companies, weekOffset, filter, sessio
               Tâches qui font baisser ma fiabilité
             </div>
             {missed.map(function(iv){
-              return <EnterpriseTaskItem key={iv.id} iv={iv} zones={zones} trades={trades}
-                onOpenDetail={onOpenDetail} onStatusChange={onStatusChange} canChangeStatus={canChangeStatus} />;
+              return <TaskItem key={iv.id} iv={iv} zones={zones} trades={trades}
+                onOpenDetail={onOpenDetail} onStatusChange={onStatusChange} canChangeStatus={canChangeStatus} mode="enterprise" />;
             })}
           </div>
         ) : (
@@ -9120,10 +8412,6 @@ function RecapPreviewModal({ data, zones, trades, companies, note, onNoteChange,
 }
 
 
-function BriefIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="18" height="18"><rect x="2" y="4" width="16" height="13" rx="2"/><path d="M2 8l8 5 8-5"/></svg>;
-}
-
 
 /* ============================================================
    TASK QUICK VIEW — Vue rapide des tâches par statut/semaine
@@ -10891,11 +10179,100 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
 /* ============================================================
    ROOT APP
 =========================================================== */
+
+// ── Date & working-day utilities (module level) ──────────────────
+function dateToUtcMs(value) {
+  var ds = normalizeDateKey(value || dateStr(new Date()));
+  var p = ds.split('-').map(function(n){ return parseInt(n, 10); });
+  if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) {
+    var fallback = dateStr(new Date()).split('-').map(function(n){ return parseInt(n, 10); });
+    return Date.UTC(fallback[0], fallback[1] - 1, fallback[2]);
+  }
+  return Date.UTC(p[0], p[1] - 1, p[2]);
+}
+function addDaysStr(baseDate, amount) {
+  var ms = dateToUtcMs(baseDate) + Number(amount || 0) * 24 * 3600 * 1000;
+  var d = new Date(ms);
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+}
+function diffDaysStr(fromDate, toDate) {
+  return Math.round((dateToUtcMs(toDate) - dateToUtcMs(fromDate)) / (24 * 3600 * 1000));
+}
+function dayOfWeekDateStr(ds) {
+  var key = normalizeDateKey(ds || dateStr(new Date()));
+  var p = key.split('-').map(function(n){ return parseInt(n, 10); });
+  if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) return 1;
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
+}
+function isWeekendDateStr(ds) {
+  var dow = dayOfWeekDateStr(ds);
+  return !getConfiguredWorkingWeekdays().includes(dow);
+}
+function isHolidayDateStr(ds) {
+  return isHoliday(normalizeDateKey(ds || dateStr(new Date())));
+}
+function isNonWorkingDateStr(ds) {
+  return isWeekendDateStr(ds) || isHolidayDateStr(ds);
+}
+function isWorkingDateStr(ds) {
+  return !isNonWorkingDateStr(ds);
+}
+function nextWorkingDateStr(ds) {
+  var current = normalizeDateKey(ds || dateStr(new Date()));
+  var guard = 0;
+  while (isNonWorkingDateStr(current) && guard < 90) {
+    current = addDaysStr(current, 1);
+    guard += 1;
+  }
+  return current;
+}
+function addWorkingDaysStr(baseDate, amount) {
+  var current = nextWorkingDateStr(baseDate || dateStr(new Date()));
+  var remaining = Math.max(0, Number(amount || 0));
+  var guard = 0;
+  while (remaining > 0 && guard < 500) {
+    current = addDaysStr(current, 1);
+    if (isWorkingDateStr(current)) remaining -= 1;
+    guard += 1;
+  }
+  return current;
+}
+function workingOffsetDaysStr(fromDate, toDate) {
+  var from = nextWorkingDateStr(fromDate || dateStr(new Date()));
+  var to = nextWorkingDateStr(toDate || from);
+  if (to <= from) return 0;
+  var current = from;
+  var count = 0;
+  var guard = 0;
+  while (current < to && guard < 500) {
+    current = addDaysStr(current, 1);
+    if (isWorkingDateStr(current)) count += 1;
+    guard += 1;
+  }
+  return count;
+}
+function workingSpanDaysStr(start, end) {
+  var s = nextWorkingDateStr(start || dateStr(new Date()));
+  var e = nextWorkingDateStr(end || s);
+  if (e < s) e = s;
+  var current = s;
+  var count = 1;
+  var guard = 0;
+  while (current < e && guard < 500) {
+    current = addDaysStr(current, 1);
+    if (isWorkingDateStr(current)) count += 1;
+    guard += 1;
+  }
+  return Math.max(1, count);
+}
+function daysBetweenStr(start, end) {
+  return Math.max(0, diffDaysStr(start || dateStr(new Date()), end || start || dateStr(new Date())));
+}
+function taskStartKey(task) {
+
 function PlanifyApp() {
-  const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
-    "theme": "terrain",
-    "density": "normal"
-  }/*EDITMODE-END*/);
+  // Tweaks system removed (dev-only). Using localStorage theme only.
+  const tweaks = { theme: 'terrain', density: 'normal' };
 
   const [session,    setSession]    = useState(null);
   const [screen,     setScreen]     = useState('dashboard');
@@ -10936,7 +10313,7 @@ function PlanifyApp() {
       var saved = localStorage.getItem('planify_theme');
       if (themeOptions.includes(saved)) return saved;
     } catch(e) {}
-    return themeOptions.includes(tweaks.theme) ? tweaks.theme : 'terrain';
+    return 'terrain';
   }
   const [appTheme, setAppTheme] = useState(getInitialTheme);
 
@@ -11464,94 +10841,6 @@ function PlanifyApp() {
   }
 
 
-  function dateToUtcMs(value) {
-    var ds = normalizeDateKey(value || dateStr(new Date()));
-    var p = ds.split('-').map(function(n){ return parseInt(n, 10); });
-    if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) {
-      var fallback = dateStr(new Date()).split('-').map(function(n){ return parseInt(n, 10); });
-      return Date.UTC(fallback[0], fallback[1] - 1, fallback[2]);
-    }
-    return Date.UTC(p[0], p[1] - 1, p[2]);
-  }
-  function addDaysStr(baseDate, amount) {
-    var ms = dateToUtcMs(baseDate) + Number(amount || 0) * 24 * 3600 * 1000;
-    var d = new Date(ms);
-    return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
-  }
-  function diffDaysStr(fromDate, toDate) {
-    return Math.round((dateToUtcMs(toDate) - dateToUtcMs(fromDate)) / (24 * 3600 * 1000));
-  }
-  function dayOfWeekDateStr(ds) {
-    var key = normalizeDateKey(ds || dateStr(new Date()));
-    var p = key.split('-').map(function(n){ return parseInt(n, 10); });
-    if (p.length !== 3 || p.some(function(n){ return Number.isNaN(n); })) return 1;
-    return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
-  }
-  function isWeekendDateStr(ds) {
-    var dow = dayOfWeekDateStr(ds);
-    return !getConfiguredWorkingWeekdays().includes(dow);
-  }
-  function isHolidayDateStr(ds) {
-    return isHoliday(normalizeDateKey(ds || dateStr(new Date())));
-  }
-  function isNonWorkingDateStr(ds) {
-    return isWeekendDateStr(ds) || isHolidayDateStr(ds);
-  }
-  function isWorkingDateStr(ds) {
-    return !isNonWorkingDateStr(ds);
-  }
-  function nextWorkingDateStr(ds) {
-    var current = normalizeDateKey(ds || dateStr(new Date()));
-    var guard = 0;
-    while (isNonWorkingDateStr(current) && guard < 90) {
-      current = addDaysStr(current, 1);
-      guard += 1;
-    }
-    return current;
-  }
-  function addWorkingDaysStr(baseDate, amount) {
-    var current = nextWorkingDateStr(baseDate || dateStr(new Date()));
-    var remaining = Math.max(0, Number(amount || 0));
-    var guard = 0;
-    while (remaining > 0 && guard < 500) {
-      current = addDaysStr(current, 1);
-      if (isWorkingDateStr(current)) remaining -= 1;
-      guard += 1;
-    }
-    return current;
-  }
-  function workingOffsetDaysStr(fromDate, toDate) {
-    var from = nextWorkingDateStr(fromDate || dateStr(new Date()));
-    var to = nextWorkingDateStr(toDate || from);
-    if (to <= from) return 0;
-    var current = from;
-    var count = 0;
-    var guard = 0;
-    while (current < to && guard < 500) {
-      current = addDaysStr(current, 1);
-      if (isWorkingDateStr(current)) count += 1;
-      guard += 1;
-    }
-    return count;
-  }
-  function workingSpanDaysStr(start, end) {
-    var s = nextWorkingDateStr(start || dateStr(new Date()));
-    var e = nextWorkingDateStr(end || s);
-    if (e < s) e = s;
-    var current = s;
-    var count = 1;
-    var guard = 0;
-    while (current < e && guard < 500) {
-      current = addDaysStr(current, 1);
-      if (isWorkingDateStr(current)) count += 1;
-      guard += 1;
-    }
-    return Math.max(1, count);
-  }
-  function daysBetweenStr(start, end) {
-    return Math.max(0, diffDaysStr(start || dateStr(new Date()), end || start || dateStr(new Date())));
-  }
-  function taskStartKey(task) {
     return normalizeDateKey(task && (task.start || task.start_date) || dateStr(new Date()));
   }
   function taskEndKey(task) {
@@ -12629,12 +11918,7 @@ function PlanifyApp() {
   if (!session) return (
     <>
       <LoginScreen onLogin={handleLogin} companies={companies} loadingCompanies={loginCompaniesLoading} theme={appTheme} onToggleTheme={toggleDarkMode} />
-      <TweaksPanel>
-        <TweakSection label="Apparence" />
-        <TweakRadio label="Thème" value={appTheme}
-          options={['terrain','studio','nuit']}
-          onChange={handleThemeChange} />
-      </TweaksPanel>
+
     </>
   );
 
@@ -13438,17 +12722,11 @@ function PlanifyApp() {
         </div>
       )}
 
-      <TweaksPanel>
-        <TweakSection label="Apparence" />
-        <TweakRadio label="Thème" value={appTheme}
-          options={['terrain','studio','nuit']}
-          onChange={handleThemeChange} />
-      </TweaksPanel>
+
     </>
   );
 }
-</script>
-<script type="text/babel" data-presets="env,react">
+
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(
     <ErrorBoundary>
