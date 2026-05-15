@@ -1880,12 +1880,6 @@ button,select,input,textarea{font-family:var(--font-ui);}
     font-size:16px;
   }
 }
-
-/* Accessibility: focus visible + min touch targets */
-:focus-visible{outline:2px solid var(--primary)!important;outline-offset:2px!important;border-radius:4px}
-button:focus-visible{outline:2px solid var(--primary)!important;outline-offset:2px!important;box-shadow:0 0 0 4px var(--primary-l)!important}
-a:focus-visible{outline:2px solid var(--primary)!important;outline-offset:2px!important}
-@media(max-width:768px){button,[role="button"]{min-height:36px}}
 </style>
 
 <script type="text/babel" data-presets="env,react">
@@ -3003,35 +2997,16 @@ function LoginScreen({ onLogin, companies, loadingCompanies, theme = 'terrain', 
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
             {allEntries.map(co => {
               const referentLabel = getCompanyReferentLabel(co);
-              // Find trade color for this company
-              var coTrade = null;
-              if (!co.isAdmin && co.tradeId) {
-                coTrade = TRADES.find(function(t){ return t.id === co.tradeId; });
-              }
-              var coColor = coTrade ? getTC(coTrade.color) : null;
-              var accentB = coColor ? coColor.b : (co.isAdmin ? '#174EA6' : 'var(--primary)');
-              var accentBg = coColor ? coColor.bg : 'var(--primary-l)';
-              var accentT = coColor ? coColor.t : 'var(--primary)';
               return (
               <button key={co.id} onClick={()=>pickCompany(co)}
-                style={{padding:'12px 10px',background:'var(--surface)',border:'2px solid var(--border)',
-                  borderRadius:'var(--r-sm)',cursor:'pointer',textAlign:'left',transition:'all .18s',
-                  fontFamily:"'DM Sans',sans-serif",borderLeft:'4px solid '+accentB}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=accentB;e.currentTarget.style.background=accentBg;e.currentTarget.style.borderLeftColor=accentB;}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--surface)';e.currentTarget.style.borderLeftColor=accentB;}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
-                  <span style={{width:8,height:8,borderRadius:'50%',background:accentB,flexShrink:0,display:'inline-block'}}></span>
-                  <div style={{fontSize:12,fontWeight:800,color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{co.name}</div>
-                </div>
-                {coTrade && <div style={{fontSize:9,color:accentT,background:accentBg,fontFamily:"'DM Mono',monospace",
-                  textTransform:'uppercase',letterSpacing:'.05em',marginBottom:4,display:'inline-block',
-                  padding:'1px 6px',borderRadius:10,fontWeight:700}}>{coTrade.short}</div>}
-                {!coTrade && co.isAdmin && <div style={{fontSize:9,color:'#174EA6',background:'#EEF4FF',fontFamily:"'DM Mono',monospace",
-                  textTransform:'uppercase',letterSpacing:'.05em',marginBottom:4,display:'inline-block',
-                  padding:'1px 6px',borderRadius:10,fontWeight:700}}>ADMIN</div>}
-                {referentLabel && referentLabel !== 'Référent à renseigner' && (
-                  <div style={{fontSize:10,color:'var(--muted)',lineHeight:1.3}}>{referentLabel}</div>
-                )}
+                style={{padding:'10px 8px',background:'var(--surface-2)',border:'1px solid var(--border)',
+                  borderRadius:'var(--r-sm)',cursor:'pointer',textAlign:'left',transition:'all .15s',
+                  fontFamily:"'DM Sans',sans-serif"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--primary)';e.currentTarget.style.background='var(--primary-l)';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--surface-2)';}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--text)',marginBottom:3}}>{co.name}</div>
+                <div style={{fontSize:9,color:'var(--xmuted)',fontFamily:"'DM Mono',monospace",textTransform:'uppercase',letterSpacing:'.04em',marginBottom:2}}>Référent</div>
+                <div style={{fontSize:10.5,color:'var(--muted)',lineHeight:1.3,fontWeight:700}}>{referentLabel}</div>
               </button>
               );
             })}
@@ -3089,187 +3064,6 @@ function getCompanyMainTrade(companyName, data, companies, trades) {
   var tr = trades.find(function(t){ return t.id === tradeId; });
   return tr || trades[0] || null;
 }
-/* ── QUICK STATUS POPOVER ──────────────────────────────────── */
-function QuickStatusPopover({ iv, x, y, onStatusChange, onClose, canChangeStatus }) {
-  if (!iv) return null;
-  var statuses = [
-    {id:'arealis', label:'À réaliser', color:'#9CA3AF'},
-    {id:'encours', label:'En cours', color:'#2563EB'},
-    {id:'termine', label:'Terminé', color:'#16A34A'},
-    {id:'bloque', label:'Bloqué', color:'#DC2626'},
-  ];
-  var current = effectiveStatus(iv);
-
-  React.useEffect(function(){
-    var close = function(e){ if(!e.target.closest('.planify-qsp')) onClose(); };
-    document.addEventListener('mousedown', close);
-    return function(){ document.removeEventListener('mousedown', close); };
-  }, [onClose]);
-
-  // Position: keep within viewport
-  var popX = Math.min(x, window.innerWidth - 180);
-  var popY = Math.min(y + 8, window.innerHeight - 200);
-
-  return (
-    <div className="planify-qsp" style={{
-      position:'fixed', left:popX, top:popY, zIndex:9100,
-      background:'var(--surface)', border:'1px solid var(--border)',
-      borderRadius:'var(--r-sm)', boxShadow:'var(--shadow-lg)',
-      minWidth:164, overflow:'hidden', animation:'fadeIn .12s'
-    }}>
-      <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',
-        fontSize:10,fontWeight:700,color:'var(--muted)',fontFamily:"'DM Mono',monospace",
-        textTransform:'uppercase',letterSpacing:'.05em'}}>
-        Changer le statut
-      </div>
-      {statuses.map(function(s){
-        var isActive = current === s.id;
-        return (
-          <button key={s.id}
-            onClick={function(e){
-              e.stopPropagation();
-              if (!isActive && canChangeStatus) {
-                onStatusChange(iv.id, s.id);
-              }
-              onClose();
-            }}
-            style={{
-              display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',
-              border:'none',borderBottom:'1px solid var(--border)',
-              background:isActive?'var(--primary-l)':'var(--surface)',
-              color:isActive?'var(--primary)':'var(--text)',
-              cursor:isActive?'default':'pointer',fontFamily:"'DM Sans',sans-serif",
-              fontSize:12,fontWeight:isActive?700:500,textAlign:'left',
-              transition:'background .1s'
-            }}
-            onMouseEnter={function(e){ if(!isActive) e.currentTarget.style.background='var(--surface-2)'; }}
-            onMouseLeave={function(e){ e.currentTarget.style.background=isActive?'var(--primary-l)':'var(--surface)'; }}>
-            <span style={{width:8,height:8,borderRadius:'50%',background:s.color,flexShrink:0}}></span>
-            {s.label}
-            {isActive && <span style={{marginLeft:'auto',fontSize:10,color:'var(--primary)'}}>●</span>}
-          </button>
-        );
-      })}
-      <button onClick={onClose}
-        style={{display:'block',width:'100%',padding:'8px 12px',border:'none',
-          background:'transparent',color:'var(--muted)',fontSize:11,cursor:'pointer',
-          fontFamily:"'DM Sans',sans-serif"}}>Annuler</button>
-    </div>
-  );
-}
-
-
-/* ── ZONE SITUATION BOARD (Admin Dashboard header) ──────────── */
-function ZoneSituationBoard({ zones, data, onOpenDetail }) {
-  var today = new Date(); today.setHours(0,0,0,0);
-
-  var zoneStats = zones.map(function(z) {
-    var zivs = data.filter(function(i){ return i.zone === z.id; });
-    var total = zivs.length;
-    var done = zivs.filter(function(i){ return i.status === 'termine'; }).length;
-    var late = zivs.filter(function(i){ return effectiveStatus(i) === 'en_retard'; }).length;
-    var bloc = zivs.filter(function(i){ return i.status === 'bloque'; }).length;
-    var enc = zivs.filter(function(i){ return effectiveStatus(i) === 'encours' && !isTaskFrozenToday(i); }).length;
-    var pct = total ? Math.round(done / total * 100) : 0;
-    var wd = z.deadline ? workingDaysUntil(z.deadline) : null;
-    var risk = late > 0 ? 'danger' : bloc > 0 ? 'warning' : (wd !== null && wd <= 5 && wd >= 0) ? 'warning' : 'ok';
-    var riskColor = risk === 'danger' ? '#DC2626' : risk === 'warning' ? '#EA580C' : '#16A34A';
-    var floorColor = getZoneFloorColor(z, zones);
-    return { z, total, done, late, bloc, enc, pct, wd, risk, riskColor, floorColor };
-  });
-
-  var riskCount = zoneStats.filter(function(s){ return s.risk !== 'ok'; }).length;
-
-  return (
-    <div style={{marginBottom:14}}>
-      {/* Header */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontSize:12,fontWeight:700,color:'var(--text)',textTransform:'uppercase',
-          letterSpacing:'.06em',fontFamily:"'DM Mono',monospace"}}>Situation des zones</div>
-        {riskCount > 0 && <span style={{fontSize:11,fontWeight:700,color:'#DC2626',
-          background:'rgba(220,38,38,.10)',border:'1px solid rgba(220,38,38,.3)',
-          borderRadius:20,padding:'2px 9px',fontFamily:"'DM Mono',monospace"}}>
-          {riskCount} zone{riskCount>1?'s':''} en alerte
-        </span>}
-      </div>
-
-      {/* Zone rows */}
-      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',overflow:'hidden',boxShadow:'var(--shadow)'}}>
-        {zoneStats.map(function(s, idx) {
-          return (
-            <div key={s.z.id}
-              style={{
-                display:'flex',alignItems:'center',gap:10,
-                padding:'10px 14px',
-                borderBottom:idx < zoneStats.length-1 ? '1px solid var(--border)' : 'none',
-                borderLeft:'3px solid ' + (s.risk !== 'ok' ? s.riskColor : s.floorColor),
-                background:s.risk==='danger'?'rgba(220,38,38,.025)':s.risk==='warning'?'rgba(234,88,12,.020)':'transparent',
-                transition:'background .12s'
-              }}>
-              {/* Zone name */}
-              <div style={{flex:'0 0 auto',minWidth:0,width:130}}>
-                <div style={{fontSize:12,fontWeight:700,color:'var(--text)',overflow:'hidden',
-                  textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.z.name}</div>
-                <div style={{fontSize:10,fontFamily:"'DM Mono',monospace",color:'var(--muted)',marginTop:1}}>
-                  {s.z.short}
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div style={{flex:'1 1 auto',minWidth:60}}>
-                <div style={{height:6,background:'var(--surface-2)',borderRadius:3,overflow:'hidden',
-                  border:'1px solid var(--border)'}}>
-                  <div style={{height:'100%',width:s.pct+'%',borderRadius:3,transition:'width .4s',
-                    background:s.pct===100?'#16A34A':s.late>0?'#EA580C':s.bloc>0?'#DC2626':'#2563EB'}}></div>
-                </div>
-                <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",color:'var(--muted)',marginTop:2}}>
-                  {s.done}/{s.total} tâches
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
-                {s.late > 0 && <span style={{fontSize:10,fontWeight:800,color:'#EA580C',
-                  fontFamily:"'DM Mono',monospace"}}>⏱ {s.late}</span>}
-                {s.bloc > 0 && <span style={{fontSize:10,fontWeight:800,color:'#DC2626',
-                  fontFamily:"'DM Mono',monospace"}}>⚠ {s.bloc}</span>}
-                {s.enc > 0 && <span style={{fontSize:10,fontWeight:700,color:'#2563EB',
-                  fontFamily:"'DM Mono',monospace"}}>▶ {s.enc}</span>}
-                {s.pct === 100 && <span style={{fontSize:10,fontWeight:800,color:'#16A34A',
-                  fontFamily:"'DM Mono',monospace"}}>✓</span>}
-              </div>
-
-              {/* Deadline */}
-              <div style={{flexShrink:0,textAlign:'right',minWidth:48}}>
-                {s.z.deadline ? (
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:800,
-                    color:s.wd < 0 ? '#DC2626' : s.wd <= 5 ? '#DC2626' : s.wd <= 14 ? '#EA580C' : '#16A34A'}}>
-                    {s.wd < 0 ? 'J+' + Math.abs(s.wd) : 'J-' + s.wd}
-                  </span>
-                ) : (
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)'}}>—</span>
-                )}
-                {s.z.deadline && <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",color:'var(--muted)'}}>{fmtDate(s.z.deadline).slice(0,5)}</div>}
-              </div>
-
-              {/* % */}
-              <div style={{flexShrink:0,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:900,
-                color:s.pct===100?'#16A34A':s.late>0?'#EA580C':s.bloc>0?'#DC2626':'var(--text)',
-                minWidth:40,textAlign:'right'}}>
-                {s.pct}%
-              </div>
-            </div>
-          );
-        })}
-        {zoneStats.length === 0 && (
-          <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:13}}>Aucune zone configurée</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
 /* ============================================================
    DASHBOARD SCREEN
 =========================================================== */
@@ -4032,9 +3826,6 @@ function DashboardScreen({ data, zones, trades, notifications = [], weekOffset, 
           `${total} tâche${total!==1?'s':''} · ${zones.length} zone${zones.length!==1?'s':''} · ${companies.length} entreprise${companies.length!==1?'s':''}`
         )}
 
-        {/* ── Zone Situation Board ── */}
-        <ZoneSituationBoard zones={zones} data={data} onOpenDetail={onOpenDetail} />
-
         {renderStatsGrid()}
         {renderDrawer()}
 
@@ -4379,7 +4170,7 @@ function DeadlineCell({ zone, isMulti, isAdmin, setZones }) {
 }
 
 
-function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false, taskClipboard = null, onPasteTask, onClearTaskClipboard, selectedTaskIds = [], onToggleTaskSelection, onClearTaskSelection, onMoveSelectedTasks, dependencyLinkMode = null, onStartDependencyLinkMode, onCancelDependencyLinkMode, onChooseDependencyTarget, onValidateDependencyLink, onWeekChange, onQuickStatus, canChangeStatus = true }) {
+function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, session, onOpenDetail, onOpenAdd, viewMode, showWeekends = false, taskClipboard = null, onPasteTask, onClearTaskClipboard, selectedTaskIds = [], onToggleTaskSelection, onClearTaskSelection, onMoveSelectedTasks, dependencyLinkMode = null, onStartDependencyLinkMode, onCancelDependencyLinkMode, onChooseDependencyTarget, onValidateDependencyLink, onWeekChange }) {
   // 'tout' = show all weeks from today to the furthest deadline
   var maxWeeks = 1;
   if (viewMode === 'tout') {
@@ -4603,12 +4394,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             if (dependencyLinkActive && onChooseDependencyTarget) { onChooseDependencyTarget(iv.id); return; }
             onOpenDetail(iv.id);
           }}
-          onContextMenu={function(e){
-            e.preventDefault();
-            e.stopPropagation();
-            if (onQuickStatus && canChangeStatus) onQuickStatus(iv, e.clientX, e.clientY);
-            else onOpenDetail(iv.id);
-          }}
           style={{borderRadius:5,padding:weeks===2?'3px 20px 3px 4px':'2px 18px 2px 3px',marginBottom:1,cursor:'pointer',
             background:selectedForMove ? 'linear-gradient(0deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary) 12%, transparent)), '+(ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg) : (ccLinked ? ('linear-gradient(0deg, '+rgbaCss(ccColor,.13)+', '+rgbaCss(ccColor,.13)+'), '+_c.bg) : _c.bg),
             borderLeft:'3px solid '+(selectedForMove?'var(--primary)':(selectedAsDependencyTarget?'#7C3AED':(ccLinked?ccColor:_c.b))),
@@ -4616,19 +4401,19 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             boxShadow:selectedForMove ? '0 0 0 2px color-mix(in srgb, var(--primary) 26%, transparent), 0 6px 18px rgba(0,0,0,.12)' : (selectedAsDependencyTarget ? '0 0 0 2px rgba(124,58,237,.26), 0 8px 20px rgba(124,58,237,.14)' : (ccLinked?('0 0 0 1px '+rgbaCss(ccColor,.24)+', 0 1px 5px '+rgbaCss(ccColor,.10)):'none')),
             overflow:'hidden',opacity:ccDimmed && !selectedForMove ? .28 : 1,filter:ccDimmed&&!selectedForMove?'saturate(.65)':'none',position:'relative'}}>
           {renderTaskSelectionControl(iv, true)}
-          <div style={{display:'flex',alignItems:'center',gap:2,minHeight:16}}>
-            {/* Status dot */}
-            <span style={{width:5,height:5,borderRadius:'50%',background:_m.dot,flexShrink:0,display:'block',opacity:.9}}></span>
-            {/* Company short code */}
-            <span style={{fontSize:weeks===2?9:8,fontWeight:900,color:_c.t,fontFamily:UX2.mono,
-              overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',lineHeight:1.15,flex:1,
-              letterSpacing:'-.01em'}}>
-              {_tr && _tr.short ? _tr.short : String(iv.company||'').slice(0,6).toUpperCase()}
+          <div style={{display:'flex',alignItems:'center',gap:3}}>
+            <span style={{fontSize:weeks===2?8.5:7.5,fontWeight:800,color:_c.t,fontFamily:UX2.sans,
+              overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',
+              lineHeight:1.12,flex:1}}>{iv.company}</span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 4px',borderRadius:999,
+              background:_m.bg,color:_m.text,border:'1px solid '+_m.dot+'55',fontSize:weeks===2?6.8:6.4,
+              fontWeight:900,fontFamily:UX2.mono,lineHeight:1,whiteSpace:'nowrap',flexShrink:0}}>
+              <span style={{width:3.5,height:3.5,borderRadius:'50%',background:_m.dot,flexShrink:0,display:'block'}}></span>
+              {_m.label}
             </span>
           </div>
-          {weeks<=2&&<div style={{fontSize:8,color:_c.t,opacity:.82,
-            lineHeight:1.2,overflow:'hidden',fontWeight:600,marginTop:1,
-            display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{iv.task}</div>}
+          {weeks<=3&&<div style={{fontSize:weeks===2?7.8:7,color:_c.t,opacity:.88,
+            lineHeight:1.16,overflow:'hidden',fontWeight:600}}>{iv.task}</div>}
           {taskCanFinishLater(iv)&&<div style={{fontSize:weeks===2?6.8:6.2,color:'var(--primary)',fontWeight:800,
             lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>↪ fin max {fmtDate(iv.company_edit_end_max)}</div>}
           {selectedAsDependencyTarget ? <div style={{fontSize:weeks===2?6.8:6.2,color:'#7C3AED',fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Cible</div> : (ccLinked ? <div style={{fontSize:weeks===2?6.8:6.2,color:ccColor,fontWeight:900,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',borderTop:'1px dashed '+rgbaCss(ccColor,.35),marginTop:1,paddingTop:1}}>── CC ──</div> : ((taskDependencyIds(iv, data, 'predecessor').length || taskDependencyIds(iv, data, 'successor').length) ? <div style={{fontSize:weeks===2?6.8:6.2,color:'#92400E',fontWeight:800,lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lien</div> : null))}
@@ -4659,12 +4444,6 @@ function PlanningScreen({ data, zones, setZones, trades, weekOffset, filter, ses
             setTaskHover(null);
             if (dependencyLinkActive && onChooseDependencyTarget) { onChooseDependencyTarget(iv.id); return; }
             onOpenDetail(iv.id);
-          }}
-          onContextMenu={function(e){
-            e.preventDefault();
-            e.stopPropagation();
-            if (onQuickStatus && canChangeStatus) onQuickStatus(iv, e.clientX, e.clientY);
-            else onOpenDetail(iv.id);
           }} />
       </div>
     );
@@ -5475,7 +5254,7 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
   }
   function saveCompany(c) {
     var co = normalizeCompany(c);
-    if (!co.name || !co.code) { notify && window.PLANIFY_NOTIFY ? window.PLANIFY_NOTIFY('Nom et code PIN requis','error') : undefined; return; }
+    if (!co.name || !co.code) { alert('Nom entreprise et code PIN sont requis.'); return; }
     setCompanies(prev => prev.map(x => x.id===co.id ? co : x));
     setEditingCompany(null);
     supaWrite('PATCH','companies',companyRow(co),'id=eq.'+co.id);
@@ -5523,7 +5302,7 @@ function SettingsScreen({ zones, trades, companies, setZones, setTrades, setComp
   }
   function addCompany() {
     var co = normalizeCompany(newCompany||{});
-    if (!co.name || !co.code) { notify && window.PLANIFY_NOTIFY ? window.PLANIFY_NOTIFY('Nom et code PIN requis','error') : undefined; return; }
+    if (!co.name || !co.code) { alert('Nom entreprise et code PIN sont requis.'); return; }
     var exists = companies.some(function(c){return c.id===co.id || c.name.toLowerCase()===co.name.toLowerCase();});
     if (exists) { alert('Cette entreprise existe déjà. Modifiez-la dans la liste.'); return; }
     setCompanies(prev=>[...prev, co]);
@@ -8919,13 +8698,7 @@ function BriefingsScreen({ data, zones, trades, companies, session }) {
   const [recapPngBusy, setRecapPngBusy] = useState(false);
   const [recapPngDone, setRecapPngDone] = useState(false);
   const [recapPreviewOpen, setRecapPreviewOpen] = useState(false);
-  const [recapNote, setRecapNote] = useState(function(){
-    try { return localStorage.getItem('planify_recap_note') || ''; } catch(e){ return ''; }
-  });
-  function handleRecapNoteChange(v) {
-    setRecapNote(v);
-    try { localStorage.setItem('planify_recap_note', v); } catch(e) {}
-  }
+  const [recapNote, setRecapNote] = useState('');
   const [taskViewOpen, setTaskViewOpen] = useState(false);
   const [taskViewInitStatus, setTaskViewInitStatus] = useState('all');
   const [recapFilter, setRecapFilter] = useState('zone');
@@ -10497,861 +10270,6 @@ function daysBetweenStr(start, end) {
 }
 function taskStartKey(task) {
 
-/* ============================================================
-   STEP 1 — UX REDESIGN: ROLE-BASED LAYOUTS
-   Admin and Company have separate headers, navbars and dashboards
-============================================================ */
-
-/* ── NOTIFICATION CENTER ─────────────────────────────────── */
-function NotificationCenter({ open, onClose, data, notifications, session, zones, trades, onOpenDetail }) {
-  var isAdmin = session && session.role === 'admin';
-  var myName = session && session.company ? session.company.name : '';
-
-  // Build unified alert list
-  var alerts = [];
-
-  // Unread notifications
-  (notifications || []).forEach(function(n) {
-    if (!n.read) {
-      alerts.push({
-        id: 'notif_' + n.id,
-        type: /bloquant|bloquée/i.test(n.message) ? 'bloque' : 'info',
-        message: n.message || '',
-        date: n.created_at || ''
-      });
-    }
-  });
-
-  // Late tasks
-  var lateTasks = (data || []).filter(function(iv) {
-    if (iv.status === 'termine') return false;
-    if (!isAdmin && iv.company !== myName) return false;
-    return effectiveStatus(iv) === 'en_retard';
-  });
-  lateTasks.slice(0, 5).forEach(function(iv) {
-    var z = (zones || []).find(function(x){ return x.id === iv.zone; });
-    alerts.push({
-      id: 'late_' + iv.id,
-      type: 'retard',
-      message: (iv.task_number ? iv.task_number + ' · ' : '') + iv.task + (z ? ' — ' + z.short : ''),
-      taskId: iv.id,
-      date: iv.end || iv.start || ''
-    });
-  });
-
-  // Blocked tasks
-  var blockedTasks = (data || []).filter(function(iv) {
-    if (!isAdmin && iv.company !== myName) return false;
-    return iv.status === 'bloque';
-  });
-  blockedTasks.slice(0, 5).forEach(function(iv) {
-    var z = (zones || []).find(function(x){ return x.id === iv.zone; });
-    alerts.push({
-      id: 'bloc_' + iv.id,
-      type: 'bloque',
-      message: (iv.task_number ? iv.task_number + ' · ' : '') + iv.task + (z ? ' — ' + z.short : ''),
-      taskId: iv.id,
-      date: iv.updated_at || ''
-    });
-  });
-
-  // Prereq assignments
-  var prereqTasks = (data || []).filter(function(iv) {
-    if (iv.status === 'termine') return false;
-    if (!iv.prereq || !iv.prereq_company) return false;
-    if (!isAdmin && iv.prereq_company !== myName) return false;
-    return true;
-  });
-  prereqTasks.slice(0, 5).forEach(function(iv) {
-    alerts.push({
-      id: 'prereq_' + iv.id,
-      type: 'prereq',
-      message: 'Prérequis · ' + String(iv.prereq).slice(0, 60) + (iv.prereq_company && isAdmin ? ' → ' + iv.prereq_company : ''),
-      taskId: iv.id,
-      date: iv.updated_at || ''
-    });
-  });
-
-  var typeColor = { retard:'#EA580C', bloque:'#DC2626', prereq:'#7C3AED', info:'#2563EB' };
-  var typeBg = { retard:'rgba(234,88,12,.10)', bloque:'rgba(220,38,38,.10)', prereq:'rgba(124,58,237,.10)', info:'rgba(37,99,235,.10)' };
-  var typeLabel = { retard:'Retard', bloque:'Bloqué', prereq:'Prérequis', info:'Notification' };
-
-  return (
-    <SheetModal open={open} onClose={onClose} maxH="85vh">
-      <div style={{fontSize:18,fontWeight:800,color:'var(--text)',marginBottom:4}}>Alertes & notifications</div>
-      <div style={{fontSize:12,color:'var(--muted)',marginBottom:16}}>
-        {alerts.length} alerte{alerts.length !== 1 ? 's' : ''} active{alerts.length !== 1 ? 's' : ''}
-      </div>
-      {alerts.length === 0 && (
-        <div style={{textAlign:'center',padding:'32px 0',color:'var(--muted)'}}>
-          <div style={{fontSize:32,marginBottom:8}}>✓</div>
-          <div style={{fontSize:14,fontWeight:600}}>Aucune alerte active</div>
-        </div>
-      )}
-      <div>
-        {alerts.map(function(a) {
-          var color = typeColor[a.type] || '#6B7280';
-          var bg = typeBg[a.type] || 'var(--surface-2)';
-          return (
-            <div key={a.id}
-              onClick={a.taskId ? function(){ onClose(); onOpenDetail && onOpenDetail(a.taskId); } : undefined}
-              style={{
-                display:'flex',gap:12,padding:'12px 14px',borderRadius:'var(--r-sm)',
-                background:bg,border:'1px solid ' + color + '35',marginBottom:8,
-                cursor:a.taskId ? 'pointer' : 'default'
-              }}>
-              <div style={{width:3,borderRadius:2,background:color,flexShrink:0,alignSelf:'stretch'}}></div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:10,fontWeight:800,color:color,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:2,fontFamily:"'DM Mono',monospace"}}>
-                  {typeLabel[a.type] || 'Alerte'}
-                </div>
-                <div style={{fontSize:13,fontWeight:600,color:'var(--text)',lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>
-                  {a.message}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <button onClick={onClose} style={{...btnSecStyle,width:'100%',marginTop:8}}>Fermer</button>
-    </SheetModal>
-  );
-}
-
-/* ── EXPORT SHEET MODAL ──────────────────────────────────── */
-function ExportModal({ open, onClose, onExport, weekOffset, zones, viewMode }) {
-  var [step, setStep] = useState(1);
-  var [startDate, setStartDate] = useState('');
-  var [endDate, setEndDate] = useState('');
-  var [selectedWeeks, setSelectedWeeks] = useState([0]);
-  var [layout, setLayout] = useState('1s');
-
-  var today = new Date();
-  today.setHours(0,0,0,0);
-  var mon = getMonday(weekOffset);
-  var defaultStart = dateStr(mon);
-
-  React.useEffect(function(){
-    if (open) {
-      setStep(1);
-      setStartDate(defaultStart);
-      var endD = new Date(mon);
-      endD.setDate(endD.getDate() + 25);
-      setEndDate(dateStr(endD));
-      setSelectedWeeks([0]);
-      setLayout('1s');
-    }
-  }, [open]);
-
-  function weekLabel(offset) {
-    var base = startDate ? new Date(startDate + 'T00:00:00') : mon;
-    var s = new Date(base); s.setDate(s.getDate() + offset * 7);
-    var e = new Date(s); e.setDate(e.getDate() + 4);
-    return fmtDate(dateStr(s)) + ' → ' + fmtDate(dateStr(e));
-  }
-
-  function maxOffset() {
-    var max = 11;
-    var base = startDate ? new Date(startDate + 'T00:00:00') : mon;
-    (zones || []).forEach(function(z){
-      if (!z.deadline) return;
-      var d = new Date(z.deadline + 'T00:00:00');
-      var off = Math.ceil((d - base) / (7 * 24 * 3600 * 1000));
-      if (off > max) max = off;
-    });
-    return Math.min(Math.max(0, max), 32);
-  }
-
-  function toggleWeek(offset) {
-    setSelectedWeeks(function(prev){
-      var list = prev.includes(offset) ? prev.filter(function(x){ return x !== offset; }) : prev.concat([offset]);
-      return list.length ? Array.from(new Set(list)).sort(function(a,b){ return a-b; }) : [offset];
-    });
-  }
-
-  function runExport(fmt) {
-    onClose();
-    if (layout === 'global') {
-      onExport && onExport(fmt, 'until_date', { startDate: startDate || defaultStart, endDate: endDate, weekOffsets: selectedWeeks });
-    } else if (layout === '2s') {
-      onExport && onExport(fmt, '2s_page', { startDate: startDate || defaultStart, weekOffsets: selectedWeeks });
-    } else if (layout === '3s') {
-      onExport && onExport(fmt, '3s_page', { startDate: startDate || defaultStart, weekOffsets: selectedWeeks });
-    } else {
-      onExport && onExport(fmt, 'selected_weeks', { startDate: startDate || defaultStart, weekOffsets: selectedWeeks });
-    }
-  }
-
-  var LAYOUTS = [
-    { id:'1s', label:'1 sem. / page', desc:'Vue détaillée, 1 semaine par page' },
-    { id:'2s', label:'2 sem. / page', desc:'2 semaines côte à côte' },
-    { id:'3s', label:'3 sem. / page', desc:'3 semaines côte à côte' },
-    { id:'global', label:'Vue globale', desc:'Toutes les semaines, format panoramique' },
-  ];
-
-  return (
-    <SheetModal open={open} onClose={onClose} maxH="88vh">
-      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
-        <div style={{flex:1}}>
-          <div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>Exporter le planning</div>
-          <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>
-            Étape {step} sur 3 — {step===1?'Période':step===2?'Semaines':step===3?'Mise en page':''}
-          </div>
-        </div>
-        <div style={{display:'flex',gap:6}}>
-          {[1,2,3].map(function(s){
-            return (
-              <div key={s} style={{width:24,height:24,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',
-                fontSize:11,fontWeight:800,fontFamily:"'DM Mono',monospace",
-                background:step===s?'var(--primary)':step>s?'var(--success)':'var(--surface-2)',
-                color:step>=s?'#fff':'var(--muted)',
-                border:'1px solid '+(step===s?'var(--primary)':step>s?'var(--success)':'var(--border)')}}>
-                {step > s ? '✓' : s}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {step === 1 && (
-        <div>
-          <Field label="Date de début">
-            <Input type="date" value={startDate || defaultStart} onChange={function(e){ setStartDate(e.target.value); }} />
-          </Field>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:16,lineHeight:1.5}}>
-            Les semaines sont calculées à partir de ce jour.
-          </div>
-          <button onClick={function(){ setStep(2); }} style={btnPrimaryStyle}>Suivant →</button>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-            <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>Semaines à inclure</div>
-            <button onClick={function(){ setSelectedWeeks(Array.from({length:maxOffset()+1},function(_,i){return i;})); }}
-              style={{fontSize:11,fontWeight:700,color:'var(--primary)',background:'none',border:'none',cursor:'pointer'}}>
-              Tout sélectionner
-            </button>
-          </div>
-          <div style={{maxHeight:260,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--r-sm)',marginBottom:16}}>
-            {Array.from({length:maxOffset()+1},function(_,i){return i;}).map(function(offset){
-              var checked = selectedWeeks.includes(offset);
-              return (
-                <label key={offset} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
-                  borderBottom:'1px solid var(--border)',cursor:'pointer',
-                  background:checked?'var(--primary-l)':'transparent'}}>
-                  <input type="checkbox" checked={checked} onChange={function(){ toggleWeek(offset); }} />
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:800,color:checked?'var(--primary)':'var(--muted)',minWidth:28}}>
-                    S{offset+1}
-                  </span>
-                  <span style={{fontSize:12,color:'var(--text)'}}>{weekLabel(offset)}</span>
-                </label>
-              );
-            })}
-          </div>
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={function(){ setStep(1); }} style={{...btnSecStyle,flex:'0 0 auto',padding:'13px 16px'}}>← Retour</button>
-            <button onClick={function(){ setStep(3); }} style={{...btnPrimaryStyle,flex:1}}>Suivant →</button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div>
-          <div style={{fontSize:13,fontWeight:600,color:'var(--text)',marginBottom:10}}>Mise en page</div>
-          <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:20}}>
-            {LAYOUTS.map(function(l){
-              return (
-                <div key={l.id} onClick={function(){ setLayout(l.id); }}
-                  style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:'var(--r-sm)',
-                    border:'1px solid '+(layout===l.id?'var(--primary)':'var(--border)'),
-                    background:layout===l.id?'var(--primary-l)':'var(--surface)',cursor:'pointer'}}>
-                  <div style={{width:20,height:20,borderRadius:'50%',border:'2px solid '+(layout===l.id?'var(--primary)':'var(--border)'),
-                    display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                    {layout===l.id && <div style={{width:10,height:10,borderRadius:'50%',background:'var(--primary)'}}></div>}
-                  </div>
-                  <div>
-                    <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{l.label}</div>
-                    <div style={{fontSize:11,color:'var(--muted)'}}>{l.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {layout === 'global' && (
-            <Field label="Date de fin">
-              <Input type="date" value={endDate} onChange={function(e){ setEndDate(e.target.value); }} />
-            </Field>
-          )}
-          <div style={{display:'flex',gap:8,marginBottom:8}}>
-            <button onClick={function(){ setStep(2); }} style={{...btnSecStyle,flex:'0 0 auto',padding:'13px 16px'}}>← Retour</button>
-            <button onClick={function(){ runExport('pdf'); }}
-              style={{...btnPrimaryStyle,flex:1,background:'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-              <span>📄</span> Exporter PDF
-            </button>
-          </div>
-          <button onClick={function(){ runExport('xlsx'); }}
-            style={{...btnSecStyle,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-            <span>📊</span> Exporter XLSX
-          </button>
-        </div>
-      )}
-    </SheetModal>
-  );
-}
-
-/* ── COMPANY DASHBOARD ("Mon chantier") ──────────────────── */
-function CompanyDashboard({ data, zones, trades, session, notifications, onOpenDetail, onStatusChange, canChangeStatus }) {
-  var myName = session && session.company ? session.company.name : '';
-  var myData = (data || []).filter(function(i){ return i.company === myName; });
-  var today = new Date(); today.setHours(0,0,0,0);
-  var todayStr = dateStr(today);
-
-  var mainTrade = getCompanyMainTrade(myName, data, [], trades);
-  var accent = getTC(mainTrade ? mainTrade.color : 'blue');
-
-  var total = myData.length;
-  var done = myData.filter(function(i){ return effectiveStatus(i) === 'termine'; }).length;
-  var enc = myData.filter(function(i){ return effectiveStatus(i) === 'encours' && !isTaskFrozenToday(i); }).length;
-  var late = myData.filter(function(i){ return effectiveStatus(i) === 'en_retard'; }).length;
-  var bloc = myData.filter(function(i){ return effectiveStatus(i) === 'bloque'; }).length;
-  var progress = total ? Math.round(done / total * 100) : 0;
-  var reliability = calcReliability(myData);
-
-  var todayTasks = myData.filter(function(i){ return isTaskActiveOn(i, today); });
-  var todoNow = myData.filter(function(i){ return isTaskTodoToday(i); });
-  var urgentTasks = myData.filter(function(i){ return i.status !== 'termine' && (isTaskLate(i) || i.status === 'bloque'); });
-
-  var prereqForMe = (data || []).filter(function(iv){
-    return iv.prereq_company === myName && iv.prereq && iv.status !== 'termine';
-  });
-
-  var unreadNotifs = (notifications || []).filter(function(n){ return !n.read; }).length;
-
-  var [openSection, setOpenSection] = useState(null);
-  function toggleSection(k){ setOpenSection(function(s){ return s === k ? null : k; }); }
-
-  function TaskRow({ iv }) {
-    var z = (zones || []).find(function(x){ return x.id === iv.zone; });
-    var es = effectiveStatus(iv);
-    var m = getStatusThemeMeta(es);
-    var isLate = es === 'en_retard';
-    var isBloc = es === 'bloque';
-    var borderColor = isLate ? '#EA580C' : isBloc ? '#DC2626' : accent.b;
-    return (
-      <div onClick={function(){ onOpenDetail(iv.id); }}
-        style={{background:'var(--surface)',border:'1px solid var(--border)',
-          borderLeft:'3px solid ' + borderColor,borderRadius:'var(--r-sm)',
-          padding:'10px 12px',marginBottom:6,cursor:'pointer',
-          boxShadow:'var(--shadow)',transition:'transform .12s'}}
-        onMouseEnter={function(e){ e.currentTarget.style.transform='translateX(2px)'; }}
-        onMouseLeave={function(e){ e.currentTarget.style.transform=''; }}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:4}}>
-          <div style={{minWidth:0,flex:1}}>
-            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:3}}>
-              {iv.task_number && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--xmuted)',
-                background:'var(--surface-2)',padding:'1px 5px',borderRadius:4,border:'1px solid var(--border)'}}>{iv.task_number}</span>}
-              {z && <span style={{fontSize:10,fontWeight:700,color:getZoneFloorColor(z,zones),
-                background:getZoneFloorColor(z,zones)+'18',padding:'1px 7px',borderRadius:10}}>{z.short}</span>}
-              {isLate && <span style={{fontSize:10,fontWeight:800,color:'#EA580C'}}>⏱ Retard</span>}
-              {isBloc && <span style={{fontSize:10,fontWeight:800,color:'#DC2626'}}>⛔ Bloqué</span>}
-            </div>
-            <div style={{fontSize:13,fontWeight:700,color:'var(--text)',lineHeight:1.35}}>{iv.task}</div>
-          </div>
-          <StatusBadge status={es} size="sm" />
-        </div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',fontSize:11,color:'var(--muted)'}}>
-          <span style={{fontFamily:"'DM Mono',monospace"}}>{fmtDate(iv.start)}{iv.end && iv.end !== iv.start ? ' → ' + fmtDate(iv.end) : ''}</span>
-          <TaskDependencyBadges iv={iv} data={data} />
-        </div>
-        {iv.prereq && iv.prereq.trim() && <div style={{fontSize:11,color:'#DC2626',marginTop:5,
-          background:'rgba(220,38,38,.08)',borderLeft:'2px solid #DC2626',padding:'3px 7px',borderRadius:'0 4px 4px 0'}}>
-          ⚠ {iv.prereq}
-        </div>}
-      </div>
-    );
-  }
-
-  function Section({ id, title, count, accentColor, children, defaultOpen }) {
-    var isOpen = openSection === id || defaultOpen;
-    return (
-      <div style={{marginBottom:12}}>
-        <div onClick={function(){ toggleSection(id); }}
-          style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',
-            background:'var(--surface)',border:'1px solid var(--border)',
-            borderRadius:isOpen ? 'var(--r-sm) var(--r-sm) 0 0' : 'var(--r-sm)',
-            cursor:'pointer',borderLeft:'3px solid ' + (accentColor || 'var(--border)')}}>
-          <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{title}</div>
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:900,
-              color:accentColor || 'var(--muted)',
-              background:(accentColor||'#6B7280')+'18',borderRadius:999,padding:'2px 9px'}}>
-              {count}
-            </span>
-            <span style={{fontSize:12,color:'var(--muted)',transition:'transform .2s',
-              transform:isOpen?'rotate(180deg)':'none'}}>▾</span>
-          </div>
-        </div>
-        {isOpen && (
-          <div style={{padding:'10px 12px',background:'var(--surface-2)',
-            border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 var(--r-sm) var(--r-sm)'}}>
-            {children}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div style={{overflowY:'auto',height:'100%',padding:'12px 12px 100px'}}>
-      {/* ── Header card ── */}
-      <div style={{background:'var(--hdr)',borderRadius:'var(--r)',padding:'16px',marginBottom:14,
-        color:'#fff',boxShadow:'var(--shadow-md)',borderLeft:'5px solid ' + accent.b}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
-          <div style={{minWidth:0,flex:1}}>
-            <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",letterSpacing:'.1em',
-              textTransform:'uppercase',opacity:.6,marginBottom:4}}>Mon espace chantier</div>
-            <div style={{fontSize:22,fontWeight:900,letterSpacing:'-.02em',overflow:'hidden',
-              textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myName}</div>
-            <div style={{fontSize:11,opacity:.6,fontFamily:"'DM Mono',monospace",marginTop:3}}>
-              {total} tâche{total!==1?'s':''} · {enc} en cours · fiabilité = tâches dues terminées / dues
-            </div>
-          </div>
-          <div style={{display:'flex',gap:18,alignItems:'flex-start',flexShrink:0,textAlign:'right'}}>
-            <div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:28,fontWeight:900,lineHeight:1,
-                color:progress===100?'#4ADE80':'#fff'}}>{progress}%</div>
-              <div style={{fontSize:9,opacity:.5,fontFamily:"'DM Mono',monospace",marginTop:2}}>Avancement</div>
-            </div>
-            <div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:28,fontWeight:900,lineHeight:1,
-                color:reliability.value>=85?'#4ADE80':reliability.value>=60?'#FBBF24':'#F87171'}}>
-                {reliability.label}</div>
-              <div style={{fontSize:9,opacity:.5,fontFamily:"'DM Mono',monospace",marginTop:2}}>Fiabilité</div>
-            </div>
-          </div>
-        </div>
-        {/* Progress bar */}
-        <div style={{height:5,background:'rgba(255,255,255,.18)',borderRadius:3,overflow:'hidden',marginBottom:12}}>
-          <div style={{height:'100%',width:progress+'%',background:'#60A5FA',borderRadius:3,transition:'width .4s ease'}}></div>
-        </div>
-        {/* Quick stats */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
-          {[
-            {v:todoNow.length, l:"Auj.", c:'#E5E7EB'},
-            {v:enc, l:'En cours', c:'#BFDBFE'},
-            {v:late, l:'Retard', c:late>0?'#FED7AA':'#E5E7EB'},
-            {v:bloc, l:'Bloqué', c:bloc>0?'#FECACA':'#E5E7EB'},
-          ].map(function(s,i){
-            return (
-              <div key={i} style={{textAlign:'center',background:'rgba(255,255,255,.10)',borderRadius:8,padding:'8px 4px'}}>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:20,fontWeight:900,lineHeight:1,color:s.c}}>{s.v}</div>
-                <div style={{fontSize:9,opacity:.6,marginTop:2}}>{s.l}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Prereq banner */}
-      {prereqForMe.length > 0 && (
-        <div style={{background:'rgba(124,58,237,.12)',border:'1px solid rgba(124,58,237,.35)',
-          borderRadius:'var(--r-sm)',padding:'10px 14px',marginBottom:12,
-          display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:18,flexShrink:0}}>⚠️</span>
-          <div>
-            <div style={{fontSize:12,fontWeight:800,color:'#7C3AED'}}>
-              {prereqForMe.length} prérequis assigné{prereqForMe.length>1?'s':''} à votre entreprise
-            </div>
-            <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
-              Des tâches dépendent de votre intervention. Voir les détails dans la liste.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sections */}
-      <Section id="today" title="Aujourd'hui" count={todayTasks.length} accentColor="#2563EB" defaultOpen={openSection===null && todayTasks.length > 0}>
-        {todayTasks.length ? todayTasks.map(function(iv){ return <TaskRow key={iv.id} iv={iv} />; }) :
-          <div style={{padding:'12px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Aucune tâche prévue aujourd'hui</div>}
-      </Section>
-
-      <Section id="urgent" title="Urgences — retards & blocages" count={urgentTasks.length} accentColor={urgentTasks.length?'#DC2626':'var(--border)'}>
-        {urgentTasks.length ? urgentTasks.map(function(iv){ return <TaskRow key={iv.id} iv={iv} />; }) :
-          <div style={{padding:'12px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>✓ Aucune urgence</div>}
-      </Section>
-
-      <Section id="week" title="Cette semaine" count={myData.filter(function(i){ var d=weekDays(0,true); return d.some(function(day){return isTaskActiveOn(i,day);}); }).length} accentColor="#6B7280">
-        {myData.filter(function(i){ var d=weekDays(0,true); return d.some(function(day){return isTaskActiveOn(i,day);}); })
-          .sort(function(a,b){ return (a.start||'').localeCompare(b.start||''); })
-          .map(function(iv){ return <TaskRow key={iv.id} iv={iv} />; })}
-      </Section>
-
-      <Section id="all" title="Toutes mes tâches" count={total} accentColor="var(--muted)">
-        {myData.sort(function(a,b){
-          var rank=function(iv){var es=effectiveStatus(iv);if(es==='bloque')return 0;if(es==='en_retard')return 1;if(es==='encours')return 2;if(es==='arealis')return 3;return 5;};
-          return rank(a)-rank(b);
-        }).map(function(iv){ return <TaskRow key={iv.id} iv={iv} />; })}
-      </Section>
-    </div>
-  );
-}
-
-/* ── ADMIN HEADER (lean version) ───────────────────────────── */
-function AdminHeader({ session, onUserMenu, onRefresh, syncing, theme, onToggleTheme,
-  notifCount, onOpenNotifs, onOpenExport, onHistory, onSettings, planningLocked, planningValidated,
-  onToggleLock, onValidatePlanning, onReindexPlanning, busyActions }) {
-  var statusLabel = planningValidated ? '✓ Validé' : planningLocked ? '⊘ Verrouillé' : '';
-  var statusColor = planningValidated ? '#16A34A' : '#EA580C';
-
-  return (
-    <div style={{background:'var(--hdr)',color:'var(--hdr-text)',padding:'10px 14px',flexShrink:0,
-      display:'flex',alignItems:'center',gap:8,boxShadow:'0 2px 12px rgba(0,0,0,.25)'}}>
-      {/* Title */}
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",color:'rgba(255,255,255,.45)',
-          letterSpacing:'.1em',textTransform:'uppercase'}}>Chantier actif</div>
-        <div style={{fontSize:15,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',
-          overflow:'hidden',textOverflow:'ellipsis'}}>HSF — Av. Marceau</div>
-        {statusLabel && <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",color:statusColor,marginTop:1}}>{statusLabel}</div>}
-      </div>
-
-      {/* Actions */}
-      <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
-        {/* Sync */}
-        <button onClick={onRefresh} disabled={!!syncing}
-          title="Rafraîchir" aria-label="Rafraîchir"
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,width:34,height:34,fontSize:15,opacity:syncing?.65:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          {syncing?'…':'↻'}
-        </button>
-
-        {/* Notifications */}
-        <button onClick={onOpenNotifs} title="Alertes & notifications"
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,width:34,height:34,fontSize:15,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
-          🔔
-          {notifCount > 0 && <span style={{position:'absolute',top:2,right:2,width:14,height:14,
-            borderRadius:'50%',background:'#DC2626',color:'#fff',fontSize:8,fontWeight:900,
-            display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'DM Mono',monospace"}}>
-            {notifCount > 9 ? '9+' : notifCount}
-          </span>}
-        </button>
-
-        {/* History */}
-        <button onClick={onHistory} title="Historique des modifications"
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,height:34,padding:'0 10px',fontSize:10,fontWeight:800,
-            fontFamily:"'DM Mono',monospace",display:'flex',alignItems:'center',gap:5}}>
-          Hist.
-        </button>
-
-        {/* Export */}
-        <button onClick={onOpenExport} title="Exporter le planning"
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,height:34,padding:'0 10px',fontSize:10,fontWeight:800,
-            fontFamily:"'DM Mono',monospace",display:'flex',alignItems:'center',gap:5}}>
-          ⇩ <span>Export</span>
-        </button>
-
-        {/* Admin: lock/validate */}
-        {!planningValidated && !planningLocked && (
-          <button onClick={onToggleLock}
-            title="Verrouiller le planning"
-            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-              borderRadius:6,height:34,padding:'0 8px',fontSize:10,fontWeight:800,
-              fontFamily:"'DM Mono',monospace"}}>⊘</button>
-        )}
-        {planningLocked && !planningValidated && (
-          <button onClick={onValidatePlanning}
-            title="Valider le planning"
-            style={{...hdrBtnStyle,background:'rgba(22,163,74,.25)',border:'1px solid rgba(74,222,128,.35)',
-              borderRadius:6,height:34,padding:'0 8px',fontSize:10,fontWeight:800,
-              fontFamily:"'DM Mono',monospace",color:'#4ADE80'}}>Valider</button>
-        )}
-        {planningLocked && !planningValidated && (
-          <button onClick={onToggleLock}
-            title="Déverrouiller le planning"
-            style={{...hdrBtnStyle,background:'rgba(234,88,12,.18)',border:'1px solid rgba(234,88,12,.35)',
-              borderRadius:6,height:34,padding:'0 8px',fontSize:10,fontWeight:800,
-              fontFamily:"'DM Mono',monospace",color:'#FB923C'}}>Déverr.</button>
-        )}
-        {planningValidated && (
-          <button onClick={onReindexPlanning}
-            title="Créer une nouvelle version"
-            style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-              borderRadius:6,height:34,padding:'0 8px',fontSize:10,fontWeight:800,
-              fontFamily:"'DM Mono',monospace"}}>+ Version</button>
-        )}
-
-        {/* Theme */}
-        <button type="button" onClick={onToggleTheme}
-          title={theme==='nuit'?'Mode clair':'Mode sombre'}
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,width:34,height:34,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          {theme==='nuit'?'☀':'☾'}
-        </button>
-
-        {/* Settings */}
-        <button onClick={onSettings} title="Configuration"
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,width:34,height:34,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>⚙</button>
-
-        {/* User */}
-        <button onClick={onUserMenu}
-          style={{background:'var(--primary)',border:'none',borderRadius:8,
-            width:34,height:34,color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',
-            fontFamily:"'DM Mono',monospace",letterSpacing:'.02em'}}>
-          {(session?.name||'?').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ── COMPANY HEADER ─────────────────────────────────────────── */
-function CompanyHeader({ session, onUserMenu, onRefresh, syncing, theme, onToggleTheme,
-  notifCount, onOpenNotifs }) {
-  var co = session && session.company ? session.company : null;
-  var mainTrade = co ? null : null;
-
-  return (
-    <div style={{background:'var(--hdr)',color:'var(--hdr-text)',padding:'10px 14px',flexShrink:0,
-      display:'flex',alignItems:'center',gap:8,boxShadow:'0 2px 12px rgba(0,0,0,.25)'}}>
-      {/* Title */}
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:9,fontFamily:"'DM Mono',monospace",color:'rgba(255,255,255,.45)',
-          letterSpacing:'.1em',textTransform:'uppercase',marginBottom:2}}>HSF — Av. Marceau</div>
-        <div style={{fontSize:16,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',
-          letterSpacing:'-.01em'}}>
-          {co ? co.name : 'Mon espace'}
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
-        {/* Sync */}
-        <button onClick={onRefresh} disabled={!!syncing}
-          title="Rafraîchir" aria-label="Rafraîchir"
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,width:34,height:34,fontSize:15,opacity:syncing?.65:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          {syncing?'…':'↻'}
-        </button>
-
-        {/* Notifications */}
-        <button onClick={onOpenNotifs} title="Alertes"
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,width:34,height:34,fontSize:15,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
-          🔔
-          {notifCount > 0 && <span style={{position:'absolute',top:2,right:2,width:14,height:14,
-            borderRadius:'50%',background:'#DC2626',color:'#fff',fontSize:8,fontWeight:900,
-            display:'flex',alignItems:'center',justifyContent:'center'}}>
-            {notifCount > 9 ? '9+' : notifCount}
-          </span>}
-        </button>
-
-        {/* Theme */}
-        <button type="button" onClick={onToggleTheme}
-          style={{...hdrBtnStyle,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',
-            borderRadius:6,width:34,height:34,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          {theme==='nuit'?'☀':'☾'}
-        </button>
-
-        {/* User */}
-        <button onClick={onUserMenu}
-          style={{background:'var(--primary)',border:'none',borderRadius:8,
-            width:34,height:34,color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',
-            fontFamily:"'DM Mono',monospace"}}>
-          {(session?.name||'?').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ── CONTEXTUAL TOOLBAR (Planning + List) ───────────────────── */
-function ContextualToolbar({ screen, isAdmin, weekOffset, onWeekChange, onToday,
-  viewMode, onViewMode, showWeekends, onToggleWeekends, filter, trades, onFilter,
-  planningLocked, planningValidated }) {
-  if (screen !== 'planning' && screen !== 'list') return null;
-
-  var days = weekDays(weekOffset);
-  var start = days[0], end = days[days.length-1];
-
-  return (
-    <div style={{background:'var(--surface)',borderBottom:'1px solid var(--border)',
-      padding:'8px 12px',flexShrink:0}}>
-
-      {screen === 'planning' && (
-        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:filter?'8px':'0'}}>
-          {/* Week nav */}
-          <div style={{display:'flex',alignItems:'center',gap:4,background:'var(--surface-2)',
-            border:'1px solid var(--border)',borderRadius:8,padding:'3px 5px'}}>
-            <button onClick={function(){onWeekChange(-1);}} aria-label="Semaine précédente"
-              style={{background:'transparent',border:'none',cursor:'pointer',color:'var(--primary)',
-                fontSize:18,lineHeight:1,padding:'2px 4px',fontWeight:700}}>‹</button>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'var(--text)',
-              minWidth:100,textAlign:'center',fontWeight:600}}>
-              {start ? dateFR(start) : ''} – {end ? dateFR(end) : ''}
-            </span>
-            <button onClick={function(){onWeekChange(1);}} aria-label="Semaine suivante"
-              style={{background:'transparent',border:'none',cursor:'pointer',color:'var(--primary)',
-                fontSize:18,lineHeight:1,padding:'2px 4px',fontWeight:700}}>›</button>
-          </div>
-
-          {/* Today */}
-          <button onClick={onToday} title="Aujourd'hui"
-            style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:6,
-              height:30,padding:'0 10px',fontSize:11,fontWeight:700,cursor:'pointer',
-              color:'var(--muted)',fontFamily:"'DM Mono',monospace"}}>◎ Auj.</button>
-
-          {/* View mode */}
-          <div style={{display:'flex',background:'var(--surface-2)',borderRadius:6,
-            padding:2,border:'1px solid var(--border)'}}>
-            {['1s','2s','3s','tout'].map(function(v){
-              return (
-                <button key={v} onClick={function(){onViewMode(v);}}
-                  style={{padding:'4px 9px',borderRadius:4,border:'none',fontSize:10,fontWeight:700,
-                    cursor:'pointer',fontFamily:"'DM Mono',monospace",letterSpacing:'.04em',
-                    background:viewMode===v?'var(--primary)':'transparent',
-                    color:viewMode===v?'#fff':'var(--muted)',transition:'all .15s'}}>
-                  {v.toUpperCase()}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Weekends toggle (admin only) */}
-          {isAdmin && (
-            <button onClick={onToggleWeekends}
-              title={showWeekends?'Masquer week-ends':'Afficher week-ends'}
-              style={{background:showWeekends?'rgba(37,99,235,.12)':'var(--surface-2)',
-                border:'1px solid '+(showWeekends?'rgba(37,99,235,.4)':'var(--border)'),
-                borderRadius:6,height:30,padding:'0 10px',fontSize:10,fontWeight:800,
-                cursor:'pointer',color:showWeekends?'var(--primary)':'var(--muted)',
-                fontFamily:"'DM Mono',monospace"}}>
-              {showWeekends?'7J':'5J'}
-            </button>
-          )}
-
-          {planningLocked && !planningValidated && (
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:800,
-              color:'#EA580C',background:'rgba(234,88,12,.10)',border:'1px solid rgba(234,88,12,.3)',
-              borderRadius:20,padding:'3px 10px'}}>⊘ Verrouillé</span>
-          )}
-          {planningValidated && (
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:800,
-              color:'#16A34A',background:'rgba(22,163,74,.10)',border:'1px solid rgba(22,163,74,.3)',
-              borderRadius:20,padding:'3px 10px'}}>✓ Validé</span>
-          )}
-        </div>
-      )}
-
-      {/* Filter chips */}
-      <FilterChips trades={trades} filter={filter} onFilter={onFilter} />
-    </div>
-  );
-}
-
-/* ── ADMIN BOTTOM NAV ──────────────────────────────────────── */
-function AdminBottomNav({ screen, onNav, onAdd, canAdd }) {
-  var items = [
-    {id:'dashboard', icon:<DashIcon />, label:'Tableau de bord'},
-    {id:'planning', icon:<PlanIcon />, label:'Planning'},
-    null,
-    {id:'briefings', icon:<BriefIcon />, label:'Fiches'},
-    {id:'settings', icon:<SettIcon />, label:'Paramètres'},
-  ];
-
-  return (
-    <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,
-      padding:'6px 10px max(10px, env(safe-area-inset-bottom))',
-      background:'color-mix(in srgb, var(--surface) 94%, transparent)',
-      backdropFilter:'blur(18px)',WebkitBackdropFilter:'blur(18px)',
-      borderTop:'1px solid color-mix(in srgb, var(--border) 80%, transparent)',
-      boxShadow:'0 -8px 28px rgba(17,19,21,.08)'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-around',gap:4,maxWidth:600,margin:'0 auto'}}>
-        {items.map(function(item, idx){
-          if (!item) {
-            return (
-              <button key="fab" onClick={canAdd?onAdd:undefined} disabled={!canAdd}
-                title={canAdd?'Ajouter une intervention':'Planning verrouillé ou validé'}
-                style={{width:52,height:52,borderRadius:18,
-                  background:canAdd?'linear-gradient(135deg, var(--primary), var(--primary-2))':'var(--border-s)',
-                  color:'#fff',border:'none',fontSize:24,fontWeight:800,cursor:canAdd?'pointer':'not-allowed',
-                  display:'flex',alignItems:'center',justifyContent:'center',
-                  marginTop:-24,boxShadow:canAdd?'0 12px 28px color-mix(in srgb, var(--primary) 36%, transparent)':'none',
-                  opacity:canAdd?1:.6,transition:'all .16s cubic-bezier(.2,.8,.2,1)'}}>+</button>
-            );
-          }
-          var active = screen === item.id;
-          return (
-            <button key={item.id} onClick={function(){ onNav(item.id); }}
-              style={{flex:1,height:48,display:'flex',flexDirection:'column',alignItems:'center',
-                justifyContent:'center',gap:3,background:active?'var(--primary-l)':'transparent',
-                border:'1px solid '+(active?'color-mix(in srgb, var(--primary) 18%, transparent)':'transparent'),
-                borderRadius:14,cursor:'pointer',
-                color:active?'var(--primary)':'var(--muted)',
-                padding:'4px 2px',fontFamily:"'DM Sans',sans-serif",
-                fontSize:9.5,fontWeight:active?900:700,transition:'all .15s'}}>
-              <span style={{width:19,height:19,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                {item.icon}
-              </span>
-              <span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:'100%'}}>
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
-/* ── COMPANY BOTTOM NAV ────────────────────────────────────── */
-function CompanyBottomNav({ screen, onNav }) {
-  var items = [
-    {id:'company_dashboard', icon:<DashIcon />, label:'Mon chantier'},
-    {id:'planning', icon:<PlanIcon />, label:'Planning'},
-    {id:'list', icon:<ListIcon />, label:'Mes tâches'},
-  ];
-
-  return (
-    <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,
-      padding:'6px 10px max(10px, env(safe-area-inset-bottom))',
-      background:'color-mix(in srgb, var(--surface) 94%, transparent)',
-      backdropFilter:'blur(18px)',WebkitBackdropFilter:'blur(18px)',
-      borderTop:'1px solid color-mix(in srgb, var(--border) 80%, transparent)',
-      boxShadow:'0 -8px 28px rgba(17,19,21,.08)'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-around',gap:4,maxWidth:480,margin:'0 auto'}}>
-        {items.map(function(item){
-          var active = screen === item.id || (screen === 'dashboard' && item.id === 'company_dashboard');
-          return (
-            <button key={item.id} onClick={function(){ onNav(item.id === 'company_dashboard' ? 'company_dashboard' : item.id); }}
-              style={{flex:1,height:52,display:'flex',flexDirection:'column',alignItems:'center',
-                justifyContent:'center',gap:4,background:active?'var(--primary-l)':'transparent',
-                border:'1px solid '+(active?'color-mix(in srgb, var(--primary) 18%, transparent)':'transparent'),
-                borderRadius:16,cursor:'pointer',
-                color:active?'var(--primary)':'var(--muted)',
-                padding:'5px 4px',fontFamily:"'DM Sans',sans-serif",
-                fontSize:10.5,fontWeight:active?900:700,transition:'all .15s'}}>
-              <span style={{width:20,height:20,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                {item.icon}
-              </span>
-              <span style={{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:'100%'}}>
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
 function PlanifyApp() {
   // Tweaks system removed (dev-only). Using localStorage theme only.
   const tweaks = { theme: 'terrain', density: 'normal' };
@@ -11386,9 +10304,6 @@ function PlanifyApp() {
   const [validateModal, setValidateModal] = useState(false);
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState({});
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [quickStatus, setQuickStatus] = useState(null); // {iv, x, y}
-  const [exportModalOpen, setExportModalOpen] = useState(false);
   const realtimeRef = useRef(null);
   const realtimeTimerRef = useRef(null);
 
@@ -11799,7 +10714,7 @@ function PlanifyApp() {
     // Vue d'ouverture :
     // - entreprise : Liste / Mes tâches / Aujourd'hui
     // - admin : Tableau de pilotage
-    setScreen(s && s.role === 'company' ? 'company_dashboard' : 'dashboard');
+    setScreen(s && s.role === 'company' ? 'list' : 'dashboard');
     setBusyKey('sync', true);
     Promise.all([loadFromSupabase(s), loadPlanningMeta(), loadHistory()])
       .then(function(){ notify('↻ Données à jour ✓','success'); })
@@ -11881,25 +10796,9 @@ function PlanifyApp() {
   const canEditPlanning = isAdmin && !planningLocked && !planningValidated;
   const canChangeStatus = !planningValidated;
 
-  // ── Notification badge count ──────────────────────────────────
-  const notifBadgeCount = React.useMemo(function(){
-    var unread = (notifications || []).filter(function(n){ return !n.read; }).length;
-    var myName = session && session.company ? session.company.name : '';
-    var late = (data || []).filter(function(iv){
-      if (iv.status === 'termine') return false;
-      if (!isAdmin && iv.company !== myName) return false;
-      return effectiveStatus(iv) === 'en_retard';
-    }).length;
-    var bloc = (data || []).filter(function(iv){
-      if (!isAdmin && iv.company !== myName) return false;
-      return iv.status === 'bloque';
-    }).length;
-    return unread + late + bloc;
-  }, [notifications, data, isAdmin, session]);
-
   function togglePlanningTaskSelection(taskId) {
     if (!canEditPlanning) {
-      notify(planningValidated ? "Planning validé : réindexez une nouvelle version." : "Planning verrouillé : déplacement indisponible.", "error", 3200);
+      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour déplacer les tâches.' : 'Planning verrouillé : déplacement indisponible.');
       return;
     }
     setTaskClipboard(null);
@@ -11928,7 +10827,7 @@ function PlanifyApp() {
 
   function startPlanningDependencyMode(type) {
     if (!canEditPlanning) {
-      notify(planningValidated ? "Planning validé : créez une nouvelle version." : "Planning verrouillé : modification des liens impossible.", "error", 3200);
+      alert(planningValidated ? 'Planning validé : réindexez une nouvelle version pour modifier les liens.' : 'Planning verrouillé : modification des liens indisponible.');
       return;
     }
     if (!selectedPlanningTaskIds.length) { alert('Sélectionnez d’abord une ou plusieurs tâches dans le planning.'); return; }
@@ -11986,7 +10885,7 @@ function PlanifyApp() {
     });
   }
   function copyTaskToClipboard(id) {
-    if (!canEditPlanning) { notify('Planning verrouillé : copie indisponible.','error',2200); return; }
+    if (!canEditPlanning) { alert('Planning verrouillé ou validé : copie indisponible.'); return; }
     var task = data.find(function(iv){ return iv.id === id; });
     if (!task) return;
     setTaskClipboard({task:Object.assign({}, task), copiedAt:new Date().toISOString()});
@@ -11996,7 +10895,7 @@ function PlanifyApp() {
   }
   async function pasteTaskFromClipboard(targetZoneId, targetDate) {
     if (!taskClipboard || !taskClipboard.task) return;
-    if (!canEditPlanning) { notify('Planning verrouillé : collage indisponible.','error',2200); return; }
+    if (!canEditPlanning) { alert('Planning verrouillé ou validé : collage indisponible.'); return; }
     var draft = makeTaskCopy(taskClipboard.task, targetZoneId, targetDate, data, []);
     try {
       var saved = await handleSave(draft);
@@ -13014,7 +11913,7 @@ function PlanifyApp() {
     }
   }
 
-  const navScreens = ['dashboard','company_dashboard','planning','list',...(isAdmin?['briefings','settings']:[])];
+  const navScreens = ['dashboard','planning','list',...(isAdmin?['briefings','settings']:[])];
 
   if (!session) return (
     <>
@@ -13025,9 +11924,6 @@ function PlanifyApp() {
 
   const mainContent = () => {
     switch (screen) {
-      case 'company_dashboard': return <CompanyDashboard key={'co-'+(session?.company?.name||'')}
-        data={data} zones={zones} trades={trades} session={session} notifications={notifications}
-        onOpenDetail={openDetail} onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
       case 'dashboard': return <DashboardScreen key={session?.role+'-'+(session?.company?.name||'')}
         data={data} zones={zones} trades={trades} notifications={notifications}
         weekOffset={weekOffset} session={session} onOpenDetail={openDetail} />;
@@ -13036,9 +11932,7 @@ function PlanifyApp() {
         onOpenDetail={openDetail} onOpenAdd={openAdd} viewMode={viewMode} showWeekends={showWeekends} taskClipboard={taskClipboard} onPasteTask={pasteTaskFromClipboard} onClearTaskClipboard={function(){setTaskClipboard(null);}}
         selectedTaskIds={selectedPlanningTaskIds} onToggleTaskSelection={togglePlanningTaskSelection} onClearTaskSelection={clearPlanningTaskSelection} onMoveSelectedTasks={moveSelectedPlanningTasks}
         dependencyLinkMode={planningDependencyMode} onStartDependencyLinkMode={startPlanningDependencyMode} onCancelDependencyLinkMode={cancelPlanningDependencyMode} onChooseDependencyTarget={choosePlanningDependencyTarget} onValidateDependencyLink={validatePlanningDependencyLink}
-        onWeekChange={function(delta){setWeekOffset(function(w){return w+delta;});}}
-        onQuickStatus={function(iv, x, y){ setQuickStatus({iv, x, y}); }}
-        canChangeStatus={canChangeStatus} />;
+        onWeekChange={function(delta){setWeekOffset(function(w){return w+delta;});}} />;
       case 'list':      return <ListScreen      data={data} zones={zones} trades={trades} companies={companies}
         weekOffset={weekOffset} filter={filter} session={session} onOpenDetail={openDetail}
         onStatusChange={handleStatusChange} canChangeStatus={canChangeStatus} />;
@@ -13763,82 +12657,37 @@ function PlanifyApp() {
   return (
     <>
       <div style={{display:'flex',flexDirection:'column',height:'100vh',overflow:'hidden'}}>
-
-        {/* ── ROLE-BASED HEADER ── */}
-        {isAdmin ? (
-          <AdminHeader
-            session={session}
-            onUserMenu={()=>setUserMenu(true)}
-            onRefresh={()=>syncAll(true)}
-            syncing={isBusy('sync')}
-            theme={appTheme}
-            onToggleTheme={toggleDarkMode}
-            notifCount={notifBadgeCount}
-            onOpenNotifs={()=>setNotifOpen(true)}
-            onOpenExport={()=>setExportModalOpen(true)}
-            onHistory={openHistory}
-            onSettings={()=>setScreen('settings')}
-            planningLocked={planningLocked}
-            planningValidated={planningValidated}
-            onToggleLock={handleToggleLock}
-            onValidatePlanning={()=>setValidateModal(true)}
-            onReindexPlanning={handleReindexPlanning}
-            busyActions={busy}
-          />
-        ) : (
-          <CompanyHeader
-            session={session}
-            onUserMenu={()=>setUserMenu(true)}
-            onRefresh={()=>syncAll(true)}
-            syncing={isBusy('sync')}
-            theme={appTheme}
-            onToggleTheme={toggleDarkMode}
-            notifCount={notifBadgeCount}
-            onOpenNotifs={()=>setNotifOpen(true)}
-          />
-        )}
-
-        {/* ── CONTEXTUAL TOOLBAR (Planning + List only) ── */}
-        {screen !== 'settings' && screen !== 'briefings' && screen !== 'company_dashboard' && screen !== 'dashboard' && (
-          <ContextualToolbar
-            screen={screen}
-            isAdmin={isAdmin}
-            weekOffset={weekOffset}
-            onWeekChange={d=>setWeekOffset(o=>o+d)}
-            onToday={()=>setWeekOffset(0)}
-            viewMode={viewMode}
-            onViewMode={setViewMode}
-            showWeekends={showWeekends}
-            onToggleWeekends={()=>setShowWeekends(v=>!v)}
-            filter={filter}
-            trades={trades}
-            onFilter={setFilter}
-            planningLocked={planningLocked}
-            planningValidated={planningValidated}
-          />
-        )}
-
+        <AppHeader session={session} weekOffset={weekOffset}
+          onWeekChange={d=>setWeekOffset(o=>o+d)}
+          onSettings={()=>setScreen('settings')}
+          onUserMenu={()=>setUserMenu(true)}
+          filter={filter} trades={trades} onFilter={setFilter}
+          zones={zones} data={data} notifications={notifications}
+          viewMode={viewMode} onViewMode={setViewMode}
+          onToday={()=>setWeekOffset(0)}
+          showWeekends={showWeekends}
+          onToggleWeekends={()=>setShowWeekends(v=>!v)}
+          onExport={exportPlanning}
+          onHistory={openHistory}
+          onToggleLock={handleToggleLock}
+          onValidatePlanning={()=>setValidateModal(true)}
+          onReindexPlanning={handleReindexPlanning}
+          planningLocked={planningLocked}
+          planningValidated={planningValidated}
+          planningValidUntil={planningVersion?.valid_until}
+          onRefresh={()=>syncAll(true)}
+          syncing={isBusy('sync')}
+          busyActions={busy}
+          theme={appTheme}
+          onToggleTheme={toggleDarkMode} />
         <div style={{flex:1,overflow:'hidden',position:'relative'}}>
           {mainContent()}
         </div>
-
-        {/* ── ROLE-BASED BOTTOM NAV ── */}
-        {isAdmin ? (
-          <AdminBottomNav
-            screen={screen}
-            onNav={setScreen}
-            onAdd={()=>openAdd()}
-            canAdd={canEditPlanning}
-          />
-        ) : (
-          <CompanyBottomNav
-            screen={screen}
-            onNav={setScreen}
-          />
-        )}
+        <BottomNav screen={screen} onNav={setScreen}
+          onAdd={()=>openAdd()} isAdmin={isAdmin} canAdd={canEditPlanning} />
       </div>
 
-      {/* ── MODALS ── */}
+      {/* Modals */}
       <DetailModal open={modal?.type==='detail'} ivId={modal?.id}
         data={data} zones={zones} trades={trades} session={session}
         onClose={closeModal} onStatusChange={handleStatusChange} onEdit={openEdit} onCopyTask={copyTaskToClipboard}
@@ -13863,50 +12712,17 @@ function PlanifyApp() {
       <ValidatePlanningModal open={validateModal}
         onClose={()=>setValidateModal(false)} onConfirm={handleValidatePlanning} />
 
-      {/* Notification center */}
-      <NotificationCenter
-        open={notifOpen}
-        onClose={()=>setNotifOpen(false)}
-        data={data}
-        notifications={notifications}
-        session={session}
-        zones={zones}
-        trades={trades}
-        onOpenDetail={openDetail}
-      />
-
-      {/* Export modal */}
-      <ExportModal
-        open={exportModalOpen}
-        onClose={()=>setExportModalOpen(false)}
-        onExport={exportPlanning}
-        weekOffset={weekOffset}
-        zones={zones}
-        viewMode={viewMode}
-      />
-
-      {/* Quick Status Popover */}
-      {quickStatus && (
-        <QuickStatusPopover
-          iv={quickStatus.iv}
-          x={quickStatus.x}
-          y={quickStatus.y}
-          onStatusChange={handleStatusChange}
-          onClose={function(){ setQuickStatus(null); }}
-          canChangeStatus={canChangeStatus}
-        />
-      )}
-
-      {/* Toast */}
       {toast && (
-        <div style={{position:'fixed',left:'50%',bottom:80,transform:'translateX(-50%)',zIndex:9999,
+        <div style={{position:'fixed',left:'50%',bottom:82,transform:'translateX(-50%)',zIndex:9999,
           background:toast.type==='error'?'#991B1B':toast.type==='info'?'#1E3A8A':'#14532D',
-          color:'#fff',padding:'10px 18px',borderRadius:12,boxShadow:'0 8px 32px rgba(0,0,0,.3)',
-          fontSize:13,fontWeight:700,fontFamily:"'DM Sans',sans-serif",maxWidth:'calc(100vw - 32px)',
-          textAlign:'center',animation:'fadeIn .18s'}}>
+          color:'#fff',padding:'10px 14px',borderRadius:10,boxShadow:'0 8px 30px rgba(0,0,0,.25)',
+          fontSize:13,fontWeight:800,fontFamily:"'DM Sans',sans-serif",maxWidth:'calc(100vw - 32px)',
+          textAlign:'center'}}>
           {toast.message}
         </div>
       )}
+
+
     </>
   );
 }
