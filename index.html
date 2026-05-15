@@ -11899,7 +11899,7 @@ function PlanifyApp() {
 
   function togglePlanningTaskSelection(taskId) {
     if (!canEditPlanning) {
-      notify(planningValidated ? 'Planning validé : réindexez d'abord une nouvelle version.' : 'Planning verrouillé : déplacement indisponible.', 'error', 3200);
+      notify(planningValidated ? "Planning validé : réindexez une nouvelle version." : "Planning verrouillé : déplacement indisponible.", "error", 3200);
       return;
     }
     setTaskClipboard(null);
@@ -11928,7 +11928,7 @@ function PlanifyApp() {
 
   function startPlanningDependencyMode(type) {
     if (!canEditPlanning) {
-      notify(planningValidated ? 'Planning validé — créez une nouvelle version.' : 'Planning verrouillé : modification des liens impossible.', 'error', 3200);
+      notify(planningValidated ? "Planning validé : créez une nouvelle version." : "Planning verrouillé : modification des liens impossible.", "error", 3200);
       return;
     }
     if (!selectedPlanningTaskIds.length) { alert('Sélectionnez d’abord une ou plusieurs tâches dans le planning.'); return; }
