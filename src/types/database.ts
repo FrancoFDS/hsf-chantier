@@ -1,3 +1,5 @@
+export type Database = Record<string, unknown>
+
 export type Status   = 'arealis' | 'encours' | 'termine' | 'bloque' | 'en_retard'
 export type Priority = 1 | 2 | 3
 
