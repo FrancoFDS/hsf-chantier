@@ -727,17 +727,21 @@ function TaskBar({ iv, trades, isMulti, weeks, inMoveMode, onClick }: {
     // in move mode, let click propagate to the parent TD
   }
 
+  const isLate = es === 'en_retard'
+  const barBorder = isLate ? sm.dot : tc.b
+  const barBg     = isLate ? 'rgba(234,88,12,.10)' : tc.bg
+
   if (isMulti) {
     return (
       <div onClick={handleClick} style={{
         ...baseStyle,
         borderRadius: 4, padding: weeks === 2 ? '3px 4px' : '2px 3px', marginBottom: 1,
-        background: tc.bg, borderLeft: `3px solid ${tc.b}`, border: `1px solid ${tc.b}30`,
+        background: barBg, borderLeft: `3px solid ${barBorder}`, border: `1px solid ${barBorder}30`,
         overflow: 'hidden',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ fontSize: weeks === 2 ? 8.5 : 7.5, fontWeight: 800, color: tc.t, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', lineHeight: 1.12, flex: 1 }}>
-            {iv.company || iv.task}
+          <span style={{ fontSize: weeks === 2 ? 8.5 : 7.5, fontWeight: 800, color: isLate ? sm.dot : tc.t, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', lineHeight: 1.12, flex: 1 }}>
+            {isLate ? '⏱ ' : ''}{iv.company || iv.task}
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 4px', borderRadius: 999, background: sm.bg, color: sm.dot, fontSize: weeks === 2 ? 6.8 : 6.4, fontWeight: 900, lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 0, border: `1px solid ${sm.dot}55` }}>
             <span style={{ width: 3.5, height: 3.5, borderRadius: '50%', background: sm.dot, display: 'block' }} />
@@ -745,7 +749,7 @@ function TaskBar({ iv, trades, isMulti, weeks, inMoveMode, onClick }: {
           </span>
         </div>
         {weeks <= 2 && (
-          <div style={{ fontSize: weeks === 2 ? 7.8 : 7, color: tc.t, opacity: .88, lineHeight: 1.16, overflow: 'hidden', fontWeight: 600 }}>{iv.task}</div>
+          <div style={{ fontSize: weeks === 2 ? 7.8 : 7, color: isLate ? sm.dot : tc.t, opacity: .88, lineHeight: 1.16, overflow: 'hidden', fontWeight: 600 }}>{iv.task}</div>
         )}
       </div>
     )
@@ -756,13 +760,13 @@ function TaskBar({ iv, trades, isMulti, weeks, inMoveMode, onClick }: {
     <div onClick={handleClick} style={{
       ...baseStyle,
       borderRadius: 8, marginBottom: 4,
-      background: tc.bg, borderLeft: `3px solid ${tc.b}`,
-      border: `1px solid ${tc.b}30`, padding: '4px 6px',
+      background: barBg, borderLeft: `3px solid ${barBorder}`,
+      border: `1px solid ${barBorder}30`, padding: '4px 6px',
       overflow: 'hidden',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 2 }}>
-        <span style={{ fontSize: 10, fontWeight: 800, color: tc.t, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-          {iv.company || '—'}
+        <span style={{ fontSize: 10, fontWeight: 800, color: isLate ? sm.dot : tc.t, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          {isLate ? '⏱ ' : ''}{iv.company || '—'}
         </span>
         <span style={{ fontSize: 9, fontWeight: 700, color: sm.dot, background: sm.bg, padding: '1px 5px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {sm.label}
