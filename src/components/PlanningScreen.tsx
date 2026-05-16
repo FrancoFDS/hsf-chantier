@@ -27,14 +27,18 @@ function getMonday(offset = 0): Date {
   return monday
 }
 
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function multiWeekDays(weekOffset: number, weeks: number): string[] {
   const monday = getMonday(weekOffset)
   const out: string[] = []
   for (let w = 0; w < weeks; w++) {
-    for (let d = 0; d < 5; d++) {
+    for (let d = 0; d < 7; d++) {
       const day = new Date(monday)
       day.setDate(monday.getDate() + w * 7 + d)
-      out.push(day.toISOString().slice(0, 10))
+      out.push(localDateStr(day))
     }
   }
   return out
@@ -181,16 +185,17 @@ export default function PlanningScreen({ interventions, zones, trades, onUpdate 
 
               {/* Day headers */}
               {days.map((d, i) => {
-                const isFirstOfWeek = i > 0 && i % 5 === 0
+                const isFirstOfWeek = i > 0 && i % 7 === 0
                 const isCurrentDay  = d === today
                 const lbl = dayLabel(d)
+                const isWeekend = lbl.weekday === 'Sam' || lbl.weekday === 'Dim'
                 return (
                   <th key={d} style={{
                     padding: isMulti ? '3px 0' : '6px 2px',
                     textAlign: 'center', overflow: 'hidden',
                     position: 'sticky', top: 0, zIndex: 11,
-                    borderLeft: `${isFirstOfWeek ? 2 : 1}px solid ${isFirstOfWeek ? 'var(--border)' : 'var(--border)'}`,
-                    background: isCurrentDay ? 'var(--primary-l)' : 'var(--surface-2)',
+                    borderLeft: `${isFirstOfWeek ? 2 : 1}px solid var(--border)`,
+                    background: isCurrentDay ? 'var(--primary-l)' : isWeekend ? 'var(--border)' : 'var(--surface-2)',
                     fontWeight: 'normal', verticalAlign: 'middle',
                   }}>
                     <div style={{ fontSize: isMulti ? (weeks > 2 ? 6 : 7) : 9, fontWeight: 800, color: isCurrentDay ? 'var(--primary)' : 'var(--muted)', lineHeight: 1.05, whiteSpace: 'nowrap' }}>
@@ -244,10 +249,12 @@ export default function PlanningScreen({ interventions, zones, trades, onUpdate 
 
                   {/* Day cells */}
                   {days.map((d, di) => {
-                    const isFirstOfWeek = di > 0 && di % 5 === 0
+                    const isFirstOfWeek = di > 0 && di % 7 === 0
                     const isCurrentDay  = d === today
                     const isDeadline    = zone.deadline === d
-                    const cellBg = isDeadline ? 'rgba(220,38,38,.18)' : isCurrentDay ? 'color-mix(in srgb, var(--primary) 5%, transparent)' : 'transparent'
+                    const lbl2 = dayLabel(d)
+                    const isWeekend2 = lbl2.weekday === 'Sam' || lbl2.weekday === 'Dim'
+                    const cellBg = isDeadline ? 'rgba(220,38,38,.18)' : isCurrentDay ? 'color-mix(in srgb, var(--primary) 5%, transparent)' : isWeekend2 ? 'var(--border)' : 'transparent'
                     const cards  = interventions
                       .filter(iv => iv.zone === zone.id && isTaskActiveOn(iv, d) && !(iv.off_days?.includes(d)))
                       .sort((a, b) => {
