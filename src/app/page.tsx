@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Intervention, Zone, Trade, Company } from '@/types/database'
-import { computeProjectHealth, deadlineColor, daysUntil, effectiveStatus } from '@/lib/progress'
+import { computeProjectHealth, effectiveStatus } from '@/lib/progress'
 import { STATUS_META } from '@/constants/status'
+import { getTradeColor } from '@/constants/colors'
 import ListScreen from '@/components/ListScreen'
 import PlanningScreen from '@/components/PlanningScreen'
 import BriefingsScreen from '@/components/BriefingsScreen'
 import SettingsScreen from '@/components/SettingsScreen'
+import TaskDetail from '@/components/TaskDetail'
 
 async function loadData() {
   const [zones, trades, interventions, companies] = await Promise.all([
@@ -58,7 +60,7 @@ export default function PlanifyApp() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <AppHeader screen={screen} onNavigate={setScreen} interventions={interventions} />
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        {screen === 'dashboard' && <DashboardScreen zones={zones} interventions={interventions} trades={trades} />}
+        {screen === 'dashboard' && <DashboardScreen zones={zones} interventions={interventions} trades={trades} onUpdate={handleUpdate} />}
         {screen === 'list' && <ListScreen interventions={interventions} zones={zones} trades={trades} onUpdate={handleUpdate} />}
         {screen === 'planning' && <PlanningScreen interventions={interventions} zones={zones} trades={trades} companies={companies} onUpdate={handleUpdate} onAdd={handleAdd} />}
         {screen === 'briefings' && <BriefingsScreen interventions={interventions} zones={zones} trades={trades} companies={companies} />}
@@ -138,7 +140,11 @@ function BottomNav({ screen, onNavigate }: { screen: Screen; onNavigate: (s: Scr
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function DashboardScreen({ zones, interventions, trades }: { zones: Zone[]; interventions: Intervention[]; trades: Trade[] }) {
+function DashboardScreen({ zones, interventions, trades, onUpdate }: {
+  zones: Zone[]; interventions: Intervention[]; trades: Trade[]
+  onUpdate: (id: string, patch: Partial<Intervention>) => void
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const health = computeProjectHealth(interventions, zones)
   const { avancementReel, cadenceCible, derive, fiabilite, alertes } = health
   const total    = interventions.length
@@ -150,6 +156,8 @@ function DashboardScreen({ zones, interventions, trades }: { zones: Zone[]; inte
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const tasksDue  = interventions.filter(iv => { const e = iv.end_date ?? iv.start_date; return e && new Date(e + 'T00:00:00') <= today }).length
   const tasksDone = interventions.filter(iv => { const e = iv.end_date ?? iv.start_date; return e && new Date(e + 'T00:00:00') <= today && iv.status === 'termine' }).length
+
+  const selectedIv = selectedId ? interventions.find(iv => iv.id === selectedId) ?? null : null
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -168,7 +176,6 @@ function DashboardScreen({ zones, interventions, trades }: { zones: Zone[]; inte
 
       {/* ── Santé du projet ── */}
       <Card title="Santé du projet">
-        {/* Progress bar */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>Avancement global</span>
@@ -177,40 +184,18 @@ function DashboardScreen({ zones, interventions, trades }: { zones: Zone[]; inte
           <div style={{ height: 10, background: 'var(--border)', borderRadius: 99, overflow: 'hidden', position: 'relative' }}>
             <div style={{ height: '100%', width: `${avancementReel}%`, background: 'linear-gradient(90deg, var(--primary), #4B7CF3)', borderRadius: 99, transition: 'width .6s' }} />
             {cadenceCible > 0 && (
-              <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${cadenceCible}%`, width: 2, background: '#64748B', opacity: 0.5 }} />
+              <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${Math.min(cadenceCible, 99)}%`, width: 2, background: '#64748B', opacity: 0.5 }} />
             )}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3 }}>
             <span style={{ fontSize: 9, color: 'var(--xmuted)' }}>Objectif théorique : {cadenceCible}%</span>
           </div>
         </div>
-
-        {/* 4 metrics with explanations */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <MetricCard
-            label="Avancement réel"
-            value={`${avancementReel}%`}
-            sub="Progression moyenne de toutes les tâches"
-            color={avancementReel > 60 ? 'var(--success)' : 'var(--primary)'}
-          />
-          <MetricCard
-            label="Cadence cible"
-            value={`${cadenceCible}%`}
-            sub="Où vous devriez être selon le planning"
-            color="var(--muted)"
-          />
-          <MetricCard
-            label="Dérive"
-            value={`${derive > 0 ? '+' : ''}${derive}%`}
-            sub={derive >= 0 ? 'En avance sur le planning' : 'En retard sur le planning'}
-            color={derive >= 0 ? 'var(--success)' : 'var(--danger)'}
-          />
-          <MetricCard
-            label="Fiabilité"
-            value={`${fiabilite}%`}
-            sub={`${tasksDone} terminées sur ${tasksDue} dues`}
-            color={fiabilite > 70 ? 'var(--success)' : 'var(--danger)'}
-          />
+          <MetricCard label="Avancement réel" value={`${avancementReel}%`} sub="Progression moyenne de toutes les tâches" color={avancementReel > 60 ? 'var(--success)' : 'var(--primary)'} />
+          <MetricCard label="Cadence cible"   value={`${cadenceCible}%`}   sub="Où vous devriez être selon le planning"  color="var(--muted)" />
+          <MetricCard label="Dérive"          value={`${derive > 0 ? '+' : ''}${derive}%`} sub={derive >= 0 ? 'En avance sur le planning' : 'En retard sur le planning'} color={derive >= 0 ? 'var(--success)' : 'var(--danger)'} />
+          <MetricCard label="Fiabilité"       value={`${fiabilite}%`}      sub={`${tasksDone} terminées sur ${tasksDue} dues`} color={fiabilite > 70 ? 'var(--success)' : 'var(--danger)'} />
         </div>
       </Card>
 
@@ -230,22 +215,21 @@ function DashboardScreen({ zones, interventions, trades }: { zones: Zone[]; inte
             </div>
           ))}
         </div>
-        {/* Completion bar */}
         {total > 0 && (
           <div style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', height: 6, borderRadius: 99, overflow: 'hidden', gap: 1 }}>
-              <div style={{ flex: termine, background: STATUS_META.termine.dot }} />
-              <div style={{ flex: encours, background: STATUS_META.encours.dot }} />
-              <div style={{ flex: enRetard, background: STATUS_META.en_retard.dot }} />
-              <div style={{ flex: bloque, background: STATUS_META.bloque.dot }} />
+            <div style={{ display: 'flex', height: 6, borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{ flex: termine,                                    background: STATUS_META.termine.dot }} />
+              <div style={{ flex: encours,                                    background: STATUS_META.encours.dot }} />
+              <div style={{ flex: enRetard,                                   background: STATUS_META.en_retard.dot }} />
+              <div style={{ flex: bloque,                                     background: STATUS_META.bloque.dot }} />
               <div style={{ flex: total - termine - encours - enRetard - bloque, background: 'var(--border)' }} />
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               {[
-                { label: 'Terminé', color: STATUS_META.termine.dot, pct: Math.round(termine / total * 100) },
-                { label: 'En cours', color: STATUS_META.encours.dot, pct: Math.round(encours / total * 100) },
+                { label: 'Terminé',   color: STATUS_META.termine.dot,   pct: Math.round(termine  / total * 100) },
+                { label: 'En cours',  color: STATUS_META.encours.dot,   pct: Math.round(encours  / total * 100) },
                 { label: 'En retard', color: STATUS_META.en_retard.dot, pct: Math.round(enRetard / total * 100) },
-                { label: 'Bloqué', color: STATUS_META.bloque.dot, pct: Math.round(bloque / total * 100) },
+                { label: 'Bloqué',   color: STATUS_META.bloque.dot,    pct: Math.round(bloque   / total * 100) },
               ].map(({ label, color, pct }) => pct > 0 ? (
                 <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block' }} />
@@ -260,31 +244,41 @@ function DashboardScreen({ zones, interventions, trades }: { zones: Zone[]; inte
       {/* ── Par corps de métier ── */}
       {trades.length > 0 && (
         <Card title="Par corps de métier">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {trades.map(t => {
               const tTasks   = interventions.filter(iv => iv.trade === t.id)
               if (tTasks.length === 0) return null
               const tDone    = tTasks.filter(iv => iv.status === 'termine').length
+              const tEncours = tTasks.filter(iv => iv.status === 'encours').length
               const tLate    = tTasks.filter(iv => effectiveStatus(iv) === 'en_retard').length
               const tBlocked = tTasks.filter(iv => iv.status === 'bloque').length
+              const tARealis = tTasks.length - tDone - tEncours - tLate - tBlocked
               const pct      = Math.round(tDone / tTasks.length * 100)
+              const tc       = getTradeColor(t.color)
+              const hasAlert = tLate > 0 || tBlocked > 0
               return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: `var(--trade-${t.color}, #6B7280)`, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.short}</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 }}>
-                        {tDone}/{tTasks.length}
-                        {tLate > 0 && <span style={{ color: STATUS_META.en_retard.dot, marginLeft: 4 }}>⏱{tLate}</span>}
-                        {tBlocked > 0 && <span style={{ color: STATUS_META.bloque.dot, marginLeft: 4 }}>⛔{tBlocked}</span>}
-                      </span>
-                    </div>
-                    <div style={{ height: 5, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? STATUS_META.termine.dot : 'var(--primary)', borderRadius: 99 }} />
-                    </div>
+                <div key={t.id} style={{ borderLeft: `3px solid ${tc.b}`, paddingLeft: 10 }}>
+                  {/* Trade name + % */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{t.name}</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: pct === 100 ? 'var(--success)' : hasAlert ? STATUS_META.en_retard.dot : 'var(--primary)', lineHeight: 1 }}>{pct}%</span>
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: pct === 100 ? 'var(--success)' : 'var(--text)', width: 30, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
+                  {/* Human-readable summary */}
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, display: 'flex', flexWrap: 'wrap', gap: '2px 6px' }}>
+                    {tDone > 0    && <span style={{ color: STATUS_META.termine.dot,   fontWeight: 600 }}>✓ {tDone} terminée{tDone > 1 ? 's' : ''}</span>}
+                    {tEncours > 0 && <span style={{ color: STATUS_META.encours.dot,   fontWeight: 600 }}>● {tEncours} en cours</span>}
+                    {tLate > 0    && <span style={{ color: STATUS_META.en_retard.dot, fontWeight: 700 }}>⏱ {tLate} en retard</span>}
+                    {tBlocked > 0 && <span style={{ color: STATUS_META.bloque.dot,   fontWeight: 700 }}>⛔ {tBlocked} bloquée{tBlocked > 1 ? 's' : ''}</span>}
+                    {tARealis > 0 && <span style={{ color: 'var(--xmuted)' }}>◌ {tARealis} à venir</span>}
+                  </div>
+                  {/* Segmented bar */}
+                  <div style={{ display: 'flex', height: 5, borderRadius: 99, overflow: 'hidden', background: 'var(--border)' }}>
+                    <div style={{ flex: tDone,    background: STATUS_META.termine.dot }} />
+                    <div style={{ flex: tEncours, background: STATUS_META.encours.dot }} />
+                    <div style={{ flex: tLate,    background: STATUS_META.en_retard.dot }} />
+                    <div style={{ flex: tBlocked, background: STATUS_META.bloque.dot }} />
+                    <div style={{ flex: tARealis, background: 'transparent' }} />
+                  </div>
                 </div>
               )
             })}
@@ -292,73 +286,82 @@ function DashboardScreen({ zones, interventions, trades }: { zones: Zone[]; inte
         </Card>
       )}
 
+      {/* ── Zones à risque ── */}
       {health.riskyZones.length > 0 && (
         <Card title={`Zones à risque (${health.riskyZones.length})`}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {health.riskyZones.slice(0, 4).map(rz => (
-              <div key={rz.zone.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)',
-              }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{rz.zone.short}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    {rz.late > 0 && `${rz.late} retard(s)`}{rz.late > 0 && rz.blocked > 0 && ' · '}{rz.blocked > 0 && `${rz.blocked} bloquée(s)`}
-                    {' · '}Avancement {rz.avancement}% (cible {rz.cadence}%)
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {health.riskyZones.slice(0, 5).map(rz => {
+              const lateTasks    = interventions.filter(iv => iv.zone === rz.zone.id && effectiveStatus(iv) === 'en_retard')
+              const blockedTasks = interventions.filter(iv => iv.zone === rz.zone.id && iv.status === 'bloque')
+              const alertTasks   = [...lateTasks, ...blockedTasks]
+              return (
+                <div key={rz.zone.id}>
+                  {/* Zone header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{rz.zone.short}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 8 }}>
+                        {rz.late > 0 && <span style={{ color: STATUS_META.en_retard.dot }}>⏱ {rz.late} en retard{rz.late > 1 ? 's' : ''}</span>}
+                        {rz.late > 0 && rz.blocked > 0 && ' · '}
+                        {rz.blocked > 0 && <span style={{ color: STATUS_META.bloque.dot }}>⛔ {rz.blocked} bloquée{rz.blocked > 1 ? 's' : ''}</span>}
+                      </span>
+                    </div>
+                    <span style={{
+                      background: rz.risk > 60 ? 'var(--danger-l)' : '#FFF7ED',
+                      color: rz.risk > 60 ? 'var(--danger)' : '#D97706',
+                      borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700,
+                    }}>
+                      Risque {rz.risk > 60 ? 'élevé' : 'modéré'}
+                    </span>
                   </div>
+                  {/* Clickable task list */}
+                  {alertTasks.map(iv => {
+                    const isLate   = effectiveStatus(iv) === 'en_retard'
+                    const trade    = trades.find(t => t.id === iv.trade)
+                    const tc       = getTradeColor(trade?.color ?? 'blue')
+                    return (
+                      <button key={iv.id} onClick={() => setSelectedId(iv.id)} style={{
+                        width: '100%', textAlign: 'left', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '7px 10px', marginBottom: 4,
+                        background: isLate ? 'rgba(234,88,12,.07)' : 'rgba(220,38,38,.07)',
+                        border: `1px solid ${isLate ? 'rgba(234,88,12,.25)' : 'rgba(220,38,38,.25)'}`,
+                        borderLeft: `3px solid ${isLate ? STATUS_META.en_retard.dot : STATUS_META.bloque.dot}`,
+                        borderRadius: 'var(--r-xs)',
+                      }}>
+                        <span style={{ fontSize: 11 }}>{isLate ? '⏱' : '⛔'}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {iv.task}
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+                            {iv.task_number && <span style={{ color: tc.b, marginRight: 6 }}>{iv.task_number}</span>}
+                            {trade?.short}
+                            {iv.company && ` · ${iv.company}`}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 10, color: 'var(--xmuted)', flexShrink: 0 }}>Ouvrir →</span>
+                      </button>
+                    )
+                  })}
                 </div>
-                <span style={{
-                  background: rz.risk > 60 ? 'var(--danger-l)' : '#FFF7ED',
-                  color: rz.risk > 60 ? 'var(--danger)' : '#D97706',
-                  borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 700,
-                }}>
-                  {rz.risk}%
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Card>
       )}
 
-      <Card title="Deadlines">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {zones.filter(z => z.deadline).sort((a, b) => a.deadline! > b.deadline! ? 1 : -1).map(z => {
-            const days  = daysUntil(z.deadline!)
-            const color = deadlineColor(z.deadline!)
-            const zTasks = interventions.filter(iv => iv.zone === z.id)
-            const zDone  = zTasks.filter(iv => iv.status === 'termine').length
-            return (
-              <div key={z.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)',
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: z.floor_color, display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>{z.short}</span>
-                  </div>
-                  {zTasks.length > 0 && (
-                    <div style={{ height: 4, background: 'var(--border)', borderRadius: 99, overflow: 'hidden', marginLeft: 16 }}>
-                      <div style={{ height: '100%', width: `${Math.round(zDone / zTasks.length * 100)}%`, background: color, borderRadius: 99 }} />
-                    </div>
-                  )}
-                  {zTasks.length > 0 && (
-                    <div style={{ fontSize: 10, color: 'var(--xmuted)', marginTop: 2, marginLeft: 16 }}>{zDone}/{zTasks.length} tâches</div>
-                  )}
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 10 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color }}>
-                    {days < 0 ? `${Math.abs(days)}j dépassé` : days === 0 ? "Auj." : `J-${days}`}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--xmuted)' }}>
-                    {new Date(z.deadline! + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </Card>
+      {/* Task detail overlay */}
+      {selectedIv && (
+        <TaskDetail
+          iv={selectedIv}
+          zones={zones}
+          trades={trades}
+          allInterventions={interventions}
+          onClose={() => setSelectedId(null)}
+          onUpdate={(patch) => { onUpdate(selectedIv.id, patch); setSelectedId(null) }}
+        />
+      )}
 
     </div>
   )
