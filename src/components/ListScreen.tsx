@@ -27,7 +27,7 @@ export default function ListScreen({ interventions, zones, trades, onUpdate }: P
 
   const days = weekDays(weekOffset)
   const weekStart = days[0]
-  const weekEnd   = days[4]
+  const weekEnd   = days[6]
 
   // Filter interventions active this week
   const weekItems = interventions.filter(iv => days.some(d => isTaskActiveOn(iv, d)))

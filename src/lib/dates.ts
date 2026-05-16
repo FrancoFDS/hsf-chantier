@@ -11,27 +11,30 @@ export function fmtDateLong(dateStr: string): string {
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
+function localStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function todayStr(): string {
-  const d = new Date(); d.setHours(0, 0, 0, 0)
-  return d.toISOString().slice(0, 10)
+  return localStr(new Date())
 }
 
 export function addDays(dateStr: string, n: number): string {
   const d = new Date(dateStr + 'T12:00:00')
   d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
+  return localStr(d)
 }
 
-// Returns the 5 working days of the week containing offset (0 = current week)
+// Returns the 7 days of the week containing offset (0 = current week), starting Monday
 export function weekDays(offset = 0): string[] {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const day = today.getDay() // 0=Sun, 1=Mon...
+  const today = new Date(); today.setHours(12, 0, 0, 0)
+  const day = today.getDay()
   const monday = new Date(today)
   monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
-  return Array.from({ length: 5 }, (_, i) => {
+  return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
-    return d.toISOString().slice(0, 10)
+    return localStr(d)
   })
 }
 

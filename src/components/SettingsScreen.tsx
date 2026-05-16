@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { Zone, Trade, Company } from '@/types/database'
-import { getZoneFloorColor, getTradeColor } from '@/constants/colors'
+import { getZoneFloorColor, getTradeColor, TRADE_COLORS, type TradeColorKey } from '@/constants/colors'
 import { supabase } from '@/lib/supabase'
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   trades: Trade[]
   companies: Company[]
   onZonesChange: (zones: Zone[]) => void
+  onTradesChange: (trades: Trade[]) => void
+  onCompaniesChange: (companies: Company[]) => void
 }
 
 type Tab = 'zones' | 'trades' | 'companies'
@@ -37,7 +39,17 @@ function deadlineColor(days: number | null): string {
   return '#16A34A'
 }
 
-export default function SettingsScreen({ zones, trades, companies, onZonesChange }: Props) {
+const modalLabelStyle: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 5, display: 'block',
+}
+
+const modalInputStyle: React.CSSProperties = {
+  width: '100%', boxSizing: 'border-box', border: '1px solid var(--border)', borderRadius: 8,
+  background: 'var(--surface-2)', color: 'var(--text)', padding: '8px 10px', fontSize: 13,
+  fontFamily: "'DM Sans', sans-serif",
+}
+
+export default function SettingsScreen({ zones, trades, companies, onZonesChange, onTradesChange, onCompaniesChange }: Props) {
   const [tab, setTab] = useState<Tab>('zones')
 
   return (
@@ -59,8 +71,8 @@ export default function SettingsScreen({ zones, trades, companies, onZonesChange
       </div>
 
       {tab === 'zones'     && <ZonesTab zones={zones} onZonesChange={onZonesChange} />}
-      {tab === 'trades'    && <TradesTab trades={trades} />}
-      {tab === 'companies' && <CompaniesTab companies={companies} trades={trades} />}
+      {tab === 'trades'    && <TradesTab trades={trades} onTradesChange={onTradesChange} />}
+      {tab === 'companies' && <CompaniesTab companies={companies} trades={trades} onCompaniesChange={onCompaniesChange} />}
     </div>
   )
 }
@@ -71,6 +83,7 @@ function ZonesTab({ zones, onZonesChange }: { zones: Zone[]; onZonesChange: (z: 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving]       = useState(false)
   const [draft, setDraft]         = useState<string>('')
+  const [showAdd, setShowAdd]     = useState(false)
 
   function startEdit(zone: Zone) {
     setEditingId(zone.id)
@@ -92,158 +105,440 @@ function ZonesTab({ zones, onZonesChange }: { zones: Zone[]; onZonesChange: (z: 
   const floors = [...new Set(zones.map(z => z.floor).filter(Boolean))].sort()
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {floors.map(floor => {
-        const floorZones = zones.filter(z => z.floor === floor)
-        const fc = getZoneFloorColor(zones, floor)
-        return (
-          <div key={floor} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
-            <div style={{ padding: '8px 14px', background: fc + '14', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: fc, display: 'inline-block' }} />
-              <span style={{ fontSize: 12, fontWeight: 800, color: fc, textTransform: 'uppercase', letterSpacing: '.04em' }}>{floor}</span>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>{floorZones.length} zone{floorZones.length > 1 ? 's' : ''}</span>
-            </div>
-            {floorZones.map(zone => {
-              const days = daysUntil(zone.deadline)
-              const dc   = deadlineColor(days)
-              const isEditing = editingId === zone.id
-              return (
-                <div key={zone.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{zone.name}</div>
-                    <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: 'var(--muted)', marginTop: 1 }}>{zone.short}</div>
-                  </div>
-                  {isEditing ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <input
-                        type="date"
-                        value={draft}
-                        onChange={e => setDraft(e.target.value)}
-                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: "'DM Mono', monospace" }}
-                        autoFocus
-                      />
-                      <button onClick={() => saveDeadline(zone)} disabled={saving} style={smallBtnStyle('primary')}>
-                        {saving ? '…' : '✓'}
-                      </button>
-                      <button onClick={() => setEditingId(null)} style={smallBtnStyle('neutral')}>✕</button>
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {floors.map(floor => {
+          const floorZones = zones.filter(z => z.floor === floor)
+          const fc = getZoneFloorColor(zones, floor)
+          return (
+            <div key={floor} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+              <div style={{ padding: '8px 14px', background: fc + '14', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: fc, display: 'inline-block' }} />
+                <span style={{ fontSize: 12, fontWeight: 800, color: fc, textTransform: 'uppercase', letterSpacing: '.04em' }}>{floor}</span>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{floorZones.length} zone{floorZones.length > 1 ? 's' : ''}</span>
+              </div>
+              {floorZones.map(zone => {
+                const days = daysUntil(zone.deadline)
+                const dc   = deadlineColor(days)
+                const isEditing = editingId === zone.id
+                return (
+                  <div key={zone.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{zone.name}</div>
+                      <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: 'var(--muted)', marginTop: 1 }}>{zone.short}</div>
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: dc }}>
-                          {zone.deadline
-                            ? (days !== null && days < 0 ? `${Math.abs(days)}j dépassé` : days === 0 ? "Auj." : `J-${days}`)
-                            : '—'}
-                        </div>
-                        {zone.deadline && (
-                          <div style={{ fontSize: 10, color: 'var(--xmuted)', fontFamily: "'DM Mono', monospace" }}>
-                            {fmtDeadline(zone.deadline)}
-                          </div>
-                        )}
+                    {isEditing ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="date"
+                          value={draft}
+                          onChange={e => setDraft(e.target.value)}
+                          style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: "'DM Mono', monospace" }}
+                          autoFocus
+                        />
+                        <button onClick={() => saveDeadline(zone)} disabled={saving} style={smallBtnStyle('primary')}>
+                          {saving ? '…' : '✓'}
+                        </button>
+                        <button onClick={() => setEditingId(null)} style={smallBtnStyle('neutral')}>✕</button>
                       </div>
-                      <button onClick={() => startEdit(zone)} style={smallBtnStyle('neutral')} title="Modifier la deadline">
-                        ✎
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )
-      })}
-    </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: dc }}>
+                            {zone.deadline
+                              ? (days !== null && days < 0 ? `${Math.abs(days)}j dépassé` : days === 0 ? "Auj." : `J-${days}`)
+                              : '—'}
+                          </div>
+                          {zone.deadline && (
+                            <div style={{ fontSize: 10, color: 'var(--xmuted)', fontFamily: "'DM Mono', monospace" }}>
+                              {fmtDeadline(zone.deadline)}
+                            </div>
+                          )}
+                        </div>
+                        <button onClick={() => startEdit(zone)} style={smallBtnStyle('neutral')} title="Modifier la deadline">
+                          ✎
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+
+        <button onClick={() => setShowAdd(true)} style={addBtnStyle}>+ Ajouter une zone</button>
+      </div>
+
+      {showAdd && (
+        <AddZoneModal
+          zones={zones}
+          onClose={() => setShowAdd(false)}
+          onCreated={newZone => { onZonesChange([...zones, newZone]); setShowAdd(false) }}
+        />
+      )}
+    </>
+  )
+}
+
+function AddZoneModal({ zones, onClose, onCreated }: {
+  zones: Zone[]
+  onClose: () => void
+  onCreated: (zone: Zone) => void
+}) {
+  const [name, setName]   = useState('')
+  const [short, setShort] = useState('')
+  const [floor, setFloor] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState<string | null>(null)
+
+  const floors = [...new Set(zones.map(z => z.floor).filter(Boolean))].sort()
+
+  async function handleSubmit() {
+    if (!name.trim() || !short.trim() || !floor) { setError('Tous les champs sont requis'); return }
+    setSaving(true)
+    setError(null)
+    const floor_color = zones.find(z => z.floor === floor)?.floor_color ?? '#9CA3AF'
+    const { data, error: err } = await supabase
+      .from('zones')
+      .insert([{ name: name.trim(), short: short.trim(), floor, floor_color, deadline: null, display_order: zones.length + 1 }])
+      .select()
+      .single()
+    setSaving(false)
+    if (err || !data) { setError(err?.message ?? 'Erreur'); return }
+    onCreated(data as Zone)
+  }
+
+  return (
+    <BottomModal title="Nouvelle zone" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={modalLabelStyle}>Nom</label>
+          <input style={modalInputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="ex. Zone sanitaire R3" autoFocus />
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Abréviation / Short</label>
+          <input style={modalInputStyle} value={short} onChange={e => setShort(e.target.value.slice(0, 10))} placeholder="ex. R3-SANI" maxLength={10} />
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Étage</label>
+          <select style={modalInputStyle} value={floor} onChange={e => setFloor(e.target.value)}>
+            <option value="">— Choisir un étage —</option>
+            {floors.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+        {error && <div style={{ fontSize: 12, color: '#DC2626' }}>{error}</div>}
+        <button onClick={handleSubmit} disabled={saving} style={submitBtnStyle}>{saving ? 'Enregistrement…' : 'Ajouter la zone'}</button>
+      </div>
+    </BottomModal>
   )
 }
 
 // ─── Trades tab ───────────────────────────────────────────────────────────────
 
-function TradesTab({ trades }: { trades: Trade[] }) {
+const TRADE_COLOR_KEYS = Object.keys(TRADE_COLORS) as TradeColorKey[]
+
+function TradesTab({ trades, onTradesChange }: { trades: Trade[]; onTradesChange: (t: Trade[]) => void }) {
+  const [showAdd, setShowAdd]       = useState(false)
+  const [editTrade, setEditTrade]   = useState<Trade | null>(null)
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {trades.map(trade => {
-        const tc = getTradeColor(trade.color)
-        return (
-          <div key={trade.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 14px', boxShadow: 'var(--shadow)', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: tc.bg, border: `2px solid ${tc.b}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: tc.b, display: 'inline-block' }} />
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {trades.map(trade => {
+          const tc = getTradeColor(trade.color)
+          return (
+            <div key={trade.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 14px', boxShadow: 'var(--shadow)', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: tc.bg, border: `2px solid ${tc.b}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: tc.b, display: 'inline-block' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{trade.name}</div>
+                <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: 'var(--muted)', marginTop: 1 }}>{trade.short}</div>
+              </div>
+              <span style={{ fontSize: 10, color: tc.t, background: tc.bg, padding: '2px 8px', borderRadius: 999, fontWeight: 600, border: `1px solid ${tc.b}30` }}>
+                {trade.color}
+              </span>
+              <button onClick={() => setEditTrade(trade)} style={smallBtnStyle('neutral')} title="Modifier">✎</button>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{trade.name}</div>
-              <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: 'var(--muted)', marginTop: 1 }}>{trade.short}</div>
-            </div>
-            <span style={{ fontSize: 10, color: tc.t, background: tc.bg, padding: '2px 8px', borderRadius: 999, fontWeight: 600, border: `1px solid ${tc.b}30` }}>
-              {trade.color}
-            </span>
+          )
+        })}
+
+        <button onClick={() => setShowAdd(true)} style={addBtnStyle}>+ Ajouter un corps de métier</button>
+      </div>
+
+      {showAdd && (
+        <TradeModal
+          initial={null}
+          onClose={() => setShowAdd(false)}
+          onSaved={newTrade => { onTradesChange([...trades, newTrade]); setShowAdd(false) }}
+        />
+      )}
+      {editTrade && (
+        <TradeModal
+          initial={editTrade}
+          onClose={() => setEditTrade(null)}
+          onSaved={updated => { onTradesChange(trades.map(t => t.id === updated.id ? updated : t)); setEditTrade(null) }}
+        />
+      )}
+    </>
+  )
+}
+
+function TradeModal({ initial, onClose, onSaved }: {
+  initial: Trade | null
+  onClose: () => void
+  onSaved: (trade: Trade) => void
+}) {
+  const [name, setName]     = useState(initial?.name ?? '')
+  const [short, setShort]   = useState(initial?.short ?? '')
+  const [color, setColor]   = useState<TradeColorKey>((initial?.color as TradeColorKey) ?? 'blue')
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState<string | null>(null)
+
+  async function handleSubmit() {
+    if (!name.trim() || !short.trim()) { setError('Nom et abréviation requis'); return }
+    setSaving(true); setError(null)
+    if (initial) {
+      const { error: err } = await supabase.from('trades').update({ name: name.trim(), short: short.trim(), color }).eq('id', initial.id)
+      setSaving(false)
+      if (err) { setError(err.message); return }
+      onSaved({ ...initial, name: name.trim(), short: short.trim(), color })
+    } else {
+      const { data, error: err } = await supabase
+        .from('trades')
+        .insert([{ name: name.trim(), short: short.trim(), color, display_order: 999 }])
+        .select().single()
+      setSaving(false)
+      if (err || !data) { setError(err?.message ?? 'Erreur'); return }
+      onSaved(data as Trade)
+    }
+  }
+
+  return (
+    <BottomModal title={initial ? 'Modifier le corps de métier' : 'Nouveau corps de métier'} onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={modalLabelStyle}>Nom</label>
+          <input style={modalInputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="ex. Plomberie" autoFocus />
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Abréviation</label>
+          <input style={modalInputStyle} value={short} onChange={e => setShort(e.target.value)} placeholder="ex. PLO" />
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Couleur</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+            {TRADE_COLOR_KEYS.map(k => {
+              const tc = TRADE_COLORS[k]
+              return (
+                <button key={k} onClick={() => setColor(k)} title={k} style={{
+                  width: 28, height: 28, borderRadius: '50%', background: tc.b, border: 'none', cursor: 'pointer',
+                  outline: color === k ? `3px solid ${tc.b}` : '3px solid transparent',
+                  outlineOffset: 2,
+                }} />
+              )
+            })}
           </div>
-        )
-      })}
-    </div>
+        </div>
+        {error && <div style={{ fontSize: 12, color: '#DC2626' }}>{error}</div>}
+        <button onClick={handleSubmit} disabled={saving} style={submitBtnStyle}>{saving ? 'Enregistrement…' : (initial ? 'Enregistrer' : 'Ajouter')}</button>
+      </div>
+    </BottomModal>
   )
 }
 
 // ─── Companies tab ────────────────────────────────────────────────────────────
 
-function CompaniesTab({ companies, trades }: { companies: Company[]; trades: Trade[] }) {
+function CompaniesTab({ companies, trades, onCompaniesChange }: { companies: Company[]; trades: Trade[]; onCompaniesChange: (c: Company[]) => void }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showAdd, setShowAdd]       = useState(false)
+  const [editCo, setEditCo]         = useState<Company | null>(null)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {companies.map(co => {
-        const trade = trades.find(t => t.id === co.trade_id)
-        const tc    = getTradeColor(trade?.color ?? 'blue')
-        const isExp = expandedId === co.id
-        const allContacts = []
-        if (co.contact || co.phone) allContacts.push({ name: co.contact ?? '', phone: co.phone ?? '', email: co.email ?? '' })
-        ;(co.contacts ?? []).forEach(c => { if (c.name || c.phone) allContacts.push(c) })
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {companies.map(co => {
+          const trade = trades.find(t => t.id === co.trade_id)
+          const tc    = getTradeColor(trade?.color ?? 'blue')
+          const isExp = expandedId === co.id
+          const allContacts: { name: string; phone: string; email: string }[] = []
+          if (co.contact || co.phone) allContacts.push({ name: co.contact ?? '', phone: co.phone ?? '', email: co.email ?? '' })
+          ;(co.contacts ?? []).forEach(c => { if (c.name || c.phone) allContacts.push(c) })
 
-        return (
-          <div key={co.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
-            <div onClick={() => setExpandedId(isExp ? null : co.id)} style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-              <div style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: tc.b, flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{co.name}</div>
-                <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: "'DM Mono', monospace", marginTop: 1 }}>
-                  {trade?.short ?? '—'}{co.phone ? ` · ${co.phone}` : ''}
+          return (
+            <div key={co.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+              <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: tc.b, flexShrink: 0 }} />
+                <div onClick={() => setExpandedId(isExp ? null : co.id)} style={{ flex: 1, cursor: 'pointer' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{co.name}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: "'DM Mono', monospace", marginTop: 1 }}>
+                    {trade?.short ?? '—'}{co.phone ? ` · ${co.phone}` : ''}
+                  </div>
                 </div>
+                <button onClick={() => setEditCo(co)} style={smallBtnStyle('neutral')} title="Modifier">✎</button>
+                <span onClick={() => setExpandedId(isExp ? null : co.id)} style={{ fontSize: 13, color: 'var(--muted)', cursor: 'pointer' }}>{isExp ? '▲' : '▼'}</span>
               </div>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{isExp ? '▲' : '▼'}</span>
-            </div>
 
-            {isExp && (
-              <div style={{ padding: '0 14px 12px', borderTop: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.07em', margin: '10px 0 6px' }}>Contacts</div>
-                {allContacts.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Aucun contact enregistré</div>
-                ) : (
-                  allContacts.map((ct, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < allContacts.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{ct.name || '—'}</div>
-                        {ct.email && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{ct.email}</div>}
+              {isExp && (
+                <div style={{ padding: '0 14px 12px', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.07em', margin: '10px 0 6px' }}>Contacts</div>
+                  {allContacts.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Aucun contact enregistré</div>
+                  ) : (
+                    allContacts.map((ct, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < allContacts.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{ct.name || '—'}</div>
+                          {ct.email && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{ct.email}</div>}
+                        </div>
+                        {ct.phone && (
+                          <a href={`tel:${ct.phone}`} style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', fontFamily: "'DM Mono', monospace" }}>
+                            {ct.phone}
+                          </a>
+                        )}
                       </div>
-                      {ct.phone && (
-                        <a href={`tel:${ct.phone}`} style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', fontFamily: "'DM Mono', monospace" }}>
-                          {ct.phone}
-                        </a>
-                      )}
-                    </div>
-                  ))
-                )}
-                {trade && (
-                  <>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.07em', margin: '10px 0 6px' }}>Corps de métier</div>
-                    <span style={{ fontSize: 11, color: tc.t, background: tc.bg, padding: '2px 10px', borderRadius: 999, fontWeight: 600, border: `1px solid ${tc.b}30` }}>
-                      {trade.name}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
+                    ))
+                  )}
+                  {trade && (
+                    <>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.07em', margin: '10px 0 6px' }}>Corps de métier</div>
+                      <span style={{ fontSize: 11, color: tc.t, background: tc.bg, padding: '2px 10px', borderRadius: 999, fontWeight: 600, border: `1px solid ${tc.b}30` }}>
+                        {trade.name}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+        <button onClick={() => setShowAdd(true)} style={addBtnStyle}>+ Ajouter une entreprise</button>
+      </div>
+
+      {showAdd && (
+        <CompanyModal
+          initial={null}
+          trades={trades}
+          onClose={() => setShowAdd(false)}
+          onSaved={newCo => { onCompaniesChange([...companies, newCo]); setShowAdd(false) }}
+        />
+      )}
+      {editCo && (
+        <CompanyModal
+          initial={editCo}
+          trades={trades}
+          onClose={() => setEditCo(null)}
+          onSaved={updated => { onCompaniesChange(companies.map(c => c.id === updated.id ? updated : c)); setEditCo(null) }}
+        />
+      )}
+    </>
+  )
+}
+
+function CompanyModal({ initial, trades, onClose, onSaved }: {
+  initial: Company | null
+  trades: Trade[]
+  onClose: () => void
+  onSaved: (co: Company) => void
+}) {
+  const [name, setName]       = useState(initial?.name ?? '')
+  const [tradeId, setTradeId] = useState(initial?.trade_id ?? '')
+  const [contact, setContact] = useState(initial?.contact ?? '')
+  const [phone, setPhone]     = useState(initial?.phone ?? '')
+  const [email, setEmail]     = useState(initial?.email ?? '')
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState<string | null>(null)
+
+  async function handleSubmit() {
+    if (!name.trim()) { setError('Le nom est requis'); return }
+    setSaving(true); setError(null)
+    const payload = {
+      name: name.trim(),
+      trade_id: tradeId || null,
+      contact: contact.trim() || null,
+      phone: phone.trim() || null,
+      email: email.trim() || null,
+    }
+    if (initial) {
+      const { error: err } = await supabase.from('companies').update(payload).eq('id', initial.id)
+      setSaving(false)
+      if (err) { setError(err.message); return }
+      onSaved({ ...initial, ...payload })
+    } else {
+      const { data, error: err } = await supabase
+        .from('companies')
+        .insert([{ ...payload, contacts: [], active: true, display_order: 999 }])
+        .select().single()
+      setSaving(false)
+      if (err || !data) { setError(err?.message ?? 'Erreur'); return }
+      onSaved(data as Company)
+    }
+  }
+
+  return (
+    <BottomModal title={initial ? 'Modifier l\'entreprise' : 'Nouvelle entreprise'} onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={modalLabelStyle}>Nom</label>
+          <input style={modalInputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="ex. Plomberie Dupont" autoFocus />
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Corps de métier</label>
+          <select style={modalInputStyle} value={tradeId} onChange={e => setTradeId(e.target.value)}>
+            <option value="">— Aucun —</option>
+            {trades.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Contact</label>
+          <input style={modalInputStyle} value={contact} onChange={e => setContact(e.target.value)} placeholder="ex. Jean Dupont" />
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Téléphone</label>
+          <input style={modalInputStyle} value={phone} onChange={e => setPhone(e.target.value)} placeholder="ex. 06 12 34 56 78" type="tel" />
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Email</label>
+          <input style={modalInputStyle} value={email} onChange={e => setEmail(e.target.value)} placeholder="ex. contact@dupont.fr" type="email" />
+        </div>
+        {error && <div style={{ fontSize: 12, color: '#DC2626' }}>{error}</div>}
+        <button onClick={handleSubmit} disabled={saving} style={submitBtnStyle}>{saving ? 'Enregistrement…' : (initial ? 'Enregistrer' : 'Ajouter')}</button>
+      </div>
+    </BottomModal>
+  )
+}
+
+// ─── Bottom sheet modal ───────────────────────────────────────────────────────
+
+function BottomModal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
+        zIndex: 100, animation: 'fadeIn .15s ease',
+      }} />
+      {/* Sheet */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: 'var(--surface)', borderRadius: '16px 16px 0 0',
+        zIndex: 101, animation: 'slideUp .22s ease',
+        padding: '0 16px 32px', maxHeight: '85vh', overflowY: 'auto',
+      }}>
+        {/* Handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)' }} />
+        </div>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{title}</div>
+          <button onClick={onClose} style={{ ...smallBtnStyle('neutral'), fontSize: 16 }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </>
   )
 }
 
@@ -255,5 +550,18 @@ function smallBtnStyle(variant: 'primary' | 'neutral'): React.CSSProperties {
     background: variant === 'primary' ? 'var(--primary)' : 'var(--surface-2)',
     color: variant === 'primary' ? '#fff' : 'var(--text)',
     cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   }
+}
+
+const addBtnStyle: React.CSSProperties = {
+  width: '100%', padding: '10px', border: '1.5px dashed var(--primary)', borderRadius: 'var(--r-sm)',
+  background: 'transparent', color: 'var(--primary)', fontSize: 13, fontWeight: 600,
+  cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", marginTop: 4,
+}
+
+const submitBtnStyle: React.CSSProperties = {
+  width: '100%', padding: '11px', borderRadius: 10, border: 'none',
+  background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700,
+  cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
 }
