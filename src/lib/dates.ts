@@ -1,0 +1,52 @@
+import type { Intervention } from '@/types/database'
+
+export function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+
+export function fmtDateLong(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+export function todayStr(): string {
+  const d = new Date(); d.setHours(0, 0, 0, 0)
+  return d.toISOString().slice(0, 10)
+}
+
+export function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+// Returns the 5 working days of the week containing offset (0 = current week)
+export function weekDays(offset = 0): string[] {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const day = today.getDay() // 0=Sun, 1=Mon...
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
+  return Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d.toISOString().slice(0, 10)
+  })
+}
+
+export function isTaskActiveOn(iv: Intervention, dateStr: string): boolean {
+  if (!iv.start_date) return false
+  if (iv.off_days?.includes(dateStr)) return false
+  const start = iv.start_date
+  const end   = iv.end_date ?? iv.start_date
+  return dateStr >= start && dateStr <= end
+}
+
+export function daysOverdue(iv: Intervention): number {
+  const ref = iv.end_date ?? iv.start_date
+  if (!ref) return 0
+  const endD = new Date(ref + 'T00:00:00')
+  const now  = new Date(); now.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.round((now.getTime() - endD.getTime()) / 86400000))
+}

@@ -1,26 +1,90 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root, [data-theme="terrain"] {
+  --bg: #F4F2EE;
+  --surface: #FFFFFF;
+  --surface-2: #F9F8F5;
+  --hdr: #1A1A1A;
+  --hdr-text: #FFFFFF;
+  --primary: #2152C8;
+  --primary-l: #EEF2FC;
+  --text: #1A1A1A;
+  --muted: #6B6860;
+  --xmuted: #ABA8A0;
+  --border: #E8E4DC;
+  --border-s: #C8C4BB;
+  --danger: #DC2626;
+  --danger-l: #FEF2F2;
+  --success: #16A34A;
+  --success-l: #F0FDF4;
+  --r: 12px;
+  --r-sm: 8px;
+  --r-xs: 5px;
+  --shadow: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.16);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+[data-theme="nuit"] {
+  --bg: #0D0D10;
+  --surface: #18181C;
+  --surface-2: #1F1F26;
+  --hdr: #0D0D10;
+  --hdr-text: #F1F1F5;
+  --primary: #60A5FA;
+  --primary-l: rgba(96,165,250,.14);
+  --text: #F1F1F5;
+  --muted: #8A8A9A;
+  --xmuted: #55555F;
+  --border: #28282F;
+  --border-s: #38383F;
+  --danger: #F87171;
+  --danger-l: rgba(248,113,113,.12);
+  --success: #34D399;
+  --success-l: rgba(52,211,153,.12);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-theme="studio"] {
+  --bg: #EEF0F8;
+  --surface: #FFFFFF;
+  --surface-2: #F6F7FB;
+  --hdr: #3730A3;
+  --primary: #4338CA;
+  --primary-l: #EEF2FF;
+  --text: #111827;
+  --muted: #6B7280;
+  --xmuted: #9CA3AF;
+  --border: #E5E7EB;
+  --border-s: #D1D5DB;
+  --danger: #DC2626;
+  --danger-l: #FEF2F2;
+  --success: #059669;
+  --success-l: #ECFDF5;
+  --r: 16px;
+  --r-sm: 12px;
+  --r-xs: 8px;
 }
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body { height: 100%; overflow: hidden; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', 'DM Mono', sans-serif;
+  font-size: 14px;
+  transition: background .3s, color .3s;
 }
+
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+@keyframes fadeIn  { from { opacity: 0; } }
+@keyframes slideUp { from { transform: translateY(100%); } }
+@keyframes spin    { to   { transform: rotate(360deg); } }
