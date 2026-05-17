@@ -147,6 +147,7 @@ function DashboardScreen({ zones, interventions, trades, onUpdate }: {
   const [selectedId, setSelectedId]       = useState<string | null>(null)
   const [expandedStatus, setExpandedStatus] = useState<string | null>(null)
   const [expandedTrade, setExpandedTrade]   = useState<string | null>(null)
+  const [expandedZone, setExpandedZone]     = useState<string | null>(null)
   const health = computeProjectHealth(interventions, zones)
   const { avancementReel, cadenceCible, derive, fiabilite, alertes } = health
   const total    = interventions.length
@@ -164,17 +165,6 @@ function DashboardScreen({ zones, interventions, trades, onUpdate }: {
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-      {alertes.map((a, i) => (
-        <div key={i} style={{
-          background: a.type === 'danger' ? 'var(--danger-l)' : '#FFFBEB',
-          border: `1px solid ${a.type === 'danger' ? 'var(--danger)' : '#D97706'}`,
-          borderRadius: 'var(--r-sm)', padding: '10px 14px',
-          color: a.type === 'danger' ? 'var(--danger)' : '#92400E',
-          fontSize: 13, fontWeight: 500,
-        }}>
-          {a.type === 'danger' ? '⛔ ' : '⚠️ '}{a.msg}
-        </div>
-      ))}
 
       {/* ── Santé du projet ── */}
       <Card title="Santé du projet">
@@ -352,6 +342,66 @@ function DashboardScreen({ zones, interventions, trades, onUpdate }: {
         </Card>
       )}
 
+
+      {/* ── Par zones ── */}
+      {zones.length > 0 && (
+        <Card title="Par zones">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {zones.map(z => {
+              const zTasks   = interventions.filter(iv => iv.zone === z.id)
+              if (zTasks.length === 0) return null
+              const zDone    = zTasks.filter(iv => iv.status === 'termine').length
+              const zEncours = zTasks.filter(iv => iv.status === 'encours').length
+              const zLate    = zTasks.filter(iv => effectiveStatus(iv) === 'en_retard').length
+              const zBlocked = zTasks.filter(iv => iv.status === 'bloque').length
+              const zARealis = zTasks.length - zDone - zEncours - zLate - zBlocked
+              const pct      = Math.round(zDone / zTasks.length * 100)
+              const hasAlert = zLate > 0 || zBlocked > 0
+              const open     = expandedZone === z.id
+              const sorted   = [...zTasks].sort((a, b) => {
+                const rank = (iv: Intervention) => effectiveStatus(iv) === 'en_retard' ? 0 : iv.status === 'bloque' ? 1 : iv.status === 'encours' ? 2 : iv.status === 'arealis' ? 3 : 4
+                return rank(a) - rank(b)
+              })
+              return (
+                <div key={z.id} style={{ borderLeft: `3px solid ${z.floor_color ?? '#9CA3AF'}`, paddingLeft: 10 }}>
+                  <button onClick={() => setExpandedZone(open ? null : z.id)} style={{
+                    width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{z.short}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: pct === 100 ? 'var(--success)' : hasAlert ? STATUS_META.en_retard.dot : 'var(--primary)' }}>{pct}%</span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }}>▾</span>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, marginBottom: 6, display: 'flex', flexWrap: 'wrap', gap: '2px 6px' }}>
+                      {zDone > 0    && <span style={{ color: STATUS_META.termine.dot,   fontWeight: 600 }}>✓ {zDone} terminée{zDone > 1 ? 's' : ''}</span>}
+                      {zEncours > 0 && <span style={{ color: STATUS_META.encours.dot,   fontWeight: 600 }}>● {zEncours} en cours</span>}
+                      {zLate > 0    && <span style={{ color: STATUS_META.en_retard.dot, fontWeight: 700 }}>⏱ {zLate} en retard</span>}
+                      {zBlocked > 0 && <span style={{ color: STATUS_META.bloque.dot,   fontWeight: 700 }}>⛔ {zBlocked} bloquée{zBlocked > 1 ? 's' : ''}</span>}
+                      {zARealis > 0 && <span style={{ color: 'var(--xmuted)' }}>◌ {zARealis} à venir</span>}
+                    </div>
+                    <div style={{ display: 'flex', height: 5, borderRadius: 99, overflow: 'hidden', background: 'var(--border)' }}>
+                      <div style={{ flex: zDone,    background: STATUS_META.termine.dot }} />
+                      <div style={{ flex: zEncours, background: STATUS_META.encours.dot }} />
+                      <div style={{ flex: zLate,    background: STATUS_META.en_retard.dot }} />
+                      <div style={{ flex: zBlocked, background: STATUS_META.bloque.dot }} />
+                      <div style={{ flex: zARealis, background: 'transparent' }} />
+                    </div>
+                  </button>
+                  {open && (
+                    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {sorted.map(iv => (
+                        <TaskRow key={iv.id} iv={iv} zones={zones} trades={trades} onClick={() => setSelectedId(iv.id)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Task detail overlay */}
       {selectedIv && (

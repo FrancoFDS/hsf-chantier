@@ -20,12 +20,23 @@ interface Props {
 }
 
 export default function TaskDetail({ iv, zones, trades, allInterventions, onClose, onUpdate, onStartMove, onStartDuplicate }: Props) {
-  const [saving, setSaving] = useState(false)
-  const [status, setStatus] = useState<Status>(iv.status as Status)
-  const [notes, setNotes]   = useState(iv.notes ?? '')
+  const [saving, setSaving]   = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [status, setStatus]   = useState<Status>(iv.status as Status)
+  const [notes, setNotes]     = useState(iv.notes ?? '')
 
-  const zone  = zones.find(z => z.id === iv.zone)
-  const trade = trades.find(t => t.id === iv.trade)
+  // Edit-mode fields
+  const [editTask,      setEditTask]      = useState(iv.task ?? '')
+  const [editZone,      setEditZone]      = useState(iv.zone ?? '')
+  const [editTrade,     setEditTrade]     = useState(iv.trade ?? '')
+  const [editCompany,   setEditCompany]   = useState(iv.company ?? '')
+  const [editStartDate, setEditStartDate] = useState(iv.start_date ?? '')
+  const [editEndDate,   setEditEndDate]   = useState(iv.end_date ?? '')
+  const [editOffDays,   setEditOffDays]   = useState<string[]>(iv.off_days ?? [])
+  const [newOffDay,     setNewOffDay]     = useState('')
+
+  const zone  = zones.find(z => z.id === (editing ? editZone : iv.zone))
+  const trade = trades.find(t => t.id === (editing ? editTrade : iv.trade))
   const tc    = getTradeColor(trade?.color ?? 'blue')
   const es    = effectiveStatus(iv)
   const sm    = STATUS_META[es]
@@ -34,14 +45,27 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, onClos
   const predecessor = iv.predecessor_id ? allInterventions.find(x => x.id === iv.predecessor_id) : null
   const successors  = (iv.successor_ids ?? []).map(id => allInterventions.find(x => x.id === id)).filter(Boolean) as Intervention[]
 
-  const hasChanges = status !== iv.status || notes !== (iv.notes ?? '')
+  const hasChanges = editing
+    ? editTask !== (iv.task ?? '') || editZone !== (iv.zone ?? '') || editTrade !== (iv.trade ?? '') ||
+      editCompany !== (iv.company ?? '') || editStartDate !== (iv.start_date ?? '') || editEndDate !== (iv.end_date ?? '') ||
+      JSON.stringify(editOffDays.slice().sort()) !== JSON.stringify((iv.off_days ?? []).slice().sort()) ||
+      status !== iv.status || notes !== (iv.notes ?? '')
+    : status !== iv.status || notes !== (iv.notes ?? '')
+
+  function handleTradeChange(newTradeId: string) {
+    setEditTrade(newTradeId)
+    const firstCompany = trades.find(t => t.id === newTradeId)
+    if (firstCompany) setEditCompany('')
+  }
 
   async function handleSave() {
     setSaving(true)
-    const patch: Partial<Intervention> = { status, notes }
+    const patch: Partial<Intervention> = editing
+      ? { status, notes, task: editTask, zone: editZone, trade: editTrade, company: editCompany, start_date: editStartDate || null, end_date: editEndDate || null, off_days: editOffDays }
+      : { status, notes }
     const { error } = await supabase.from('interventions').update(patch).eq('id', iv.id)
     setSaving(false)
-    if (!error) onUpdate(patch)
+    if (!error) { setEditing(false); onUpdate(patch) }
   }
 
   return (
@@ -75,12 +99,12 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, onClos
                   {iv.task_number}
                 </span>
               )}
-              {zone && (
+              {zone && !editing && (
                 <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, color: zoneColor, background: zoneColor + '18', border: `1px solid ${zoneColor}40` }}>
                   {zone.short}
                 </span>
               )}
-              {trade && (
+              {trade && !editing && (
                 <span style={{ fontSize: 10, color: tc.t, background: tc.bg, padding: '1px 6px', borderRadius: 4, fontWeight: 500, border: `1px solid ${tc.b}30` }}>
                   {trade.short}
                 </span>
@@ -89,15 +113,26 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, onClos
                 {sm.label}
               </span>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4 }}>{iv.task}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: "'DM Mono', monospace", marginTop: 4 }}>
-              {fmtDate(iv.start_date)}{iv.end_date && iv.end_date !== iv.start_date ? ` → ${fmtDate(iv.end_date)}` : ''}
-              {iv.company && ` · ${iv.company}`}
-            </div>
+            {editing ? (
+              <input
+                value={editTask}
+                onChange={e => setEditTask(e.target.value)}
+                style={{ width: '100%', fontSize: 15, fontWeight: 700, color: 'var(--text)', border: '1px solid var(--primary)', borderRadius: 6, padding: '5px 8px', background: 'var(--surface-2)', fontFamily: "'DM Sans', sans-serif" }}
+              />
+            ) : (
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4 }}>{iv.task}</div>
+            )}
+            {!editing && (
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: "'DM Mono', monospace", marginTop: 4 }}>
+                {fmtDate(iv.start_date)}{iv.end_date && iv.end_date !== iv.start_date ? ` → ${fmtDate(iv.end_date)}` : ''}
+                {iv.company && ` · ${iv.company}`}
+              </div>
+            )}
           </div>
-          <button onClick={onClose} style={{ border: 'none', background: 'var(--surface-2)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontSize: 18, color: 'var(--muted)', flexShrink: 0 }}>
-            ×
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+            <button onClick={onClose} style={{ border: 'none', background: 'var(--surface-2)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontSize: 18, color: 'var(--muted)' }}>×</button>
+            <button onClick={() => setEditing(e => !e)} style={{ border: `1px solid ${editing ? 'var(--primary)' : 'var(--border)'}`, background: editing ? 'var(--primary-l)' : 'var(--surface-2)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontSize: 13, color: editing ? 'var(--primary)' : 'var(--muted)' }}>✎</button>
+          </div>
         </div>
 
         {/* Scrollable content */}
@@ -135,11 +170,45 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, onClos
           )}
 
           {/* Off days */}
-          {iv.off_days && iv.off_days.length > 0 && (
+          {(editing || (iv.off_days && iv.off_days.length > 0)) && (
             <InfoRow label="Jours gelés">
-              <span style={{ fontSize: 12, color: 'var(--danger)' }}>
-                {iv.off_days.map(d => fmtDate(d)).join(', ')}
-              </span>
+              {editing ? (
+                <div>
+                  {/* Existing chips */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: editOffDays.length > 0 ? 8 : 0 }}>
+                    {editOffDays.sort().map(d => (
+                      <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(220,38,38,.1)', border: '1px solid rgba(220,38,38,.3)', borderRadius: 20, padding: '3px 8px', fontSize: 12, color: '#991B1B' }}>
+                        {fmtDate(d)}
+                        <button onClick={() => setEditOffDays(prev => prev.filter(x => x !== d))} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#DC2626', fontSize: 14, lineHeight: 1, padding: 0, marginLeft: 2 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  {/* Add new day */}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="date"
+                      value={newOffDay}
+                      onChange={e => setNewOffDay(e.target.value)}
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (newOffDay && !editOffDays.includes(newOffDay)) {
+                          setEditOffDays(prev => [...prev, newOffDay])
+                          setNewOffDay('')
+                        }
+                      }}
+                      style={{ padding: '7px 14px', borderRadius: 'var(--r-xs)', border: '1px solid var(--primary)', background: 'var(--primary-l)', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      + Ajouter
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <span style={{ fontSize: 12, color: 'var(--danger)' }}>
+                  {iv.off_days!.map(d => fmtDate(d)).join(', ')}
+                </span>
+              )}
             </InfoRow>
           )}
 
@@ -149,6 +218,42 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, onClos
           </InfoRow>
 
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
+
+          {/* Edit mode fields */}
+          {editing && (
+            <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={labelStyle}>Zone</label>
+                  <select value={editZone} onChange={e => setEditZone(e.target.value)} style={inputStyle}>
+                    <option value="">— Sans zone —</option>
+                    {zones.map(z => <option key={z.id} value={z.id}>{z.short}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Corps de métier</label>
+                  <select value={editTrade} onChange={e => handleTradeChange(e.target.value)} style={inputStyle}>
+                    <option value="">— Sans trade —</option>
+                    {trades.map(t => <option key={t.id} value={t.id}>{t.short}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Entreprise</label>
+                <input value={editCompany} onChange={e => setEditCompany(e.target.value)} style={inputStyle} placeholder="Nom de l'entreprise" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={labelStyle}>Début</label>
+                  <input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Fin</label>
+                  <input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} style={inputStyle} />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Editable: Status */}
           <div style={{ marginBottom: 14 }}>
@@ -281,5 +386,12 @@ function PriorityBadge({ priority }: { priority: number }) {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px',
+  fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px', display: 'block', marginBottom: 4,
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '7px 10px', borderRadius: 'var(--r-xs)',
+  border: '1px solid var(--border)', background: 'var(--surface-2)',
+  color: 'var(--text)', fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+  boxSizing: 'border-box',
 }
