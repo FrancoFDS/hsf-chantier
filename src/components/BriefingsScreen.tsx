@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Intervention, Zone, Trade, Company } from '@/types/database'
 import { effectiveStatus } from '@/lib/progress'
 import { STATUS_META } from '@/constants/status'
@@ -287,13 +287,48 @@ function WeeklyPlanGrid({ interventions, zones, trades, companies, activeWeeks }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+interface Schedule { dayOfWeek: number; hour: number; minute: number; active: boolean }
+
+const FR_DOW = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+
 export default function BriefingsScreen({ interventions, zones, trades, companies }: Props) {
   const [selectedWeeks, setSelectedWeeks] = useState<number[]>([0])
   const [copied, setCopied]               = useState<string | null>(null)
   const [sentStatus, setSentStatus]       = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem('planify_briefings_sent') ?? '{}') } catch { return {} }
   })
-  const [recapOpen, setRecapOpen] = useState(false)
+  const [recapOpen, setRecapOpen]         = useState(false)
+  const [showScheduler, setShowScheduler] = useState(false)
+  const [briefingAlert, setBriefingAlert] = useState(false)
+  const [schedule, setSchedule]           = useState<Schedule>(() => {
+    try { return JSON.parse(localStorage.getItem('planify_briefing_schedule') ?? 'null') ?? { dayOfWeek: 1, hour: 7, minute: 0, active: false } }
+    catch { return { dayOfWeek: 1, hour: 7, minute: 0, active: false } }
+  })
+
+  function saveSchedule(s: Schedule) {
+    setSchedule(s)
+    try { localStorage.setItem('planify_briefing_schedule', JSON.stringify(s)) } catch {}
+    if (s.active && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }
+
+  // Check schedule every minute
+  useEffect(() => {
+    if (!schedule.active) return
+    const check = () => {
+      const now = new Date()
+      if (now.getDay() === schedule.dayOfWeek && now.getHours() === schedule.hour && now.getMinutes() === schedule.minute) {
+        setBriefingAlert(true)
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification('📋 Planify — Briefings', { body: 'C\'est l\'heure d\'envoyer les récaps hebdomadaires !' })
+        }
+      }
+    }
+    const t = setInterval(check, 60000)
+    check() // check immediately on mount
+    return () => clearInterval(t)
+  }, [schedule])
 
   const allWeeks = [getWeekRange(0), getWeekRange(1), getWeekRange(2)]
   const activeWeeks = allWeeks.filter((_, i) => selectedWeeks.includes(i))
@@ -311,7 +346,10 @@ export default function BriefingsScreen({ interventions, zones, trades, companie
 
   function markSent(cardId: string) {
     const k = sentKey(cardId)
-    const next = { ...sentStatus, [k]: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
+    const now = new Date()
+    const label = now.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+      + ' à ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const next = { ...sentStatus, [k]: label }
     setSentStatus(next)
     try { localStorage.setItem('planify_briefings_sent', JSON.stringify(next)) } catch {}
   }
@@ -360,6 +398,18 @@ export default function BriefingsScreen({ interventions, zones, trades, companie
   return (
     <div style={{ height: '100%', overflowY: 'auto', paddingBottom: 80 }}>
 
+      {/* ── Alerte rappel ── */}
+      {briefingAlert && (
+        <div style={{ margin: '14px 14px 0', background: 'var(--primary-l)', border: '2px solid var(--primary)', borderRadius: 'var(--r)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 24 }}>📋</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', marginBottom: 2 }}>C'est l'heure d'envoyer les briefings !</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Rappel programmé — {cards.length} entreprise{cards.length > 1 ? 's' : ''} à contacter</div>
+          </div>
+          <button onClick={() => setBriefingAlert(false)} style={{ border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>×</button>
+        </div>
+      )}
+
       {/* ── Situation à date ── */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r)', margin: '14px 14px 0', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
         <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -391,7 +441,50 @@ export default function BriefingsScreen({ interventions, zones, trades, companie
 
       {/* ── Week selector ── */}
       <div style={{ margin: '14px 14px 0', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '12px 14px', boxShadow: 'var(--shadow)' }}>
-        <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 8 }}>Semaines à inclure dans les briefings</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Semaines à inclure dans les briefings</div>
+          <button onClick={() => setShowScheduler(s => !s)} style={{
+            fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
+            border: `1px solid ${schedule.active ? 'var(--primary)' : 'var(--border)'}`,
+            background: schedule.active ? 'var(--primary-l)' : 'var(--surface-2)',
+            color: schedule.active ? 'var(--primary)' : 'var(--muted)',
+          }}>
+            {schedule.active ? `⏰ ${FR_DOW[schedule.dayOfWeek]} ${String(schedule.hour).padStart(2,'0')}:${String(schedule.minute).padStart(2,'0')}` : '⏰ Programmer'}
+          </button>
+        </div>
+        {showScheduler && (
+          <div style={{ marginBottom: 12, background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: '12px', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>Rappel automatique d'envoi</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Jour</label>
+                <select value={schedule.dayOfWeek} onChange={e => setSchedule(s => ({ ...s, dayOfWeek: +e.target.value }))}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12 }}>
+                  {[1,2,3,4,5].map(d => <option key={d} value={d}>{FR_DOW[d]}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Heure</label>
+                <input type="time" value={`${String(schedule.hour).padStart(2,'0')}:${String(schedule.minute).padStart(2,'0')}`}
+                  onChange={e => { const [h,m] = e.target.value.split(':'); setSchedule(s => ({ ...s, hour: +h, minute: +m })) }}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, boxSizing: 'border-box' }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { saveSchedule({ ...schedule, active: true }); setShowScheduler(false) }} style={{
+                flex: 1, padding: '8px', borderRadius: 6, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>Activer le rappel</button>
+              {schedule.active && (
+                <button onClick={() => { saveSchedule({ ...schedule, active: false }); setShowScheduler(false) }} style={{
+                  padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--muted)', fontSize: 12, cursor: 'pointer',
+                }}>Désactiver</button>
+              )}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+              Une alerte s'affichera dans l'app à l'heure choisie (onglet doit être ouvert). Une notification navigateur sera également envoyée si autorisée.
+            </div>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 6 }}>
           {[0, 1, 2].map(i => {
             const w = allWeeks[i]
@@ -514,7 +607,6 @@ function CompanyCard({ co, contact, cardId, ivs, zones, trades, companies, activ
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>{co.name}</span>
-            {sentAt && <span style={{ fontSize: 10, color: STATUS_META.termine.dot, fontWeight: 600, background: STATUS_META.termine.bg, padding: '1px 6px', borderRadius: 999 }}>✓ {sentAt}</span>}
             {blocked > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-l)', padding: '1px 6px', borderRadius: 999 }}>⛔ {blocked} bloquée{blocked > 1 ? 's' : ''}</span>}
             {late > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: '#EA580C', background: '#FFF7ED', padding: '1px 6px', borderRadius: 999 }}>⏱ {late} retard{late > 1 ? 's' : ''}</span>}
           </div>
@@ -596,7 +688,7 @@ function CompanyCard({ co, contact, cardId, ivs, zones, trades, companies, activ
           )}
 
           {/* Actions */}
-          <div style={{ padding: '10px 12px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ padding: '10px 12px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={() => onCopy(msg)} style={btnStyle(isCopied)}>
               {isCopied ? '✓ Copié !' : '⎘ Copier'}
             </button>
@@ -608,6 +700,11 @@ function CompanyCard({ co, contact, cardId, ivs, zones, trades, companies, activ
               }}>
                 WhatsApp
               </a>
+            )}
+            {sentAt && (
+              <span style={{ fontSize: 10, color: STATUS_META.termine.dot, fontWeight: 600, background: STATUS_META.termine.bg, padding: '3px 8px', borderRadius: 999, border: `1px solid ${STATUS_META.termine.dot}30` }}>
+                ✓ Envoyé {sentAt}
+              </span>
             )}
             {!contact.phone && (
               <span style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center' }}>Aucun numéro enregistré</span>
