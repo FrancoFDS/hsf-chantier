@@ -17,6 +17,7 @@ interface Props {
   trades: Trade[]
   companies: Company[]
   highlightCompany?: string
+  readOnly?: boolean
   onUpdate: (id: string, patch: Partial<Intervention>) => void
   onAdd: (iv: Intervention) => void
 }
@@ -325,7 +326,7 @@ const modalSelectStyle: React.CSSProperties = {
 
 type MoveMode = { iv: Intervention; mode: 'move' | 'dup' } | null
 
-export default function PlanningScreen({ interventions, zones, trades, companies, highlightCompany, onUpdate, onAdd }: Props) {
+export default function PlanningScreen({ interventions, zones, trades, companies, highlightCompany, readOnly, onUpdate, onAdd }: Props) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [viewMode, setViewMode]     = useState<ViewMode>('1s')
   const [zoneFilter, setZoneFilter] = useState<string[]>([])
@@ -414,18 +415,20 @@ export default function PlanningScreen({ interventions, zones, trades, companies
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Add button */}
-        <button
-          onClick={e => { e.stopPropagation(); setAddDefaults({}); setShowAdd(true) }}
-          style={{
-            width: 32, height: 32, borderRadius: 8, border: 'none',
-            background: 'var(--primary)', color: '#fff', fontSize: 20, lineHeight: 1,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 300,
-          }}
-          title="Ajouter une tâche"
-        >
-          +
-        </button>
+        {/* Add button — admin only */}
+        {!readOnly && (
+          <button
+            onClick={e => { e.stopPropagation(); setAddDefaults({}); setShowAdd(true) }}
+            style={{
+              width: 32, height: 32, borderRadius: 8, border: 'none',
+              background: 'var(--primary)', color: '#fff', fontSize: 20, lineHeight: 1,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 300,
+            }}
+            title="Ajouter une tâche"
+          >
+            +
+          </button>
+        )}
       </div>
 
       {/* Move mode banner */}
@@ -679,11 +682,11 @@ export default function PlanningScreen({ interventions, zones, trades, companies
             onUpdate(selectedIv.id, patch)
             setSelectedId(null)
           }}
-          onStartMove={() => {
+          onStartMove={readOnly ? undefined : () => {
             setMoveMode({ iv: selectedIv, mode: 'move' })
             setSelectedId(null)
           }}
-          onStartDuplicate={() => {
+          onStartDuplicate={readOnly ? undefined : () => {
             setMoveMode({ iv: selectedIv, mode: 'dup' })
             setSelectedId(null)
           }}

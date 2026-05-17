@@ -90,6 +90,7 @@ export default function PlanifyApp() {
             <PlanningScreen
               interventions={interventions} zones={zones} trades={trades} companies={companies}
               highlightCompany={userCompany}
+              readOnly
               onUpdate={handleUpdate} onAdd={handleAdd}
             />
           )}
