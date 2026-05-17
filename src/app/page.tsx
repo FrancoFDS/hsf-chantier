@@ -70,27 +70,34 @@ export default function PlanifyApp() {
       const co   = user?.user_metadata?.company_name ?? null
       setUserRole(role); setUserCompany(co)
       setAuthorName(co ?? user?.email?.split('@')[0] ?? 'Admin')
-
-      // Fetch notifications
-      const query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)
-      const q = role === 'company' && co
-        ? query.eq('recipient_role', 'company').eq('recipient_company', co)
-        : query.eq('recipient_role', 'admin')
-      q.then(({ data }) => { if (data) setNotifications(data as AppNotification[]) })
-
-      // Realtime subscription
-      const filter = role === 'company' && co
-        ? `recipient_company=eq.${co}`
-        : `recipient_role=eq.admin`
-      supabase.channel(`notifs-${role}-${co ?? 'admin'}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter }, payload => {
-          setNotifications(prev => [payload.new as AppNotification, ...prev])
-        })
-        .subscribe()
     })
     .catch(e => setError(String(e)))
     .finally(() => setLoading(false))
   }, [])
+
+  // Fetch notifications once role is known
+  useEffect(() => {
+    if (loading) return
+    const query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)
+    const q = userRole === 'company' && userCompany
+      ? query.eq('recipient_role', 'company').eq('recipient_company', userCompany)
+      : query.eq('recipient_role', 'admin')
+    q.then(({ data }) => { if (data) setNotifications(data as AppNotification[]) })
+  }, [loading, userRole, userCompany])
+
+  // Realtime subscription with proper cleanup
+  useEffect(() => {
+    if (loading) return
+    const filter = userRole === 'company' && userCompany
+      ? `recipient_company=eq.${userCompany}`
+      : `recipient_role=eq.admin`
+    const channel = supabase.channel(`notifs-${userRole}-${userCompany ?? 'admin'}-${Date.now()}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter }, payload => {
+        setNotifications(prev => [payload.new as AppNotification, ...prev])
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [loading, userRole, userCompany])
 
   const handleUpdate = useCallback((id: string, patch: Partial<Intervention>) => {
     setInterventions(prev => prev.map(iv => iv.id === id ? { ...iv, ...patch } : iv))
