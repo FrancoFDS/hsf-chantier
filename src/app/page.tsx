@@ -11,6 +11,7 @@ import PlanningScreen from '@/components/PlanningScreen'
 import BriefingsScreen from '@/components/BriefingsScreen'
 import SettingsScreen from '@/components/SettingsScreen'
 import TaskDetail from '@/components/TaskDetail'
+import CompanyScreen from '@/components/CompanyScreen'
 
 async function loadData() {
   const [zones, trades, interventions, companies] = await Promise.all([
@@ -28,21 +29,33 @@ async function loadData() {
 }
 
 type Screen = 'dashboard' | 'planning' | 'list' | 'briefings' | 'settings'
+type CompanyScreen = 'mytasks' | 'planning'
 
 export default function PlanifyApp() {
   const [screen, setScreen]       = useState<Screen>('dashboard')
+  const [coScreen, setCoScreen]   = useState<CompanyScreen>('mytasks')
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState<string | null>(null)
   const [zones, setZones]                   = useState<Zone[]>([])
   const [trades, setTrades]                 = useState<Trade[]>([])
   const [interventions, setInterventions]   = useState<Intervention[]>([])
   const [companies, setCompanies]           = useState<Company[]>([])
+  const [userRole, setUserRole]             = useState<'admin' | 'company'>('admin')
+  const [userCompany, setUserCompany]       = useState<string | null>(null)
 
   useEffect(() => {
-    loadData()
-      .then(d => { setZones(d.zones); setTrades(d.trades); setInterventions(d.interventions); setCompanies(d.companies) })
-      .catch(e => setError(String(e)))
-      .finally(() => setLoading(false))
+    Promise.all([
+      loadData(),
+      supabase.auth.getUser(),
+    ]).then(([d, { data: { user } }]) => {
+      setZones(d.zones); setTrades(d.trades)
+      setInterventions(d.interventions); setCompanies(d.companies)
+      const role = user?.user_metadata?.role ?? 'admin'
+      const co   = user?.user_metadata?.company_name ?? null
+      setUserRole(role); setUserCompany(co)
+    })
+    .catch(e => setError(String(e)))
+    .finally(() => setLoading(false))
   }, [])
 
   const handleUpdate = useCallback((id: string, patch: Partial<Intervention>) => {
@@ -56,6 +69,52 @@ export default function PlanifyApp() {
   if (loading) return <Loader />
   if (error)   return <ErrorScreen message={error} />
 
+  // ── Vue sous-traitant ──
+  if (userRole === 'company' && userCompany) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <header style={{ background: 'var(--hdr)', color: 'var(--hdr-text)', padding: '0 16px', height: 52, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, zIndex: 50 }}>
+          <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-.3px' }}>{userCompany}</span>
+          <span style={{ fontSize: 11, opacity: .5, fontWeight: 500 }}>HSF Av. Marceau</span>
+        </header>
+        <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          {coScreen === 'mytasks' && (
+            <CompanyScreen
+              companyName={userCompany}
+              interventions={interventions}
+              zones={zones} trades={trades} companies={companies}
+              onUpdate={handleUpdate}
+            />
+          )}
+          {coScreen === 'planning' && (
+            <PlanningScreen
+              interventions={interventions} zones={zones} trades={trades} companies={companies}
+              highlightCompany={userCompany}
+              onUpdate={handleUpdate} onAdd={handleAdd}
+            />
+          )}
+        </main>
+        <nav style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', flexShrink: 0 }}>
+          {([{ id: 'mytasks', label: 'Mes tâches', icon: '≡' }, { id: 'planning', label: 'Planning', icon: '▦' }] as { id: CompanyScreen; label: string; icon: string }[]).map(item => {
+            const active = coScreen === item.id
+            return (
+              <button key={item.id} onClick={() => setCoScreen(item.id)} style={{
+                flex: 1, padding: '8px 0 10px', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: 3, border: 'none', cursor: 'pointer', background: 'transparent',
+                color: active ? 'var(--primary)' : 'var(--xmuted)', fontWeight: active ? 600 : 400, fontSize: 10,
+                borderTop: active ? '2px solid var(--primary)' : '2px solid transparent',
+              }}>
+                <span style={{ fontSize: 16, lineHeight: 1 }}>{item.icon}</span>
+                {item.label}
+              </button>
+            )
+          })}
+        </nav>
+      </div>
+    )
+  }
+
+  // ── Vue admin ──
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <AppHeader screen={screen} onNavigate={setScreen} interventions={interventions} />
@@ -65,7 +124,6 @@ export default function PlanifyApp() {
         {screen === 'planning' && <PlanningScreen interventions={interventions} zones={zones} trades={trades} companies={companies} onUpdate={handleUpdate} onAdd={handleAdd} />}
         {screen === 'briefings' && <BriefingsScreen interventions={interventions} zones={zones} trades={trades} companies={companies} />}
         {screen === 'settings' && <SettingsScreen zones={zones} trades={trades} companies={companies} onZonesChange={setZones} onTradesChange={setTrades} onCompaniesChange={setCompanies} />}
-        {screen !== 'dashboard' && screen !== 'list' && screen !== 'planning' && screen !== 'briefings' && screen !== 'settings' && <ComingSoon screen={screen} />}
       </main>
       <BottomNav screen={screen} onNavigate={setScreen} />
     </div>

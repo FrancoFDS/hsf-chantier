@@ -16,6 +16,7 @@ interface Props {
   zones: Zone[]
   trades: Trade[]
   companies: Company[]
+  highlightCompany?: string
   onUpdate: (id: string, patch: Partial<Intervention>) => void
   onAdd: (iv: Intervention) => void
 }
@@ -324,7 +325,7 @@ const modalSelectStyle: React.CSSProperties = {
 
 type MoveMode = { iv: Intervention; mode: 'move' | 'dup' } | null
 
-export default function PlanningScreen({ interventions, zones, trades, companies, onUpdate, onAdd }: Props) {
+export default function PlanningScreen({ interventions, zones, trades, companies, highlightCompany, onUpdate, onAdd }: Props) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [viewMode, setViewMode]     = useState<ViewMode>('1s')
   const [zoneFilter, setZoneFilter] = useState<string[]>([])
@@ -647,6 +648,7 @@ export default function PlanningScreen({ interventions, zones, trades, companies
                             isMulti={isMulti}
                             weeks={weeks}
                             inMoveMode={!!moveMode}
+                            dimmed={!!highlightCompany && iv.company !== highlightCompany}
                             onClick={() => {
                               if (!moveMode) setSelectedId(iv.id)
                             }}
@@ -706,8 +708,8 @@ export default function PlanningScreen({ interventions, zones, trades, companies
 
 // ─── Task bar inside a cell ───────────────────────────────────────────────────
 
-function TaskBar({ iv, trades, isMulti, weeks, inMoveMode, onClick }: {
-  iv: Intervention; trades: Trade[]; isMulti: boolean; weeks: number; inMoveMode: boolean; onClick: () => void
+function TaskBar({ iv, trades, isMulti, weeks, inMoveMode, dimmed, onClick }: {
+  iv: Intervention; trades: Trade[]; isMulti: boolean; weeks: number; inMoveMode: boolean; dimmed?: boolean; onClick: () => void
 }) {
   const trade = trades.find(t => t.id === iv.trade)
   const tc    = getTradeColor(trade?.color ?? 'blue')
@@ -715,8 +717,9 @@ function TaskBar({ iv, trades, isMulti, weeks, inMoveMode, onClick }: {
   const sm    = STATUS_META[es]
 
   const baseStyle: React.CSSProperties = {
-    opacity: inMoveMode ? 0.5 : 1,
+    opacity: inMoveMode ? 0.5 : dimmed ? 0.25 : 1,
     cursor:  inMoveMode ? 'crosshair' : 'pointer',
+    filter:  dimmed ? 'grayscale(60%)' : undefined,
   }
 
   function handleClick(e: React.MouseEvent) {
