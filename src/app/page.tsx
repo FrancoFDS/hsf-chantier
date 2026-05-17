@@ -32,6 +32,17 @@ async function loadData() {
 type Screen = 'dashboard' | 'planning' | 'list' | 'briefings' | 'settings'
 type CompanyScreen = 'mytasks' | 'planning'
 
+interface AppNotification {
+  id: string
+  recipient_role: string
+  recipient_company: string | null
+  intervention_id: string | null
+  task_name: string | null
+  message: string
+  read: boolean
+  created_at: string
+}
+
 export default function PlanifyApp() {
   const router = useRouter()
   const [screen, setScreen]       = useState<Screen>('dashboard')
@@ -45,6 +56,8 @@ export default function PlanifyApp() {
   const [userRole, setUserRole]             = useState<'admin' | 'company'>('admin')
   const [userCompany, setUserCompany]       = useState<string | null>(null)
   const [authorName, setAuthorName]         = useState<string>('Admin')
+  const [notifications, setNotifications]   = useState<AppNotification[]>([])
+  const [showNotifs, setShowNotifs]         = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -57,6 +70,23 @@ export default function PlanifyApp() {
       const co   = user?.user_metadata?.company_name ?? null
       setUserRole(role); setUserCompany(co)
       setAuthorName(co ?? user?.email?.split('@')[0] ?? 'Admin')
+
+      // Fetch notifications
+      const query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)
+      const q = role === 'company' && co
+        ? query.eq('recipient_role', 'company').eq('recipient_company', co)
+        : query.eq('recipient_role', 'admin')
+      q.then(({ data }) => { if (data) setNotifications(data as AppNotification[]) })
+
+      // Realtime subscription
+      const filter = role === 'company' && co
+        ? `recipient_company=eq.${co}`
+        : `recipient_role=eq.admin`
+      supabase.channel(`notifs-${role}-${co ?? 'admin'}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter }, payload => {
+          setNotifications(prev => [payload.new as AppNotification, ...prev])
+        })
+        .subscribe()
     })
     .catch(e => setError(String(e)))
     .finally(() => setLoading(false))
@@ -76,6 +106,15 @@ export default function PlanifyApp() {
     router.refresh()
   }
 
+  async function handleMarkAllRead() {
+    const unread = notifications.filter(n => !n.read).map(n => n.id)
+    if (unread.length === 0) return
+    await supabase.from('notifications').update({ read: true }).in('id', unread)
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
+
+  const unreadCount = notifications.filter(n => !n.read).length
+
   if (loading) return <Loader />
   if (error)   return <ErrorScreen message={error} />
 
@@ -90,11 +129,14 @@ export default function PlanifyApp() {
             <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-.3px' }}>{userCompany}</span>
             <span style={{ fontSize: 11, opacity: .4, fontWeight: 500 }}>HSF Av. Marceau</span>
           </div>
-          <button onClick={handleLogout} style={{
-            background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)',
-            borderRadius: 7, padding: '5px 10px', color: 'rgba(255,255,255,.7)',
-            fontSize: 11, fontWeight: 600, cursor: 'pointer', letterSpacing: '.02em',
-          }}>Déconnexion</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BellButton count={unreadCount} onClick={() => { setShowNotifs(true); handleMarkAllRead() }} />
+            <button onClick={handleLogout} style={{
+              background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)',
+              borderRadius: 7, padding: '5px 10px', color: 'rgba(255,255,255,.7)',
+              fontSize: 11, fontWeight: 600, cursor: 'pointer', letterSpacing: '.02em',
+            }}>Déconnexion</button>
+          </div>
         </header>
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {coScreen === 'mytasks' && (
@@ -116,6 +158,7 @@ export default function PlanifyApp() {
             />
           )}
         </main>
+        {showNotifs && <NotifPanel notifications={notifications} onClose={() => setShowNotifs(false)} />}
         <nav style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', flexShrink: 0 }}>
           {([{ id: 'mytasks', label: 'Mes tâches', icon: '≡' }, { id: 'planning', label: 'Planning', icon: '▦' }] as { id: CompanyScreen; label: string; icon: string }[]).map(item => {
             const active = coScreen === item.id
@@ -139,7 +182,7 @@ export default function PlanifyApp() {
   // ── Vue admin ──
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <AppHeader screen={screen} onNavigate={setScreen} interventions={interventions} onLogout={handleLogout} />
+      <AppHeader screen={screen} onNavigate={setScreen} interventions={interventions} onLogout={handleLogout} unreadCount={unreadCount} onOpenNotifs={() => { setShowNotifs(true); handleMarkAllRead() }} />
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {screen === 'dashboard' && <DashboardScreen zones={zones} interventions={interventions} trades={trades} onUpdate={handleUpdate} />}
         {screen === 'list' && <ListScreen interventions={interventions} zones={zones} trades={trades} onUpdate={handleUpdate} />}
@@ -147,15 +190,94 @@ export default function PlanifyApp() {
         {screen === 'briefings' && <BriefingsScreen interventions={interventions} zones={zones} trades={trades} companies={companies} />}
         {screen === 'settings' && <SettingsScreen zones={zones} trades={trades} companies={companies} onZonesChange={setZones} onTradesChange={setTrades} onCompaniesChange={setCompanies} />}
       </main>
+      {showNotifs && <NotifPanel notifications={notifications} onClose={() => setShowNotifs(false)} />}
       <BottomNav screen={screen} onNavigate={setScreen} />
     </div>
   )
 }
 
+// ─── Bell button ──────────────────────────────────────────────────────────────
+
+function BellButton({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      position: 'relative', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)',
+      borderRadius: 7, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      cursor: 'pointer', fontSize: 16,
+    }}>
+      🔔
+      {count > 0 && (
+        <span style={{
+          position: 'absolute', top: -5, right: -5,
+          background: '#EF4444', color: '#fff', borderRadius: 99,
+          fontSize: 9, fontWeight: 800, minWidth: 16, height: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+          border: '1.5px solid var(--hdr)',
+        }}>{count > 9 ? '9+' : count}</span>
+      )}
+    </button>
+  )
+}
+
+// ─── Notifications panel ──────────────────────────────────────────────────────
+
+function NotifPanel({ notifications, onClose }: { notifications: AppNotification[]; onClose: () => void }) {
+  function fmtTime(iso: string) {
+    const d = new Date(iso)
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - d.getTime()) / 60000)
+    if (diff < 1)   return 'À l\'instant'
+    if (diff < 60)  return `Il y a ${diff} min`
+    if (diff < 1440) return `Il y a ${Math.floor(diff / 60)}h`
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  }
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 100, backdropFilter: 'blur(2px)' }} />
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101,
+        background: 'var(--surface)', borderRadius: '16px 16px 0 0',
+        boxShadow: '0 -8px 32px rgba(0,0,0,.18)',
+        maxHeight: '75vh', display: 'flex', flexDirection: 'column',
+        animation: 'slideUp .22s ease-out',
+      }}>
+        <div style={{ padding: '12px 0 0', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)' }} />
+        </div>
+        <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
+          <button onClick={onClose} style={{ border: 'none', background: 'var(--surface-2)', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', fontSize: 16, color: 'var(--muted)' }}>×</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px 24px' }}>
+          {notifications.length === 0 ? (
+            <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '32px 0' }}>Aucune notification</div>
+          ) : notifications.map(n => (
+            <div key={n.id} style={{
+              padding: '11px 12px', marginBottom: 8, borderRadius: 'var(--r)',
+              background: n.read ? 'var(--surface-2)' : 'var(--primary-l)',
+              border: `1px solid ${n.read ? 'var(--border)' : 'var(--primary)'}`,
+              borderLeft: `3px solid ${n.read ? 'var(--border)' : 'var(--primary)'}`,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: n.read ? 400 : 600, color: 'var(--text)', lineHeight: 1.4 }}>{n.message}</div>
+                  {n.task_name && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>Tâche : {n.task_name}</div>}
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--xmuted)', fontFamily: "'DM Mono', monospace", flexShrink: 0, whiteSpace: 'nowrap' }}>{fmtTime(n.created_at)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ─── Header ───────────────────────────────────────────────────────────────────
 
-function AppHeader({ screen, onNavigate, interventions, onLogout }: {
-  screen: Screen; onNavigate: (s: Screen) => void; interventions: Intervention[]; onLogout: () => void
+function AppHeader({ screen, onNavigate, interventions, onLogout, unreadCount, onOpenNotifs }: {
+  screen: Screen; onNavigate: (s: Screen) => void; interventions: Intervention[]
+  onLogout: () => void; unreadCount: number; onOpenNotifs: () => void
 }) {
   const blocked = interventions.filter(iv => iv.status === 'bloque').length
   const labels: Record<Screen, string> = {
@@ -185,6 +307,7 @@ function AppHeader({ screen, onNavigate, interventions, onLogout }: {
             ⚠ {blocked} bloquée{blocked > 1 ? 's' : ''}
           </button>
         )}
+        <BellButton count={unreadCount} onClick={onOpenNotifs} />
         <button onClick={onLogout} style={{
           background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)',
           borderRadius: 7, padding: '5px 10px', color: 'rgba(255,255,255,.7)',

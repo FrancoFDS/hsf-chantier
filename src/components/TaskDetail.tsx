@@ -91,16 +91,35 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, readOn
     if (!error) { setEditing(false); onUpdate(patch) }
   }
 
+  const canAddNote = !readOnly || (!!authorName && iv.company === authorName)
+
   async function handleAddNote() {
     if (!newNote.trim()) return
     setAddingNote(true)
     const entry = { intervention_id: iv.id, content: newNote.trim(), author_name: authorName ?? 'Anonyme' }
     const { data, error } = await supabase.from('intervention_notes').insert(entry).select().single()
-    setAddingNote(false)
     if (!error && data) {
       setNotesList(prev => [...prev, data as NoteEntry])
       setNewNote('')
+      // Notifications
+      if (readOnly && iv.company) {
+        await supabase.from('notifications').insert({
+          recipient_role: 'admin',
+          intervention_id: iv.id,
+          task_name: iv.task,
+          message: `${authorName} a ajouté une note sur « ${iv.task} »`,
+        })
+      } else if (!readOnly && iv.company) {
+        await supabase.from('notifications').insert({
+          recipient_role: 'company',
+          recipient_company: iv.company,
+          intervention_id: iv.id,
+          task_name: iv.task,
+          message: `Nouvelle note sur « ${iv.task} »`,
+        })
+      }
     }
+    setAddingNote(false)
   }
 
   return (
@@ -342,8 +361,8 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, readOn
               </div>
             )}
 
-            {/* Formulaire ajout */}
-            <div style={{
+            {/* Formulaire ajout — seulement si autorisé */}
+            {canAddNote && <div style={{
               background: 'var(--surface-2)',
               border: `1px solid ${newNote.trim() ? 'var(--primary)' : 'var(--border)'}`,
               borderRadius: 'var(--r-xs)',
@@ -375,7 +394,7 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, readOn
                   >{addingNote ? 'Envoi…' : 'Publier'}</button>
                 </div>
               )}
-            </div>
+            </div>}
           </div>
         </div>
 
