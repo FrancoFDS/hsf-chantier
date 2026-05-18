@@ -416,6 +416,24 @@ export default function PlanningScreen({ interventions, zones, trades, companies
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
+        {/* Export PDF — admin only */}
+        {!readOnly && (
+          <a
+            href="/export/planning"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              height: 32, borderRadius: 8, border: '1px solid var(--border)',
+              background: 'var(--surface-2)', color: 'var(--muted)', fontSize: 11, fontWeight: 700,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+              padding: '0 10px', textDecoration: 'none', whiteSpace: 'nowrap',
+            }}
+            title="Exporter le planning en PDF"
+          >
+            🖨 PDF
+          </a>
+        )}
+
         {/* Add button — admin only */}
         {!readOnly && (
           <button
