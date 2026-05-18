@@ -17,12 +17,13 @@ function localStr(d: Date): string {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')
 }
 
-function getWeekDays(offsetWeeks: number): string[] {
+function getWeekDays(offsetWeeks: number, includeWeekend = false): string[] {
   const today = new Date(); today.setHours(0,0,0,0)
   const dow = today.getDay()
   const mon = new Date(today)
   mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + offsetWeeks * 7)
-  return Array.from({ length: 5 }, (_, i) => {
+  const len = includeWeekend ? 7 : 5
+  return Array.from({ length: len }, (_, i) => {
     const d = new Date(mon); d.setDate(mon.getDate() + i); return localStr(d)
   })
 }
@@ -52,8 +53,9 @@ interface GanttBar {
 }
 
 function buildGanttBars(ivs: Intervention[], weekDays: string[]): { bars: GanttBar[]; laneCount: number } {
+  const last      = weekDays.length - 1
   const weekStart = weekDays[0]
-  const weekEnd   = weekDays[4]
+  const weekEnd   = weekDays[last]
 
   // Keep tasks that overlap with this week
   const active = ivs.filter(iv => {
@@ -62,17 +64,17 @@ function buildGanttBars(ivs: Intervention[], weekDays: string[]): { bars: GanttB
     return s && s <= weekEnd && e >= weekStart
   })
 
-  // Compute column spans (clamped to 0–4)
+  // Compute column spans (clamped to 0..last)
   const withSpans = active.map(iv => {
     const s = iv.start_date!
     const e = iv.end_date ?? s
     const startCol = Math.max(0, weekDays.findIndex(d => d >= s))
     const endIdx = [...weekDays].reverse().findIndex(d => d <= e)
-    const endCol  = endIdx === -1 ? 4 : 4 - endIdx
+    const endCol  = endIdx === -1 ? last : last - endIdx
     return {
       iv,
-      startCol: Math.min(startCol, 4),
-      endCol:   Math.max(Math.min(endCol, 4), startCol),
+      startCol: Math.min(startCol, last),
+      endCol:   Math.max(Math.min(endCol, last), startCol),
       startsBeforeWeek: s < weekStart,
       endsAfterWeek:    e > weekEnd,
       lane: 0,
@@ -128,7 +130,7 @@ function LaneRow({ bars, weekDays, today, trades, companies }: {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(5, 1fr)',
+      gridTemplateColumns: `repeat(${weekDays.length}, 1fr)`,
       minHeight: 30,
     }}>
       {segs.map((seg, i) => {
@@ -208,6 +210,7 @@ export default function ExportPlanningPage() {
   const [loading, setLoading]           = useState(true)
   const [weekCount, setWeekCount]       = useState<1 | 2 | 3>(1)
   const [startOffset, setStartOffset]   = useState(0)
+  const [showWeekend, setShowWeekend]   = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -224,7 +227,7 @@ export default function ExportPlanningPage() {
     })
   }, [])
 
-  const weeks   = Array.from({ length: weekCount }, (_, i) => getWeekDays(startOffset + i))
+  const weeks   = Array.from({ length: weekCount }, (_, i) => getWeekDays(startOffset + i, showWeekend))
   const today   = localStr(new Date())
   const floors  = [...new Set(zones.map(z => z.floor).filter(Boolean))].sort()
   const printedAt = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -301,6 +304,17 @@ export default function ExportPlanningPage() {
             }}>›</button>
           </div>
           <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,.12)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, opacity: .45, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Jours</span>
+            {([false, true] as const).map(wk => (
+              <button key={String(wk)} onClick={() => setShowWeekend(wk)} style={{
+                padding: '5px 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                background: showWeekend === wk ? '#2152C8' : 'rgba(255,255,255,.1)',
+                color: showWeekend === wk ? '#fff' : 'rgba(255,255,255,.5)',
+              }}>{wk ? '7j' : '5j'}</button>
+            ))}
+          </div>
+          <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,.12)' }} />
           <button onClick={() => window.print()} style={{
             padding: '7px 16px', borderRadius: 7, border: 'none', cursor: 'pointer',
             background: '#2152C8', color: '#fff', fontSize: 12, fontWeight: 700,
@@ -352,8 +366,8 @@ export default function ExportPlanningPage() {
                 </div>
               </div>
 
-              {/* Column grid: zone label + 5 days */}
-              <div style={{ display: 'grid', gridTemplateColumns: '88px repeat(5, 1fr)', borderBottom: '2px solid #E2DDD6', background: '#F8F7F4' }}>
+              {/* Column grid: zone label + days */}
+              <div style={{ display: 'grid', gridTemplateColumns: `88px repeat(${weekDays.length}, 1fr)`, borderBottom: '2px solid #E2DDD6', background: '#F8F7F4' }}>
                 <div style={{ padding: '7px 8px', borderRight: '1px solid #E2DDD6', display: 'flex', alignItems: 'flex-end' }}>
                   <span style={{ fontSize: 7.5, fontWeight: 800, color: '#B0ABA3', textTransform: 'uppercase', letterSpacing: '.08em' }}>Zone</span>
                 </div>
@@ -393,7 +407,7 @@ export default function ExportPlanningPage() {
                   <div key={floor}>
                     {/* Floor header */}
                     <div style={{
-                      display: 'grid', gridTemplateColumns: '88px repeat(5, 1fr)',
+                      display: 'grid', gridTemplateColumns: `88px repeat(${weekDays.length}, 1fr)`,
                       background: fc + '18', borderTop: `1px solid ${fc}45`, borderBottom: `1px solid ${fc}25`,
                     }}>
                       <div style={{ padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>

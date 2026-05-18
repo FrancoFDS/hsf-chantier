@@ -401,9 +401,12 @@ export default function PlanningScreen({ interventions, zones, trades, companies
   const dropRef = useRef<HTMLTableCellElement>(null)
   const today   = todayStr()
 
+  const [showWeekend, setShowWeekend] = useState(false)
+
   const weeks      = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1
   const isMulti    = weeks > 1
-  const days       = multiWeekDays(weekOffset, weeks)
+  const allDays    = multiWeekDays(weekOffset, weeks)
+  const days       = showWeekend ? allDays : allDays.filter(d => { const w = new Date(d + 'T12:00:00').getDay(); return w !== 0 && w !== 6 })
   const visZones   = zoneFilter.length === 0 ? zones : zones.filter(z => zoneFilter.includes(z.id))
   const activeCount = zoneFilter.length
 
@@ -474,6 +477,16 @@ export default function PlanningScreen({ interventions, zones, trades, companies
             </button>
           ))}
         </div>
+
+        {/* Weekend toggle */}
+        <button onClick={() => setShowWeekend(s => !s)} style={{
+          padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+          border: `1px solid ${showWeekend ? 'var(--primary)' : 'var(--border)'}`,
+          background: showWeekend ? 'var(--primary-l)' : 'var(--surface-2)',
+          color: showWeekend ? 'var(--primary)' : 'var(--muted)',
+        }}>
+          {showWeekend ? '7j' : '5j'}
+        </button>
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
@@ -604,7 +617,7 @@ export default function PlanningScreen({ interventions, zones, trades, companies
 
               {/* Day headers */}
               {days.map((d, i) => {
-                const isFirstOfWeek = i > 0 && i % 7 === 0
+                const isFirstOfWeek = i > 0 && new Date(d + 'T12:00:00').getDay() === 1
                 const isCurrentDay  = d === today
                 const lbl = dayLabel(d)
                 const isWeekend = lbl.weekday === 'Sam' || lbl.weekday === 'Dim'
@@ -699,7 +712,7 @@ export default function PlanningScreen({ interventions, zones, trades, companies
                               key={d}
                               onClick={() => handleCellClick(zone.id, d)}
                               style={{
-                                borderLeft: `${di > 0 && di % 7 === 0 ? 2 : 1}px solid var(--border)`,
+                                borderLeft: `${di > 0 && new Date(d + 'T12:00:00').getDay() === 1 ? 2 : 1}px solid var(--border)`,
                                 background: cellBg(d, zone, today),
                                 cursor: moveMode ? 'crosshair' : 'default',
                                 minHeight: 36,
