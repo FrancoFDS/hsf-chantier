@@ -742,7 +742,7 @@ function MetricCard({ label, value, sub, color }: { label: string; value: string
 }
 
 function ComingSoon({ screen }: { screen: Screen }) {
-  const labels: Record<Screen, string> = { dashboard: 'Dashboard', planning: 'Planning', list: 'Liste des tâches', briefings: 'Briefings', settings: 'Paramètres' }
+  const labels: Record<Screen, string> = { dashboard: 'Dashboard', planning: 'Planning', list: 'Liste des tâches', notes: 'Notes', briefings: 'Briefings', settings: 'Paramètres' }
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--muted)' }}>
       <div style={{ fontSize: 40 }}>🚧</div>
