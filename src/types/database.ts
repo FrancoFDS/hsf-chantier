@@ -88,12 +88,24 @@ export interface Notification {
   created_at: string
 }
 
+export interface ExternalPermissions {
+  sante: boolean
+  taches: boolean
+  trades: boolean
+  zones: boolean
+}
+
+export const DEFAULT_EXTERNAL_PERMISSIONS: ExternalPermissions = {
+  sante: true, taches: true, trades: true, zones: true,
+}
+
 export interface ExternalContact {
   id: string
   name: string
   role: string | null
   phone: string | null
   email: string | null
+  permissions: ExternalPermissions | null
   created_at?: string
 }
 

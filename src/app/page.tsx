@@ -32,7 +32,7 @@ async function loadData() {
 
 type Screen = 'dashboard' | 'planning' | 'list' | 'notes' | 'briefings' | 'settings'
 type CompanyScreen = 'mytasks' | 'planning' | 'notes'
-type ExternalScreen = 'planning' | 'briefings' | 'notes'
+type ExternalScreen = 'dashboard' | 'planning' | 'briefings' | 'notes'
 
 interface AppNotification {
   id: string
@@ -49,7 +49,8 @@ export default function PlanifyApp() {
   const router = useRouter()
   const [screen, setScreen]       = useState<Screen>('dashboard')
   const [coScreen, setCoScreen]   = useState<CompanyScreen>('mytasks')
-  const [extScreen, setExtScreen] = useState<ExternalScreen>('planning')
+  const [extScreen, setExtScreen] = useState<ExternalScreen>('dashboard')
+  const [extPerms, setExtPerms]   = useState<{ sante: boolean; taches: boolean; trades: boolean; zones: boolean }>({ sante: true, taches: true, trades: true, zones: true })
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState<string | null>(null)
   const [zones, setZones]                   = useState<Zone[]>([])
@@ -76,6 +77,14 @@ export default function PlanifyApp() {
       setUserRole(role); setUserCompany(co)
       setUserId(user?.id ?? null)
       setAuthorName(user?.user_metadata?.display_name ?? co ?? user?.email?.split('@')[0] ?? 'Admin')
+      // Si externe, charger ses permissions depuis external_contacts (match par email)
+      if (role === 'external' && user?.email) {
+        supabase.from('external_contacts').select('permissions').eq('email', user.email).maybeSingle()
+          .then(({ data }) => {
+            const p = (data as { permissions?: typeof extPerms } | null)?.permissions
+            if (p) setExtPerms({ sante: !!p.sante, taches: !!p.taches, trades: !!p.trades, zones: !!p.zones })
+          })
+      }
     })
     .catch(e => setError(String(e)))
     .finally(() => setLoading(false))
@@ -243,6 +252,9 @@ export default function PlanifyApp() {
           </div>
         </header>
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          {extScreen === 'dashboard' && (
+            <DashboardScreen zones={zones} interventions={interventions} trades={trades} companies={companies} authorName={authorName} onUpdate={handleUpdate} visibleBlocks={extPerms} />
+          )}
           {extScreen === 'planning' && (
             <PlanningScreen
               interventions={interventions} zones={zones} trades={trades} companies={companies}
@@ -251,7 +263,7 @@ export default function PlanifyApp() {
             />
           )}
           {extScreen === 'briefings' && (
-            <BriefingsScreen interventions={interventions} zones={zones} trades={trades} companies={companies} />
+            <BriefingsScreen interventions={interventions} zones={zones} trades={trades} companies={companies} readOnly />
           )}
           {extScreen === 'notes' && (
             <NotesScreen
@@ -261,9 +273,9 @@ export default function PlanifyApp() {
             />
           )}
         </main>
-        {showNotifs && <NotifPanel notifications={notifications} onClose={() => setShowNotifs(false)} onNavigate={s => { setExtScreen(s === 'notes' ? 'notes' : s === 'briefings' ? 'briefings' : 'planning'); setShowNotifs(false) }} />}
+        {showNotifs && <NotifPanel notifications={notifications} onClose={() => setShowNotifs(false)} onNavigate={s => { setExtScreen(s === 'notes' ? 'notes' : s === 'briefings' ? 'briefings' : s === 'dashboard' ? 'dashboard' : 'planning'); setShowNotifs(false) }} />}
         <nav style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', flexShrink: 0 }}>
-          {([{ id: 'planning', label: 'Planning', icon: '▦' }, { id: 'briefings', label: 'Briefings', icon: '◎' }, { id: 'notes', label: 'Notes', icon: '📝' }] as { id: ExternalScreen; label: string; icon: string }[]).map(item => {
+          {([{ id: 'dashboard', label: 'Dashboard', icon: '◉' }, { id: 'planning', label: 'Planning', icon: '▦' }, { id: 'briefings', label: 'Briefings', icon: '◎' }, { id: 'notes', label: 'Notes', icon: '📝' }] as { id: ExternalScreen; label: string; icon: string }[]).map(item => {
             const active = extScreen === item.id
             return (
               <button key={item.id} onClick={() => setExtScreen(item.id)} style={{
@@ -548,10 +560,12 @@ function BottomNav({ screen, onNavigate, notesUnread = 0 }: { screen: Screen; on
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function DashboardScreen({ zones, interventions, trades, companies, authorName, onUpdate }: {
+function DashboardScreen({ zones, interventions, trades, companies, authorName, onUpdate, visibleBlocks }: {
   zones: Zone[]; interventions: Intervention[]; trades: Trade[]; companies: Company[]; authorName: string
   onUpdate: (id: string, patch: Partial<Intervention>) => void
+  visibleBlocks?: { sante: boolean; taches: boolean; trades: boolean; zones: boolean }
 }) {
+  const show = visibleBlocks ?? { sante: true, taches: true, trades: true, zones: true }
   const [selectedId, setSelectedId]       = useState<string | null>(null)
   const [expandedStatus, setExpandedStatus] = useState<string | null>(null)
   const [expandedTrade, setExpandedTrade]   = useState<string | null>(null)
@@ -575,6 +589,7 @@ function DashboardScreen({ zones, interventions, trades, companies, authorName, 
 
 
       {/* ── Santé du projet ── */}
+      {show.sante && (
       <Card title="Santé du projet">
         {/* Hero: tâches terminées */}
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 10 }}>
@@ -627,8 +642,10 @@ function DashboardScreen({ zones, interventions, trades, companies, authorName, 
           </div>
         </div>
       </Card>
+      )}
 
       {/* ── Tâches ── */}
+      {show.taches && (
       <Card title="Tâches">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
           {([
@@ -686,9 +703,10 @@ function DashboardScreen({ zones, interventions, trades, companies, authorName, 
           )
         })()}
       </Card>
+      )}
 
       {/* ── Par corps de métier ── */}
-      {trades.length > 0 && (
+      {show.trades && trades.length > 0 && (
         <Card title="Par corps de métier">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {trades.map(t => {
@@ -752,7 +770,7 @@ function DashboardScreen({ zones, interventions, trades, companies, authorName, 
 
 
       {/* ── Par zones ── */}
-      {zones.length > 0 && (
+      {show.zones && zones.length > 0 && (
         <Card title="Par zones">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {zones.map(z => {

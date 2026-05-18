@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { Zone, Trade, Company, ExternalContact } from '@/types/database'
+import type { Zone, Trade, Company, ExternalContact, ExternalPermissions } from '@/types/database'
+import { DEFAULT_EXTERNAL_PERMISSIONS } from '@/types/database'
 import { getZoneFloorColor, getTradeColor, TRADE_COLORS, type TradeColorKey } from '@/constants/colors'
 import { supabase } from '@/lib/supabase'
 import { companyTradeIds, primaryTradeId } from '@/lib/company'
@@ -719,13 +720,16 @@ function ExternalContactModal({ initial, onClose, onSaved }: {
   const [role, setRole]     = useState(initial?.role ?? '')
   const [phone, setPhone]   = useState(initial?.phone ?? '')
   const [email, setEmail]   = useState(initial?.email ?? '')
+  const [perms, setPerms]   = useState<ExternalPermissions>(initial?.permissions ?? DEFAULT_EXTERNAL_PERMISSIONS)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState<string | null>(null)
+
+  function togglePerm(k: keyof ExternalPermissions) { setPerms(p => ({ ...p, [k]: !p[k] })) }
 
   async function handleSubmit() {
     if (!name.trim()) { setError('Le nom est requis'); return }
     setSaving(true); setError(null)
-    const payload = { name: name.trim(), role: role.trim() || null, phone: phone.trim() || null, email: email.trim() || null }
+    const payload = { name: name.trim(), role: role.trim() || null, phone: phone.trim() || null, email: email.trim() || null, permissions: perms }
     if (initial) {
       const { error: err } = await supabase.from('external_contacts').update(payload).eq('id', initial.id)
       setSaving(false)
@@ -757,6 +761,26 @@ function ExternalContactModal({ initial, onClose, onSaved }: {
         <div>
           <label style={modalLabelStyle}>Email (pour donner accès à Planify)</label>
           <input style={modalInputStyle} value={email} onChange={e => setEmail(e.target.value)} placeholder="ex. marie@cabinet-moe.fr" type="email" />
+        </div>
+        <div>
+          <label style={modalLabelStyle}>Statistiques visibles dans son Dashboard</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8 }}>
+            {([
+              { key: 'sante',  label: 'Santé du projet',  hint: 'Compteur, alertes, fiabilité du planning' },
+              { key: 'taches', label: 'Tâches',           hint: 'Total / Terminé / En cours / En retard / Bloqué' },
+              { key: 'trades', label: 'Par corps de métier', hint: '% avancement par trade' },
+              { key: 'zones',  label: 'Par zones',        hint: '% avancement par zone' },
+            ] as { key: keyof ExternalPermissions; label: string; hint: string }[]).map(p => (
+              <label key={p.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 12 }}>
+                <input type="checkbox" checked={perms[p.key]} onChange={() => togglePerm(p.key)} style={{ marginTop: 2 }} />
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--text)' }}>{p.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)' }}>{p.hint}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--xmuted)', marginTop: 4 }}>Planning, Briefings et Notes lui sont toujours accessibles en lecture.</div>
         </div>
         {error && <div style={{ fontSize: 12, color: '#DC2626' }}>{error}</div>}
         <button onClick={handleSubmit} disabled={saving} style={submitBtnStyle}>{saving ? 'Enregistrement…' : (initial ? 'Enregistrer' : 'Ajouter')}</button>

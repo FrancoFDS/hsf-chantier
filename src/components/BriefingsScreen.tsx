@@ -14,6 +14,7 @@ interface Props {
   zones: Zone[]
   trades: Trade[]
   companies: Company[]
+  readOnly?: boolean
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -289,7 +290,7 @@ function WeeklyPlanGrid({ interventions, zones, trades, companies, activeWeeks }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function BriefingsScreen({ interventions, zones, trades, companies }: Props) {
+export default function BriefingsScreen({ interventions, zones, trades, companies, readOnly = false }: Props) {
   const [selectedWeeks, setSelectedWeeks] = useState<number[]>([0])
   const [copied, setCopied]               = useState<string | null>(null)
   const [sentStatus, setSentStatus]       = useState<Record<string, string>>(() => {
@@ -436,7 +437,8 @@ export default function BriefingsScreen({ interventions, zones, trades, companie
         activeWeeks={effectiveWeeks}
       />
 
-      {/* ── Recap block ── */}
+      {/* ── Recap block (caché en lecture seule) ── */}
+      {!readOnly && (
       <div style={{ margin: '14px 14px 0' }}>
         <button onClick={() => setRecapOpen(o => !o)} style={{
           width: '100%', padding: '10px 14px', borderRadius: 'var(--r)', cursor: 'pointer', textAlign: 'left',
@@ -472,13 +474,14 @@ export default function BriefingsScreen({ interventions, zones, trades, companie
           </div>
         )}
       </div>
+      )}
 
       {/* ── Company cards ── */}
       <div style={{ padding: '14px 14px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
           Entreprises actives ({cards.length})
         </div>
-        {totalSent > 0 && (
+        {!readOnly && totalSent > 0 && (
           <span style={{ fontSize: 11, color: STATUS_META.termine.dot, fontWeight: 600 }}>
             ✓ {totalSent}/{cards.length} envoyés
           </span>
@@ -500,6 +503,7 @@ export default function BriefingsScreen({ interventions, zones, trades, companie
             sentAt={sentStatus[sentKey(cardId)] ?? null}
             onCopy={(text) => copyText(text, cardId)}
             onMarkSent={() => markSent(cardId)}
+            readOnly={readOnly}
           />
         ))
       )}
@@ -509,13 +513,14 @@ export default function BriefingsScreen({ interventions, zones, trades, companie
 
 // ─── Company card ─────────────────────────────────────────────────────────────
 
-function CompanyCard({ co, contact, cardId, ivs, zones, trades, companies, activeWeeks, isCopied, sentAt, onCopy, onMarkSent }: {
+function CompanyCard({ co, contact, cardId, ivs, zones, trades, companies, activeWeeks, isCopied, sentAt, onCopy, onMarkSent, readOnly }: {
   co: Company; contact: { name: string; phone: string; email: string }
   cardId: string; ivs: Intervention[]; zones: Zone[]; trades: Trade[]; companies: Company[]
   activeWeeks: { start: string; end: string }[]
   isCopied: boolean; sentAt: string | null
   onCopy: (text: string) => void
   onMarkSent: () => void
+  readOnly?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const [msgOpen, setMsgOpen]   = useState(false)
@@ -600,48 +605,51 @@ function CompanyCard({ co, contact, cardId, ivs, zones, trades, companies, activ
             })}
           </div>
 
-          {/* Message toggle */}
-          <div style={{ borderBottom: msgOpen ? '1px solid var(--border)' : 'none' }}>
-            <button onClick={() => setMsgOpen(o => !o)} style={{
-              width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Message WhatsApp</span>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>{msgOpen ? '▲' : '▼'}</span>
-            </button>
-          </div>
+          {/* Message toggle + Actions (cachés en lecture seule) */}
+          {!readOnly && (
+            <>
+              <div style={{ borderBottom: msgOpen ? '1px solid var(--border)' : 'none' }}>
+                <button onClick={() => setMsgOpen(o => !o)} style={{
+                  width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Message WhatsApp</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{msgOpen ? '▲' : '▼'}</span>
+                </button>
+              </div>
 
-          {msgOpen && (
-            <div style={{ padding: '0 12px 10px' }}>
-              <pre style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11.5, color: 'var(--text)', lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-xs)', padding: '10px 12px', maxHeight: 260, overflowY: 'auto' }}>
-                {msg}
-              </pre>
-            </div>
+              {msgOpen && (
+                <div style={{ padding: '0 12px 10px' }}>
+                  <pre style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11.5, color: 'var(--text)', lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-xs)', padding: '10px 12px', maxHeight: 260, overflowY: 'auto' }}>
+                    {msg}
+                  </pre>
+                </div>
+              )}
+
+              <div style={{ padding: '10px 12px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button onClick={() => onCopy(msg)} style={btnStyle(isCopied)}>
+                  {isCopied ? '✓ Copié !' : '⎘ Copier'}
+                </button>
+                {waLink && (
+                  <a href={waLink} target="_blank" rel="noreferrer" onClick={onMarkSent} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px',
+                    borderRadius: 'var(--r-xs)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    background: '#25D366', color: '#fff', border: 'none', textDecoration: 'none',
+                  }}>
+                    WhatsApp
+                  </a>
+                )}
+                {sentAt && (
+                  <span style={{ fontSize: 10, color: STATUS_META.termine.dot, fontWeight: 600, background: STATUS_META.termine.bg, padding: '3px 8px', borderRadius: 999, border: `1px solid ${STATUS_META.termine.dot}30` }}>
+                    ✓ Envoyé {sentAt}
+                  </span>
+                )}
+                {!contact.phone && (
+                  <span style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center' }}>Aucun numéro enregistré</span>
+                )}
+              </div>
+            </>
           )}
-
-          {/* Actions */}
-          <div style={{ padding: '10px 12px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button onClick={() => onCopy(msg)} style={btnStyle(isCopied)}>
-              {isCopied ? '✓ Copié !' : '⎘ Copier'}
-            </button>
-            {waLink && (
-              <a href={waLink} target="_blank" rel="noreferrer" onClick={onMarkSent} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px',
-                borderRadius: 'var(--r-xs)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                background: '#25D366', color: '#fff', border: 'none', textDecoration: 'none',
-              }}>
-                WhatsApp
-              </a>
-            )}
-            {sentAt && (
-              <span style={{ fontSize: 10, color: STATUS_META.termine.dot, fontWeight: 600, background: STATUS_META.termine.bg, padding: '3px 8px', borderRadius: 999, border: `1px solid ${STATUS_META.termine.dot}30` }}>
-                ✓ Envoyé {sentAt}
-              </span>
-            )}
-            {!contact.phone && (
-              <span style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center' }}>Aucun numéro enregistré</span>
-            )}
-          </div>
         </>
       )}
     </div>
