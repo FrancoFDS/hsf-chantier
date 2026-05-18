@@ -24,15 +24,16 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isLoginPage  = request.nextUrl.pathname.startsWith('/login')
+  const isSignupPage = request.nextUrl.pathname.startsWith('/signup')
   const isExportPage = request.nextUrl.pathname.startsWith('/export')
 
-  if (!user && !isLoginPage && !isExportPage) {
+  if (!user && !isLoginPage && !isSignupPage && !isExportPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  if (user && isLoginPage) {
+  if (user && (isLoginPage || isSignupPage)) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
