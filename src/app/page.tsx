@@ -192,7 +192,7 @@ export default function PlanifyApp() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <AppHeader screen={screen} onNavigate={setScreen} interventions={interventions} onLogout={handleLogout} unreadCount={unreadCount} onOpenNotifs={() => { setShowNotifs(true); handleMarkAllRead() }} />
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        {screen === 'dashboard' && <DashboardScreen zones={zones} interventions={interventions} trades={trades} onUpdate={handleUpdate} />}
+        {screen === 'dashboard' && <DashboardScreen zones={zones} interventions={interventions} trades={trades} companies={companies} authorName={authorName} onUpdate={handleUpdate} />}
         {screen === 'list' && <ListScreen interventions={interventions} zones={zones} trades={trades} onUpdate={handleUpdate} />}
         {screen === 'planning' && <PlanningScreen interventions={interventions} zones={zones} trades={trades} companies={companies} onUpdate={handleUpdate} onAdd={handleAdd} />}
         {screen === 'notes' && <NotesScreen interventions={interventions} zones={zones} trades={trades} companies={companies} authorName={authorName} userRole={userRole} userCompany={userCompany ?? undefined} />}
@@ -362,8 +362,8 @@ function BottomNav({ screen, onNavigate }: { screen: Screen; onNavigate: (s: Scr
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function DashboardScreen({ zones, interventions, trades, onUpdate }: {
-  zones: Zone[]; interventions: Intervention[]; trades: Trade[]
+function DashboardScreen({ zones, interventions, trades, companies, authorName, onUpdate }: {
+  zones: Zone[]; interventions: Intervention[]; trades: Trade[]; companies: Company[]; authorName: string
   onUpdate: (id: string, patch: Partial<Intervention>) => void
 }) {
   const [selectedId, setSelectedId]       = useState<string | null>(null)
@@ -631,7 +631,9 @@ function DashboardScreen({ zones, interventions, trades, onUpdate }: {
           iv={selectedIv}
           zones={zones}
           trades={trades}
+          companies={companies}
           allInterventions={interventions}
+          authorName={authorName}
           onClose={() => setSelectedId(null)}
           onUpdate={(patch) => { onUpdate(selectedIv.id, patch); setSelectedId(null) }}
         />

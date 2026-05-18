@@ -322,7 +322,7 @@ export default function CompanyScreen({ companyName, interventions, zones, trade
       {selectedIv && (
         <TaskDetail
           iv={selectedIv}
-          zones={zones} trades={trades} allInterventions={interventions}
+          zones={zones} trades={trades} companies={companies} allInterventions={interventions}
           readOnly
           authorName={authorName}
           onClose={() => setSelectedId(null)}

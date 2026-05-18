@@ -345,7 +345,7 @@ const anchorStyle: React.CSSProperties = {
 
 // ─── Form modal (create note) ───────────────────────────────────────────────
 
-function NoteFormModal({ mode, iv, zones, trades, companies, authorName, onClose }: {
+export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, onClose }: {
   mode: 'libre' | 'intervention'
   iv?: Intervention
   zones: Zone[]; trades: Trade[]; companies: Company[]

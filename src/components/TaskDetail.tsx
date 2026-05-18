@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { Intervention, Zone, Trade, Status } from '@/types/database'
+import type { Intervention, Zone, Trade, Company, Status } from '@/types/database'
 import { effectiveStatus } from '@/lib/progress'
 import { STATUS_META, STATUS_OPTIONS } from '@/constants/status'
 import { getTradeColor, getZoneFloorColor } from '@/constants/colors'
 import { fmtDate, daysOverdue } from '@/lib/dates'
 import { supabase } from '@/lib/supabase'
+import { NoteFormModal } from './NotesScreen'
 
 interface NoteEntry {
   id: string
@@ -19,6 +20,7 @@ interface Props {
   iv: Intervention
   zones: Zone[]
   trades: Trade[]
+  companies?: Company[]
   allInterventions: Intervention[]
   readOnly?: boolean
   authorName?: string
@@ -28,7 +30,8 @@ interface Props {
   onStartDuplicate?: () => void
 }
 
-export default function TaskDetail({ iv, zones, trades, allInterventions, readOnly, authorName, onClose, onUpdate, onStartMove, onStartDuplicate }: Props) {
+export default function TaskDetail({ iv, zones, trades, companies = [], allInterventions, readOnly, authorName, onClose, onUpdate, onStartMove, onStartDuplicate }: Props) {
+  const [showNoteForm, setShowNoteForm] = useState(false)
   const [saving, setSaving]   = useState(false)
   const [editing, setEditing] = useState(false)
   const [status, setStatus]   = useState<Status>(iv.status as Status)
@@ -414,6 +417,12 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, readOn
               )}
             </div>
           )}
+          <button onClick={() => setShowNoteForm(true)} style={{
+            padding: '9px 0', borderRadius: 'var(--r-sm)', border: '1px solid #7C3AED',
+            background: '#F5F3FF', color: '#5B21B6', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}>
+            📝 Créer une note sur cette tâche
+          </button>
           {readOnly ? (
             <button onClick={onClose} style={{ padding: '11px 0', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               Fermer
@@ -438,6 +447,18 @@ export default function TaskDetail({ iv, zones, trades, allInterventions, readOn
           )}
         </div>
       </div>
+
+      {showNoteForm && (
+        <NoteFormModal
+          mode="intervention"
+          iv={iv}
+          zones={zones}
+          trades={trades}
+          companies={companies}
+          authorName={authorName ?? 'Admin'}
+          onClose={() => setShowNoteForm(false)}
+        />
+      )}
     </>
   )
 }

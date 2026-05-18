@@ -756,6 +756,7 @@ export default function PlanningScreen({ interventions, zones, trades, companies
           iv={selectedIv}
           zones={zones}
           trades={trades}
+          companies={companies}
           allInterventions={interventions}
           readOnly={readOnly}
           authorName={authorName}
