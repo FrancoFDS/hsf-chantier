@@ -681,8 +681,8 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
 
   async function submit() {
     const trimmed = content.trim()
-    if (trimmed.length < 3)    { setError('Le contenu doit faire au moins 3 caractères.'); return }
     if (trimmed.length > 5000) { setError('Le contenu est trop long (5000 caractères max).'); return }
+    if (!title.trim() && !trimmed) { setError('Un titre OU un contenu est requis.'); return }
     const hasAnchor = mode === 'intervention' || coCodes.length > 0 || trCodes.length > 0 || zoneIds.length > 0
     if (!hasAnchor) { setError('Au moins un ancrage (entreprise, métier ou zone) est requis.'); return }
 
@@ -708,7 +708,6 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
         uploaded.push({ url: publicUrl, name: f.name, type: f.type, size: f.size })
       }
     }
-    const mentions = parseMentions(trimmed, companies)
     const basePayload = {
       author_name: authorName,
       title: title.trim() || null,
@@ -724,7 +723,7 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
       parent_id: null,
       attachments: uploaded,
     }
-    const payload: Record<string, unknown> = { ...basePayload, mentioned_companies: mentions }
+    const payload: Record<string, unknown> = { ...basePayload }
     let { data, error: err } = await supabase.from('notes').insert([payload]).select().single()
 
     // Fallback retry without v3 columns if migration not applied
@@ -755,28 +754,26 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
 
       // 1) Cloche notifications (immediate INSERT in notifications + send_log)
       const clocheLines = enabledLines.filter(l => l.channel === 'cloche')
-      const notifInserts = clocheLines.map(l => ({
-        recipient_role: 'company',
-        recipient_company: l.companyName ?? null,
-        intervention_id: noteRecord.intervention_id,
-        task_name: noteRecord.title?.slice(0, 80) ?? noteRecord.content.slice(0, 60),
-        message: `📝 Nouvelle note de ${noteRecord.author_name}`,
-        read: false,
-      }))
-      if (notifInserts.length > 0) {
-        const r = await supabase.from('notifications').insert(notifInserts)
-        for (const l of clocheLines) {
-          await supabase.from('note_send_log').insert([{
-            note_id: noteRecord.id,
-            channel: 'cloche',
-            recipient_label: l.companyName ?? l.label,
-            recipient_company: l.companyName ?? null,
-            recipient_phone: null,
-            status: r.error ? 'failed' : 'sent',
-            reason: r.error?.message ?? null,
-            sent_by: authorName,
-          }]).then(() => {}, () => {}) // ignore log errors silently
+      // Pattern aligned with TaskDetail.tsx — no `read` field (DB default), no null fields
+      for (const l of clocheLines) {
+        const payload: Record<string, unknown> = {
+          recipient_role: 'company',
+          recipient_company: l.companyName ?? '',
+          task_name: noteRecord.title?.slice(0, 80) ?? noteRecord.content.slice(0, 60) ?? '—',
+          message: `📝 Nouvelle note de ${noteRecord.author_name}`,
         }
+        if (noteRecord.intervention_id) payload.intervention_id = noteRecord.intervention_id
+        const r = await supabase.from('notifications').insert([payload])
+        await supabase.from('note_send_log').insert([{
+          note_id: noteRecord.id,
+          channel: 'cloche',
+          recipient_label: l.companyName ?? l.label,
+          recipient_company: l.companyName ?? null,
+          recipient_phone: null,
+          status: r.error ? 'failed' : 'sent',
+          reason: r.error?.message ?? null,
+          sent_by: authorName,
+        }]).then(() => {}, () => {})
       }
 
       // 2) WhatsApp queue (sequential, user clicks each)
@@ -819,12 +816,10 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
           {/* Content */}
           <div>
             <label style={lbl}>
-              Contenu <span style={{ color: 'var(--danger)' }}>*</span>
-              <span style={{ color: 'var(--xmuted)', fontWeight: 400, marginLeft: 8 }}>tapez @ pour mentionner une entreprise</span>
+              Contenu <span style={{ color: 'var(--xmuted)', fontWeight: 400 }}>(optionnel)</span>
             </label>
-            <MentionTextarea
-              value={content} onChange={setContent}
-              companies={companies}
+            <textarea
+              value={content} onChange={e => setContent(e.target.value)}
               rows={4} autoFocus
               style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }}
               placeholder="Décrivez la note…"
@@ -1274,6 +1269,7 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
   const [editDue,       setEditDue]       = useState(note.due_date ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [pendingProof,  setPendingProof]  = useState(false)
+  const [showResend,    setShowResend]    = useState(false)
   const [attachments,   setAttachments]   = useState<NoteAttachment[]>(note.attachments ?? [])
   const [uploading,     setUploading]     = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1409,6 +1405,9 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
             }}>{cat.icon} {cat.label}</span>
             <span style={{ fontSize: 11, color: 'var(--xmuted)' }}>{note.scope === 'intervention' ? '📅 Liée au planning' : '📌 Libre'}</span>
             <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+              {!editing && (
+                <button onClick={() => setShowResend(true)} title="Renvoyer la notification" style={{ ...iconBtnStyle, background: '#F5F3FF', borderColor: '#DDD6FE', color: '#5B21B6' }}>📢</button>
+              )}
               {!editing && isAuthor && (
                 <>
                   <button onClick={() => setEditing(true)} title="Éditer" style={iconBtnStyle}>✎</button>
@@ -1557,6 +1556,18 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
             setPendingProof(false)
           }}
           noteId={note.id}
+          onToast={onToast}
+        />
+      )}
+
+      {/* Resend notification modal */}
+      {showResend && (
+        <ResendModal
+          note={note}
+          attachments={attachments}
+          companies={companies}
+          authorName={(note.author_name ?? 'Admin')}
+          onClose={() => setShowResend(false)}
           onToast={onToast}
         />
       )}
@@ -2028,6 +2039,172 @@ function SendQueueModal({ noteId, lines, text, sentBy, onDone }: {
   )
 }
 
+// ─── Resend modal (re-send notification for an existing note) ─────────────
+
+function ResendModal({ note, attachments, companies, authorName, onClose, onToast }: {
+  note: Note
+  attachments: NoteAttachment[]
+  companies: Company[]
+  authorName: string
+  onClose: () => void
+  onToast: (msg: string, kind?: 'success' | 'error') => void
+}) {
+  const [externalContacts, setExternalContacts] = useState<ExternalContact[]>([])
+  const [notifLines, setNotifLines] = useState<NotifLine[]>(() => buildAttributedLines(note.company_codes, companies))
+  const [showPicker, setShowPicker] = useState(false)
+  const [sending,    setSending]    = useState(false)
+  const [queue,      setQueue]      = useState<{ lines: NotifLine[]; text: string } | null>(null)
+
+  useEffect(() => {
+    supabase.from('external_contacts').select('*').then(({ data }) => {
+      setExternalContacts((data ?? []) as ExternalContact[])
+    })
+  }, [])
+
+  function toggleLine(key: string, on: boolean) {
+    setNotifLines(prev => prev.map(l => l.key === key ? { ...l, enabled: on } : l))
+  }
+  function addLine(line: Omit<NotifLine, 'enabled' | 'source'>) {
+    setNotifLines(prev => prev.some(l => l.key === line.key) ? prev : [...prev, { ...line, enabled: true, source: 'added' }])
+  }
+  function removeLine(key: string) {
+    setNotifLines(prev => prev.filter(l => l.key !== key))
+  }
+
+  async function send() {
+    const enabled = notifLines.filter(l => l.enabled)
+    if (enabled.length === 0) { onToast('Sélectionne au moins un destinataire.', 'error'); return }
+    setSending(true)
+
+    // 1) Cloche
+    const cloches = enabled.filter(l => l.channel === 'cloche')
+    for (const l of cloches) {
+      const payload: Record<string, unknown> = {
+        recipient_role: 'company',
+        recipient_company: l.companyName ?? '',
+        task_name: note.title?.slice(0, 80) ?? note.content.slice(0, 60) ?? '—',
+        message: `📢 Rappel : ${authorName}`,
+      }
+      if (note.intervention_id) payload.intervention_id = note.intervention_id
+      const r = await supabase.from('notifications').insert([payload])
+      await supabase.from('note_send_log').insert([{
+        note_id: note.id,
+        channel: 'cloche',
+        recipient_label: l.companyName ?? l.label,
+        recipient_company: l.companyName ?? null,
+        recipient_phone: null,
+        status: r.error ? 'failed' : 'sent',
+        reason: r.error?.message ?? null,
+        sent_by: authorName,
+      }]).then(() => {}, () => {})
+    }
+
+    // 2) WhatsApp queue
+    const wa = enabled.filter(l => l.channel === 'whatsapp' && cleanPhone(l.phone))
+    setSending(false)
+    if (wa.length > 0) {
+      const text = buildShareText({
+        title: note.title, content: note.content,
+        category: note.category, due_date: note.due_date,
+        author_name: note.author_name,
+      }, attachments)
+      setQueue({ lines: wa, text })
+    } else {
+      onToast(`${cloches.length} notification${cloches.length > 1 ? 's' : ''} envoyée${cloches.length > 1 ? 's' : ''} ✓`, 'success')
+      onClose()
+    }
+  }
+
+  if (queue) {
+    return (
+      <SendQueueModal
+        noteId={note.id}
+        lines={queue.lines}
+        text={queue.text}
+        sentBy={authorName}
+        onDone={() => { setQueue(null); onClose() }}
+      />
+    )
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ ...modalBackdrop, zIndex: 200 }} />
+      <div style={{ ...modalSheet, zIndex: 201, maxHeight: '85vh' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)' }} />
+        </div>
+        <div style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', flex: 1 }}>📢 Renvoyer la notification</div>
+          <button onClick={onClose} style={iconBtnStyle}>✕</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 6, fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.45 }}>
+            <strong style={{ color: 'var(--text)' }}>{note.title ?? note.content.slice(0, 60)}</strong><br />
+            Sélectionne qui notifier — destinataires déjà attribués cochés par défaut. Tu peux en ajouter d&apos;autres.
+          </div>
+
+          <div>
+            <label style={lbl}>Destinataires</label>
+            {notifLines.length === 0 ? (
+              <div style={{ fontSize: 11, color: 'var(--muted)', padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 6 }}>
+                Aucun destinataire. Ajoute-en un.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {notifLines.map(line => (
+                  <label key={line.key} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                    background: line.enabled ? 'var(--surface-2)' : 'transparent',
+                    border: `1px solid var(--border)`, borderRadius: 6, cursor: 'pointer', fontSize: 11.5,
+                  }}>
+                    <input type="checkbox" checked={line.enabled} onChange={e => toggleLine(line.key, e.target.checked)} style={{ cursor: 'pointer' }} />
+                    <span style={{ flex: 1, color: line.enabled ? 'var(--text)' : 'var(--muted)' }}>{line.label}</span>
+                    {line.source === 'added' && (
+                      <button type="button" onClick={e => { e.preventDefault(); removeLine(line.key) }} style={{
+                        width: 18, height: 18, borderRadius: '50%', border: 'none',
+                        background: '#DC262615', color: '#DC2626', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                      }}>×</button>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+            <button type="button" onClick={() => setShowPicker(true)} style={{
+              marginTop: 6, padding: '6px 10px', borderRadius: 6, border: '1.5px dashed var(--primary)',
+              background: 'transparent', color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            }}>+ Ajouter un destinataire</button>
+          </div>
+        </div>
+
+        <div style={{ padding: '12px 16px 20px', display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid var(--border)',
+            background: 'var(--surface-2)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}>Annuler</button>
+          <button onClick={send} disabled={sending} style={{
+            flex: 2, padding: '10px 0', borderRadius: 10, border: 'none',
+            background: sending ? 'var(--border)' : '#5B21B6', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}>{sending ? 'Envoi…' : '📢 Renvoyer'}</button>
+        </div>
+      </div>
+
+      {showPicker && (
+        <RecipientPickerModal
+          companies={companies}
+          externalContacts={externalContacts}
+          excludeCompanies={note.company_codes}
+          existingKeys={new Set(notifLines.map(l => l.key))}
+          onClose={() => setShowPicker(false)}
+          onPick={(line) => addLine(line)}
+        />
+      )}
+    </>
+  )
+}
+
 // ─── Intervention picker (anchored note creation) ──────────────────────────
 
 function InterventionPicker({ interventions, zones, companies, onClose, onPick }: {
@@ -2037,38 +2214,69 @@ function InterventionPicker({ interventions, zones, companies, onClose, onPick }
   onClose: () => void
   onPick: (iv: Intervention) => void
 }) {
-  const [q, setQ] = useState('')
+  const [q, setQ]          = useState('')
+  const [zoneFlt, setZF]   = useState<string>('')   // zone id or ''
+  const [coFlt, setCF]     = useState<string>('')   // company name or ''
   const ql = q.trim().toLowerCase()
+
+  // Available zones/companies derived from active interventions
+  const usedZoneIds = useMemo(() => new Set(interventions.filter(iv => iv.status !== 'termine').map(iv => iv.zone).filter(Boolean)), [interventions])
+  const usedCompanyNames = useMemo(() => new Set(interventions.filter(iv => iv.status !== 'termine').map(iv => iv.company).filter(Boolean)), [interventions])
+  const availZones    = useMemo(() => zones.filter(z => usedZoneIds.has(z.id)), [zones, usedZoneIds])
+  const availCompanies = useMemo(() => companies.filter(c => usedCompanyNames.has(c.name)), [companies, usedCompanyNames])
+
   const visible = useMemo(() => {
     return interventions
       .filter(iv => iv.status !== 'termine')
+      .filter(iv => !zoneFlt || iv.zone === zoneFlt)
+      .filter(iv => !coFlt || iv.company === coFlt)
       .filter(iv => !ql
         || iv.task?.toLowerCase().includes(ql)
         || (iv.task_number ?? '').toLowerCase().includes(ql)
         || (iv.company ?? '').toLowerCase().includes(ql))
       .sort((a, b) => (a.start_date ?? '').localeCompare(b.start_date ?? ''))
       .slice(0, 100)
-  }, [interventions, ql])
+  }, [interventions, ql, zoneFlt, coFlt])
 
   return (
     <>
       <div onClick={onClose} style={modalBackdrop} />
-      <div style={{ ...modalSheet, maxHeight: '85vh' }}>
+      <div style={{ ...modalSheet, maxHeight: '88vh' }}>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px' }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)' }} />
         </div>
-        <div style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: '0 16px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', flex: 1 }}>
             Choisir une intervention à ancrer
           </div>
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 14 }}>✕</button>
         </div>
-        <div style={{ padding: '0 16px 8px' }}>
+        <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <input
             autoFocus value={q} onChange={e => setQ(e.target.value)}
             placeholder="Rechercher par tâche, n° ou entreprise…"
             style={inp}
           />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select value={zoneFlt} onChange={e => setZF(e.target.value)} style={{ ...inp, flex: 1, fontSize: 12, padding: '7px 8px' }}>
+              <option value="">📍 Toutes les zones</option>
+              {availZones.map(z => <option key={z.id} value={z.id}>{z.short} — {z.name}</option>)}
+            </select>
+            <select value={coFlt} onChange={e => setCF(e.target.value)} style={{ ...inp, flex: 1, fontSize: 12, padding: '7px 8px' }}>
+              <option value="">🏢 Toutes les entreprises</option>
+              {availCompanies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select>
+          </div>
+          {(zoneFlt || coFlt) && (
+            <button onClick={() => { setZF(''); setCF('') }} style={{
+              padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)',
+              background: 'var(--surface-2)', color: 'var(--muted)', fontSize: 10, fontWeight: 600,
+              cursor: 'pointer', alignSelf: 'flex-start',
+            }}>× Effacer filtres</button>
+          )}
+          <div style={{ fontSize: 10, color: 'var(--xmuted)', fontWeight: 600, padding: '2px 2px' }}>
+            {visible.length} intervention{visible.length > 1 ? 's' : ''} trouvée{visible.length > 1 ? 's' : ''}
+          </div>
         </div>
         <div style={{ overflowY: 'auto', padding: '0 8px 16px' }}>
           {visible.length === 0 ? (
