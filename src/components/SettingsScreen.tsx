@@ -15,7 +15,7 @@ interface Props {
   onCompaniesChange: (companies: Company[]) => void
 }
 
-type Tab = 'zones' | 'trades' | 'companies' | 'contacts' | 'notifs'
+type Tab = 'zones' | 'trades' | 'companies' | 'contacts'
 
 const FR_MNTHS = ['jan.','fév.','mar.','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.']
 
@@ -61,14 +61,14 @@ export default function SettingsScreen({ zones, trades, companies, onZonesChange
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
-        {(['zones', 'trades', 'companies', 'contacts', 'notifs'] as Tab[]).map(t => (
+        {(['zones', 'trades', 'companies', 'contacts'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             flex: 1, padding: '9px 4px', background: 'transparent', border: 'none', fontSize: 10, fontWeight: 600,
             cursor: 'pointer', color: tab === t ? 'var(--primary)' : 'var(--muted)',
             fontFamily: "'DM Sans', sans-serif",
             borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -1,
           }}>
-            {t === 'zones' ? 'Zones' : t === 'trades' ? 'Corps' : t === 'companies' ? 'Entreprises' : t === 'contacts' ? 'Contacts ext.' : 'Notifs'}
+            {t === 'zones' ? 'Zones' : t === 'trades' ? 'Corps' : t === 'companies' ? 'Entreprises' : 'Contacts ext.'}
           </button>
         ))}
       </div>
@@ -77,96 +77,7 @@ export default function SettingsScreen({ zones, trades, companies, onZonesChange
       {tab === 'trades'    && <TradesTab trades={trades} onTradesChange={onTradesChange} />}
       {tab === 'companies' && <CompaniesTab companies={companies} trades={trades} onCompaniesChange={onCompaniesChange} />}
       {tab === 'contacts'  && <ExternalContactsTab />}
-      {tab === 'notifs'    && <NotifPrefsTab companies={companies} />}
     </div>
-  )
-}
-
-// ─── Notifications prefs tab ─────────────────────────────────────────────────
-
-function NotifPrefsTab({ companies }: { companies: Company[] }) {
-  const [prefs,   setPrefs]   = useState<Record<string, { digest: boolean; immediate: boolean }>>({})
-  const [loading, setLoading] = useState(true)
-  const [tableMissing, setTableMissing] = useState(false)
-
-  useEffect(() => {
-    supabase.from('company_notif_prefs').select('*').then(({ data, error }) => {
-      if (error) {
-        if ((error as { code?: string }).code === 'PGRST205') setTableMissing(true)
-        setLoading(false)
-        return
-      }
-      const map: Record<string, { digest: boolean; immediate: boolean }> = {}
-      for (const row of (data ?? []) as { company_name: string; email_digest: boolean; email_immediate: boolean }[]) {
-        map[row.company_name] = { digest: row.email_digest, immediate: row.email_immediate }
-      }
-      setPrefs(map)
-      setLoading(false)
-    })
-  }, [])
-
-  async function toggle(name: string, key: 'digest' | 'immediate', val: boolean) {
-    const next = { digest: prefs[name]?.digest ?? true, immediate: prefs[name]?.immediate ?? true, [key]: val }
-    setPrefs(p => ({ ...p, [name]: next }))
-    const payload = { company_name: name, email_digest: next.digest, email_immediate: next.immediate }
-    const { error } = await supabase.from('company_notif_prefs').upsert([payload], { onConflict: 'company_name' })
-    if (error) console.error('notif prefs save', error)
-  }
-
-  if (tableMissing) {
-    return (
-      <div style={{ background: 'var(--surface)', border: '1px solid #FECACA', borderRadius: 10, padding: 16, fontSize: 12, color: '#7F1D1D' }}>
-        Table <code>company_notif_prefs</code> absente. Lance <code>supabase/notes_v3_features.sql</code> dans Supabase SQL Editor.
-      </div>
-    )
-  }
-
-  if (loading) return <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 30, fontSize: 13 }}>Chargement…</div>
-
-  return (
-    <div>
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 }}>
-        Choisis qui reçoit quoi par email. <strong>Digest</strong> = un email matinal récapitulant les notes ouvertes la concernant. <strong>Immédiat</strong> = email instantané à la création d&apos;une note ou d&apos;une mention.
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 6, alignItems: 'center', marginBottom: 6, fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', padding: '0 6px' }}>
-        <div>Entreprise</div>
-        <div style={{ width: 60, textAlign: 'center' }}>Digest</div>
-        <div style={{ width: 60, textAlign: 'center' }}>Immédiat</div>
-      </div>
-      {companies.map(c => {
-        const p = prefs[c.name] ?? { digest: true, immediate: true }
-        return (
-          <div key={c.id} style={{
-            display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 6, alignItems: 'center',
-            padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 8, marginBottom: 4,
-          }}>
-            <div>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{c.name}</div>
-              {c.email && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{c.email}</div>}
-              {!c.email && <div style={{ fontSize: 10, color: '#DC2626' }}>⚠ pas d&apos;email configuré</div>}
-            </div>
-            <Toggle on={p.digest}    onChange={v => toggle(c.name, 'digest', v)} />
-            <Toggle on={p.immediate} onChange={v => toggle(c.name, 'immediate', v)} />
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button onClick={() => onChange(!on)} style={{
-      width: 42, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
-      background: on ? 'var(--primary)' : 'var(--border)',
-      position: 'relative', padding: 0,
-    }}>
-      <span style={{
-        position: 'absolute', top: 2, left: on ? 20 : 2,
-        width: 20, height: 20, borderRadius: '50%', background: '#fff',
-        transition: 'left .15s', boxShadow: '0 1px 3px rgba(0,0,0,.15)',
-      }} />
-    </button>
   )
 }
 
@@ -593,22 +504,40 @@ function CompanyModal({ initial, trades, onClose, onSaved }: {
 }) {
   const [name, setName]         = useState(initial?.name ?? '')
   const [tradeIds, setTradeIds] = useState<string[]>(companyTradeIds(initial))
-  const [contact, setContact]   = useState(initial?.contact ?? '')
-  const [phone, setPhone]     = useState(initial?.phone ?? '')
-  const [email, setEmail]     = useState(initial?.email ?? '')
+  const [contacts, setContacts] = useState<{ name: string; phone: string; email: string }[]>(() => {
+    const merged: { name: string; phone: string; email: string }[] = []
+    if (initial?.contact || initial?.phone || initial?.email) {
+      merged.push({ name: initial.contact ?? '', phone: initial.phone ?? '', email: initial.email ?? '' })
+    }
+    for (const c of initial?.contacts ?? []) {
+      if (c.name || c.phone || c.email) merged.push({ name: c.name ?? '', phone: c.phone ?? '', email: c.email ?? '' })
+    }
+    return merged.length > 0 ? merged : [{ name: '', phone: '', email: '' }]
+  })
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState<string | null>(null)
+
+  function updateContact(i: number, patch: Partial<{ name: string; phone: string; email: string }>) {
+    setContacts(prev => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c))
+  }
+  function removeContact(i: number) { setContacts(prev => prev.filter((_, idx) => idx !== i)) }
+  function addContact() { setContacts(prev => [...prev, { name: '', phone: '', email: '' }]) }
 
   async function handleSubmit() {
     if (!name.trim()) { setError('Le nom est requis'); return }
     setSaving(true); setError(null)
+    const cleaned = contacts
+      .map(c => ({ name: c.name.trim(), phone: c.phone.trim(), email: c.email.trim() }))
+      .filter(c => c.name || c.phone || c.email)
+    const first = cleaned[0] ?? { name: '', phone: '', email: '' }
     const payload = {
       name: name.trim(),
       trade_ids: tradeIds,
       trade_id: tradeIds[0] ?? null,
-      contact: contact.trim() || null,
-      phone: phone.trim() || null,
-      email: email.trim() || null,
+      contact: first.name || null,
+      phone:   first.phone || null,
+      email:   first.email || null,
+      contacts: cleaned.slice(1),
     }
     if (initial) {
       const { error: err } = await supabase.from('companies').update(payload).eq('id', initial.id)
@@ -618,7 +547,7 @@ function CompanyModal({ initial, trades, onClose, onSaved }: {
     } else {
       const { data, error: err } = await supabase
         .from('companies')
-        .insert([{ ...payload, contacts: [], active: true, display_order: 999 }])
+        .insert([{ ...payload, active: true, display_order: 999 }])
         .select().single()
       setSaving(false)
       if (err || !data) { setError(err?.message ?? 'Erreur'); return }
@@ -638,16 +567,31 @@ function CompanyModal({ initial, trades, onClose, onSaved }: {
           <TradeMultiPick trades={trades} selected={tradeIds} onChange={setTradeIds} />
         </div>
         <div>
-          <label style={modalLabelStyle}>Contact</label>
-          <input style={modalInputStyle} value={contact} onChange={e => setContact(e.target.value)} placeholder="ex. Jean Dupont" />
-        </div>
-        <div>
-          <label style={modalLabelStyle}>Téléphone</label>
-          <input style={modalInputStyle} value={phone} onChange={e => setPhone(e.target.value)} placeholder="ex. 06 12 34 56 78" type="tel" />
-        </div>
-        <div>
-          <label style={modalLabelStyle}>Email</label>
-          <input style={modalInputStyle} value={email} onChange={e => setEmail(e.target.value)} placeholder="ex. contact@dupont.fr" type="email" />
+          <label style={modalLabelStyle}>Contacts</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {contacts.map((c, i) => (
+              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    Contact {i + 1}{i === 0 ? ' · principal' : ''}
+                  </span>
+                  <button onClick={() => removeContact(i)} disabled={contacts.length === 1} title="Supprimer" style={{
+                    marginLeft: 'auto', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)',
+                    background: 'var(--surface)', color: contacts.length === 1 ? 'var(--border)' : '#DC2626',
+                    cursor: contacts.length === 1 ? 'not-allowed' : 'pointer', fontSize: 13, lineHeight: 1, padding: 0,
+                  }}>×</button>
+                </div>
+                <input style={modalInputStyle} value={c.name} onChange={e => updateContact(i, { name: e.target.value })} placeholder="Nom (ex. Jean Dupont)" />
+                <input style={modalInputStyle} value={c.phone} onChange={e => updateContact(i, { phone: e.target.value })} placeholder="Téléphone (ex. 06 12 34 56 78)" type="tel" />
+                <input style={modalInputStyle} value={c.email} onChange={e => updateContact(i, { email: e.target.value })} placeholder="Email (ex. jean@dupont.fr)" type="email" />
+              </div>
+            ))}
+            <button onClick={addContact} style={{
+              padding: '8px 12px', borderRadius: 8, border: '1px dashed var(--border)',
+              background: 'transparent', color: 'var(--primary)', cursor: 'pointer',
+              fontSize: 12, fontWeight: 700,
+            }}>+ Ajouter un contact</button>
+          </div>
         </div>
         {error && <div style={{ fontSize: 12, color: '#DC2626' }}>{error}</div>}
         <button onClick={handleSubmit} disabled={saving} style={submitBtnStyle}>{saving ? 'Enregistrement…' : (initial ? 'Enregistrer' : 'Ajouter')}</button>

@@ -73,7 +73,7 @@ export default function PlanifyApp() {
       const co   = user?.user_metadata?.company_name ?? null
       setUserRole(role); setUserCompany(co)
       setUserId(user?.id ?? null)
-      setAuthorName(co ?? user?.email?.split('@')[0] ?? 'Admin')
+      setAuthorName(user?.user_metadata?.display_name ?? co ?? user?.email?.split('@')[0] ?? 'Admin')
     })
     .catch(e => setError(String(e)))
     .finally(() => setLoading(false))
@@ -215,7 +215,7 @@ export default function PlanifyApp() {
   // ── Vue admin ──
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <AppHeader screen={screen} onNavigate={setScreen} interventions={interventions} onLogout={handleLogout} unreadCount={unreadCount} onOpenNotifs={() => { setShowNotifs(true); handleMarkAllRead() }} />
+      <AppHeader screen={screen} onNavigate={setScreen} interventions={interventions} onLogout={handleLogout} unreadCount={unreadCount} onOpenNotifs={() => { setShowNotifs(true); handleMarkAllRead() }} authorName={authorName} />
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {screen === 'dashboard' && <DashboardScreen zones={zones} interventions={interventions} trades={trades} companies={companies} authorName={authorName} onUpdate={handleUpdate} />}
         {screen === 'list' && <ListScreen interventions={interventions} zones={zones} trades={trades} onUpdate={handleUpdate} />}
@@ -309,9 +309,9 @@ function NotifPanel({ notifications, onClose }: { notifications: AppNotification
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
-function AppHeader({ screen, onNavigate, interventions, onLogout, unreadCount, onOpenNotifs }: {
+function AppHeader({ screen, onNavigate, interventions, onLogout, unreadCount, onOpenNotifs, authorName }: {
   screen: Screen; onNavigate: (s: Screen) => void; interventions: Intervention[]
-  onLogout: () => void; unreadCount: number; onOpenNotifs: () => void
+  onLogout: () => void; unreadCount: number; onOpenNotifs: () => void; authorName: string
 }) {
   const blocked = interventions.filter(iv => iv.status === 'bloque').length
   const labels: Record<Screen, string> = {
@@ -341,6 +341,7 @@ function AppHeader({ screen, onNavigate, interventions, onLogout, unreadCount, o
             ⚠ {blocked} bloquée{blocked > 1 ? 's' : ''}
           </button>
         )}
+        <AccountPill name={authorName} />
         <BellButton count={unreadCount} onClick={onOpenNotifs} />
         <button onClick={onLogout} style={{
           background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)',
@@ -349,6 +350,80 @@ function AppHeader({ screen, onNavigate, interventions, onLogout, unreadCount, o
         }}>Déconnexion</button>
       </div>
     </header>
+  )
+}
+
+function AccountPill({ name }: { name: string }) {
+  const [open, setOpen]     = useState(false)
+  const [draft, setDraft]   = useState(name)
+  const [email, setEmail]   = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState<string | null>(null)
+
+  useEffect(() => { setDraft(name) }, [name])
+  useEffect(() => {
+    if (!open) return
+    supabase.auth.getUser().then(({ data: { user } }) => setEmail(user?.email ?? ''))
+  }, [open])
+
+  async function save() {
+    setSaving(true); setError(null)
+    const { error: err } = await supabase.auth.updateUser({ data: { display_name: draft.trim() || null } })
+    setSaving(false)
+    if (err) { setError(err.message); return }
+    setOpen(false)
+    window.location.reload()
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)} title="Modifier mon nom" style={{
+        background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)',
+        borderRadius: 7, padding: '5px 10px', color: 'rgba(255,255,255,.85)',
+        fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '.02em',
+        display: 'flex', alignItems: 'center', gap: 6, maxWidth: 160,
+      }}>
+        <span style={{ fontSize: 12, opacity: .7 }}>👤</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 200 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 201,
+            background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)',
+            borderRadius: 10, boxShadow: 'var(--shadow-md)', padding: 12, width: 260,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
+              Mon nom
+            </div>
+            <input
+              autoFocus value={draft} onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') save() }}
+              placeholder="ex. Franco"
+              style={{
+                width: '100%', boxSizing: 'border-box', border: '1px solid var(--border)', borderRadius: 8,
+                background: 'var(--surface-2)', color: 'var(--text)', padding: '8px 10px', fontSize: 13,
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            />
+            {email && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6 }}>Compte : {email}</div>}
+            {error && <div style={{ fontSize: 11, color: '#DC2626', marginTop: 6 }}>{error}</div>}
+            <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+              <button onClick={() => setOpen(false)} style={{
+                flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)',
+                background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              }}>Annuler</button>
+              <button onClick={save} disabled={saving} style={{
+                flex: 1, padding: '7px 10px', borderRadius: 7, border: 'none',
+                background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 700,
+                cursor: saving ? 'wait' : 'pointer',
+              }}>{saving ? '…' : 'Enregistrer'}</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
