@@ -6,6 +6,7 @@ import { effectiveStatus } from '@/lib/progress'
 import { STATUS_META } from '@/constants/status'
 import { getTradeColor, getZoneFloorColor } from '@/constants/colors'
 import { fmtDate } from '@/lib/dates'
+import { companyTradeIds } from '@/lib/company'
 import TaskDetail from './TaskDetail'
 
 interface Props {
@@ -59,9 +60,10 @@ export default function CompanyScreen({ companyName, interventions, zones, trade
   const [selectedDay, setSelectedDay]     = useState<string | null>(null)
   const [statusFilter, setStatusFilter]   = useState<StatusFilter>(null)
 
-  const co    = companies.find(c => c.name === companyName)
-  const trade = trades.find(t => t.id === co?.trade_id)
-  const tc    = getTradeColor(trade?.color ?? 'blue')
+  const co       = companies.find(c => c.name === companyName)
+  const coTrades = companyTradeIds(co).map(id => trades.find(t => t.id === id)).filter(Boolean) as Trade[]
+  const trade    = coTrades[0]
+  const tc       = getTradeColor(trade?.color ?? 'blue')
   const today = localDateStr(new Date())
 
   const allMyIvs = interventions.filter(iv => iv.company === companyName)
@@ -118,6 +120,28 @@ export default function CompanyScreen({ companyName, interventions, zones, trade
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', paddingBottom: 80 }}>
+
+      {/* ── Header entreprise ── */}
+      {co && (
+        <div style={{ margin: '14px 14px 0', padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r)', boxShadow: 'var(--shadow)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: tc.b, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{co.name}</div>
+            {coTrades.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                {coTrades.map(t => {
+                  const ttc = getTradeColor(t.color)
+                  return (
+                    <span key={t.id} style={{ fontSize: 10, color: ttc.t, background: ttc.bg, padding: '1px 8px', borderRadius: 999, fontWeight: 700, border: `1px solid ${ttc.b}30` }}>
+                      {t.short}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Bandeau statuts ── */}
       <div style={{ margin: '14px 14px 0', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>

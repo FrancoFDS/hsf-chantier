@@ -6,6 +6,7 @@ import type { Intervention, Zone, Trade, Company } from '@/types/database'
 import { effectiveStatus } from '@/lib/progress'
 import { STATUS_META } from '@/constants/status'
 import { getTradeColor, getZoneFloorColor } from '@/constants/colors'
+import { companyTradeIds, displayTradeId } from '@/lib/company'
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -153,7 +154,7 @@ function LaneRow({ bars, weekDays, today, trades, companies }: {
         // Task bar
         const { bar } = seg
         const co = companies.find(c => c.name === bar.iv.company)
-        const tr = trades.find(t => t.id === (co?.trade_id ?? bar.iv.trade))
+        const tr = trades.find(t => t.id === displayTradeId(co, bar.iv.trade))
         const tc = getTradeColor(tr?.color ?? 'blue')
         const es = effectiveStatus(bar.iv)
         const sm = STATUS_META[es]
@@ -478,7 +479,7 @@ export default function ExportPlanningPage() {
                   <span style={{ fontSize: 7.5, fontWeight: 800, color: '#B0ABA3', textTransform: 'uppercase', letterSpacing: '.07em' }}>Corps de métier</span>
                   {trades.map(t => {
                     const tc = getTradeColor(t.color)
-                    const hasIv = totalIvs.some(iv => { const co = companies.find(c => c.name === iv.company); return co?.trade_id === t.id })
+                    const hasIv = totalIvs.some(iv => { const co = companies.find(c => c.name === iv.company); return companyTradeIds(co).includes(t.id) })
                     if (!hasIv) return null
                     return (
                       <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>

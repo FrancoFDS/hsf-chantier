@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Note, NoteScope, NoteStatus, NoteCategory, NoteAttachment, NoteSendChannel, Intervention, Zone, Trade, Company, ExternalContact } from '@/types/database'
+import { companyTradeIds } from '@/lib/company'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -229,7 +230,7 @@ export default function NotesScreen({ interventions, zones, trades, companies, a
       if (q && !(n.content.toLowerCase().includes(q) || (n.title ?? '').toLowerCase().includes(q) || n.author_name.toLowerCase().includes(q))) return false
       // Subcontractor view: only show notes that concern me (by company, trade, zone or intervention's company)
       if (userRole === 'company' && userCompany) {
-        const myTradeIds = new Set(companies.filter(c => c.name === userCompany).map(c => c.trade_id).filter(Boolean) as string[])
+        const myTradeIds = new Set(companies.filter(c => c.name === userCompany).flatMap(c => companyTradeIds(c)))
         const myIvIds    = new Set(interventions.filter(iv => iv.company === userCompany).map(iv => iv.id))
         const concerns =
           n.company_codes.includes(userCompany)

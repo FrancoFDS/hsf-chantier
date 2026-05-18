@@ -7,6 +7,7 @@ import { effectiveStatus } from '@/lib/progress'
 import { STATUS_META } from '@/constants/status'
 import { getZoneFloorColor, getTradeColor } from '@/constants/colors'
 import { fmtDate } from '@/lib/dates'
+import { displayTradeId, primaryTradeId } from '@/lib/company'
 
 interface Props {
   interventions: Intervention[]
@@ -187,7 +188,7 @@ function WeeklyPlanGrid({ interventions, zones, trades, companies, activeWeeks }
                 const tradeColors = [...new Set(
                   dayIvs.map(iv => {
                     const co = companies.find(c => c.name === iv.company)
-                    const tr = trades.find(t => t.id === co?.trade_id)
+                    const tr = trades.find(t => t.id === displayTradeId(co, iv.trade))
                     return getTradeColor(tr?.color ?? 'blue').b
                   })
                 )].slice(0, 5)
@@ -257,7 +258,7 @@ function WeeklyPlanGrid({ interventions, zones, trades, companies, activeWeeks }
                     </div>
                     {zivs.map(iv => {
                       const co = companies.find(c => c.name === iv.company)
-                      const tr = trades.find(t => t.id === co?.trade_id)
+                      const tr = trades.find(t => t.id === displayTradeId(co, iv.trade))
                       const tc = getTradeColor(tr?.color ?? 'blue')
                       const es = effectiveStatus(iv)
                       const sm = STATUS_META[es]
@@ -519,7 +520,7 @@ function CompanyCard({ co, contact, cardId, ivs, zones, trades, companies, activ
   const [expanded, setExpanded] = useState(false)
   const [msgOpen, setMsgOpen]   = useState(false)
 
-  const trade   = trades.find(t => t.id === co.trade_id)
+  const trade   = trades.find(t => t.id === primaryTradeId(co))
   const tc      = getTradeColor(trade?.color ?? 'blue')
   const blocked = ivs.filter(iv => effectiveStatus(iv) === 'bloque').length
   const late    = ivs.filter(iv => effectiveStatus(iv) === 'en_retard').length

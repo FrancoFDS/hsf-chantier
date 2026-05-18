@@ -59,6 +59,7 @@ export interface Company {
   id: string
   name: string
   trade_id: string | null
+  trade_ids: string[]
   contact: string | null
   contact_name: string | null
   phone: string | null

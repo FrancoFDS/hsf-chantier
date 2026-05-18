@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { Zone, Trade, Company, ExternalContact } from '@/types/database'
 import { getZoneFloorColor, getTradeColor, TRADE_COLORS, type TradeColorKey } from '@/constants/colors'
 import { supabase } from '@/lib/supabase'
+import { companyTradeIds, primaryTradeId } from '@/lib/company'
 
 interface Props {
   zones: Zone[]
@@ -451,9 +452,11 @@ function CompaniesTab({ companies, trades, onCompaniesChange }: { companies: Com
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {companies.map(co => {
-          const trade = trades.find(t => t.id === co.trade_id)
-          const tc    = getTradeColor(trade?.color ?? 'blue')
-          const isExp = expandedId === co.id
+          const coTradeIds = companyTradeIds(co)
+          const coTrades   = coTradeIds.map(id => trades.find(t => t.id === id)).filter(Boolean) as Trade[]
+          const primary    = coTrades[0]
+          const tc         = getTradeColor(primary?.color ?? 'blue')
+          const isExp      = expandedId === co.id
           const allContacts: { name: string; phone: string; email: string }[] = []
           if (co.contact || co.phone) allContacts.push({ name: co.contact ?? '', phone: co.phone ?? '', email: co.email ?? '' })
           ;(co.contacts ?? []).forEach(c => { if (c.name || c.phone) allContacts.push(c) })
@@ -465,7 +468,7 @@ function CompaniesTab({ companies, trades, onCompaniesChange }: { companies: Com
                 <div onClick={() => setExpandedId(isExp ? null : co.id)} style={{ flex: 1, cursor: 'pointer' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{co.name}</div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: "'DM Mono', monospace", marginTop: 1 }}>
-                    {trade?.short ?? '—'}{co.phone ? ` · ${co.phone}` : ''}
+                    {coTrades.length ? coTrades.map(t => t.short).join(' · ') : '—'}{co.phone ? ` · ${co.phone}` : ''}
                   </div>
                 </div>
                 <button onClick={() => setEditCo(co)} style={smallBtnStyle('neutral')} title="Modifier">✎</button>
@@ -492,12 +495,19 @@ function CompaniesTab({ companies, trades, onCompaniesChange }: { companies: Com
                       </div>
                     ))
                   )}
-                  {trade && (
+                  {coTrades.length > 0 && (
                     <>
                       <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.07em', margin: '10px 0 6px' }}>Corps de métier</div>
-                      <span style={{ fontSize: 11, color: tc.t, background: tc.bg, padding: '2px 10px', borderRadius: 999, fontWeight: 600, border: `1px solid ${tc.b}30` }}>
-                        {trade.name}
-                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {coTrades.map(t => {
+                          const ttc = getTradeColor(t.color)
+                          return (
+                            <span key={t.id} style={{ fontSize: 11, color: ttc.t, background: ttc.bg, padding: '2px 10px', borderRadius: 999, fontWeight: 600, border: `1px solid ${ttc.b}30` }}>
+                              {t.name}
+                            </span>
+                          )
+                        })}
+                      </div>
                     </>
                   )}
                 </div>
@@ -529,15 +539,61 @@ function CompaniesTab({ companies, trades, onCompaniesChange }: { companies: Com
   )
 }
 
+function TradeMultiPick({ trades, selected, onChange }: {
+  trades: Trade[]
+  selected: string[]
+  onChange: (next: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  function toggle(id: string) {
+    onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id])
+  }
+  const selectedTrades = selected.map(id => trades.find(t => t.id === id)).filter(Boolean) as Trade[]
+  return (
+    <div style={{ position: 'relative' }}>
+      <div onClick={() => setOpen(o => !o)} style={{ ...modalInputStyle, minHeight: 36, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', cursor: 'pointer', padding: '5px 8px' }}>
+        {selectedTrades.length === 0 && <span style={{ color: 'var(--xmuted)', fontSize: 12 }}>— Sélectionner un ou plusieurs corps de métier —</span>}
+        {selectedTrades.map(t => {
+          const tc = getTradeColor(t.color)
+          return (
+            <span key={t.id} style={{ padding: '2px 6px 2px 8px', borderRadius: 999, background: tc.bg, color: tc.t, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {t.name}
+              <button onClick={e => { e.stopPropagation(); toggle(t.id) }} style={{ border: 'none', background: 'transparent', color: tc.t, cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+            </span>
+          )
+        })}
+      </div>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 200 }} />
+          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 201, maxHeight: 240, overflowY: 'auto', padding: 4 }}>
+            {trades.map(t => {
+              const isSel = selected.includes(t.id)
+              return (
+                <div key={t.id} onClick={() => toggle(t.id)} style={{ padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, background: isSel ? 'var(--primary-l)' : 'transparent', color: isSel ? 'var(--primary)' : 'var(--text)', fontWeight: isSel ? 700 : 500 }}>
+                  <span style={{ width: 14, height: 14, borderRadius: 3, border: `1.5px solid ${isSel ? 'var(--primary)' : 'var(--border)'}`, background: isSel ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {isSel && <span style={{ color: '#fff', fontSize: 9 }}>✓</span>}
+                  </span>
+                  {t.name} <span style={{ fontSize: 10, color: 'var(--muted)' }}>({t.short})</span>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function CompanyModal({ initial, trades, onClose, onSaved }: {
   initial: Company | null
   trades: Trade[]
   onClose: () => void
   onSaved: (co: Company) => void
 }) {
-  const [name, setName]       = useState(initial?.name ?? '')
-  const [tradeId, setTradeId] = useState(initial?.trade_id ?? '')
-  const [contact, setContact] = useState(initial?.contact ?? '')
+  const [name, setName]         = useState(initial?.name ?? '')
+  const [tradeIds, setTradeIds] = useState<string[]>(companyTradeIds(initial))
+  const [contact, setContact]   = useState(initial?.contact ?? '')
   const [phone, setPhone]     = useState(initial?.phone ?? '')
   const [email, setEmail]     = useState(initial?.email ?? '')
   const [saving, setSaving]   = useState(false)
@@ -548,7 +604,8 @@ function CompanyModal({ initial, trades, onClose, onSaved }: {
     setSaving(true); setError(null)
     const payload = {
       name: name.trim(),
-      trade_id: tradeId || null,
+      trade_ids: tradeIds,
+      trade_id: tradeIds[0] ?? null,
       contact: contact.trim() || null,
       phone: phone.trim() || null,
       email: email.trim() || null,
@@ -578,10 +635,7 @@ function CompanyModal({ initial, trades, onClose, onSaved }: {
         </div>
         <div>
           <label style={modalLabelStyle}>Corps de métier</label>
-          <select style={modalInputStyle} value={tradeId} onChange={e => setTradeId(e.target.value)}>
-            <option value="">— Aucun —</option>
-            {trades.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+          <TradeMultiPick trades={trades} selected={tradeIds} onChange={setTradeIds} />
         </div>
         <div>
           <label style={modalLabelStyle}>Contact</label>

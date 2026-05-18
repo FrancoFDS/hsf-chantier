@@ -7,6 +7,7 @@ import { STATUS_META } from '@/constants/status'
 import { getTradeColor, getZoneFloorColor } from '@/constants/colors'
 import { todayStr } from '@/lib/dates'
 import { supabase } from '@/lib/supabase'
+import { companyTradeIds, displayTradeId } from '@/lib/company'
 import TaskDetail from './TaskDetail'
 
 type ViewMode = '1s' | '2s' | '3s'
@@ -208,7 +209,7 @@ interface AddTaskModalProps {
 function AddTaskModal({ zones, trades, companies, defaultZone, defaultDate, onClose, onAdd }: AddTaskModalProps) {
   const today = todayStr()
   const firstTradeId = trades[0]?.id ?? ''
-  const firstCompany = companies.find(c => c.trade_id === firstTradeId)?.name ?? ''
+  const firstCompany = companies.find(c => companyTradeIds(c).includes(firstTradeId))?.name ?? ''
   const [zoneId,    setZoneId]    = useState(defaultZone ?? zones[0]?.id ?? '')
   const [tradeId,   setTradeId]   = useState(firstTradeId)
   const [company,   setCompany]   = useState(firstCompany)
@@ -220,7 +221,7 @@ function AddTaskModal({ zones, trades, companies, defaultZone, defaultDate, onCl
 
   function handleTradeChange(newTradeId: string) {
     setTradeId(newTradeId)
-    const autoCompany = companies.find(c => c.trade_id === newTradeId)?.name ?? ''
+    const autoCompany = companies.find(c => companyTradeIds(c).includes(newTradeId))?.name ?? ''
     setCompany(autoCompany)
   }
 
@@ -828,7 +829,7 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
         }
         const { bar } = seg
         const co      = companies.find(c => c.name === bar.iv.company)
-        const tr      = trades.find(t => t.id === (co?.trade_id ?? bar.iv.trade))
+        const tr      = trades.find(t => t.id === displayTradeId(co, bar.iv.trade))
         const tc      = getTradeColor(tr?.color ?? 'blue')
         const es      = effectiveStatus(bar.iv)
         const sm      = STATUS_META[es]
