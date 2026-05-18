@@ -590,7 +590,7 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
     setSaving(true)
     setError(null)
     const mentions = parseMentions(trimmed, companies)
-    const payload = {
+    const basePayload = {
       author_name: authorName,
       title: title.trim() || null,
       content: trimmed,
@@ -604,9 +604,19 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
       due_date: dueDate || null,
       parent_id: null,
       attachments: [],
-      mentioned_companies: mentions,
     }
-    const { data, error: err } = await supabase.from('notes').insert([payload]).select().single()
+    const payload: Record<string, unknown> = { ...basePayload, mentioned_companies: mentions }
+    let { data, error: err } = await supabase.from('notes').insert([payload]).select().single()
+
+    // Fallback retry without v3 columns if migration not applied
+    if (err && (err as { code?: string }).code === 'PGRST204') {
+      const r = await supabase.from('notes').insert([basePayload]).select().single()
+      data = r.data; err = r.error
+    } else if (err && (err as { message?: string }).message?.toLowerCase().includes('mentioned_companies')) {
+      const r = await supabase.from('notes').insert([basePayload]).select().single()
+      data = r.data; err = r.error
+    }
+
     setSaving(false)
     if (err || !data) {
       const msg = err?.message ?? 'Erreur inconnue'
@@ -818,10 +828,10 @@ function MultiPick({ options, selected, onChange, placeholder }: {
       <div onClick={() => setOpen(true)} style={{
         ...inp, minHeight: 36, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', cursor: 'text', padding: '5px 8px',
       }}>
-        {selected.map(v => {
+        {selected.map((v, idx) => {
           const opt = options.find(o => o.value === v)
           return (
-            <span key={v} style={{
+            <span key={`${v}-${idx}`} style={{
               padding: '2px 6px 2px 8px', borderRadius: 999, background: 'var(--primary-l)',
               color: 'var(--primary)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4,
             }}>
@@ -849,10 +859,10 @@ function MultiPick({ options, selected, onChange, placeholder }: {
             />
             {visible.length === 0 ? (
               <div style={{ padding: 8, fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>Aucun résultat</div>
-            ) : visible.map(o => {
+            ) : visible.map((o, idx) => {
               const isSel = selected.includes(o.value)
               return (
-                <div key={o.value} onClick={() => onChange(isSel ? selected.filter(x => x !== o.value) : [...selected, o.value])} style={{
+                <div key={`${o.value}-${idx}`} onClick={() => onChange(isSel ? selected.filter(x => x !== o.value) : [...selected, o.value])} style={{
                   padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
                   background: isSel ? 'var(--primary-l)' : 'transparent',
                   color: isSel ? 'var(--primary)' : 'var(--text)',
