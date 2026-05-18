@@ -22,6 +22,59 @@ const STATUSES: { value: NoteStatus; label: string; color: string; bg: string }[
   { value: 'termine',   label: 'Terminé',   color: '#6B6860', bg: '#EFEDE8' },
 ]
 
+// ─── In-app notifications ──────────────────────────────────────────────────
+
+async function notifyForNewNote(note: Note, companies: Company[]) {
+  // Concerned = company_codes ∪ mentioned_companies, except author's own company
+  const concerned = new Set<string>([...note.company_codes, ...(note.mentioned_companies ?? [])])
+  concerned.delete(note.author_name)
+  if (concerned.size === 0) return
+
+  const knownCompanies = new Set(companies.map(c => c.name))
+  const inserts = [...concerned]
+    .filter(name => knownCompanies.has(name))
+    .map(companyName => ({
+      recipient_role: 'company',
+      recipient_company: companyName,
+      intervention_id: note.intervention_id,
+      task_name: note.title?.slice(0, 80) ?? note.content.slice(0, 60),
+      message: note.mentioned_companies?.includes(companyName)
+        ? `💬 ${note.author_name} vous a mentionné·e dans une note`
+        : `📝 Nouvelle note de ${note.author_name}`,
+      read: false,
+    }))
+
+  if (inserts.length > 0) {
+    const { error } = await supabase.from('notifications').insert(inserts)
+    if (error) console.warn('notif insert (new note)', error)
+  }
+}
+
+async function notifyForReply(reply: Note, parent: Note, thread: Note[], companies: Company[]) {
+  const recipients = new Set<string>()
+  if (parent.author_name && parent.author_name !== reply.author_name) recipients.add(parent.author_name)
+  for (const r of thread) {
+    if (r.id !== reply.id && r.author_name !== reply.author_name) recipients.add(r.author_name)
+  }
+  if (recipients.size === 0) return
+
+  const knownCompanies = new Set(companies.map(c => c.name))
+  const inserts = [...recipients].map(name => {
+    const isCompany = knownCompanies.has(name)
+    return {
+      recipient_role: isCompany ? 'company' : 'admin',
+      recipient_company: isCompany ? name : null,
+      intervention_id: parent.intervention_id,
+      task_name: parent.title?.slice(0, 80) ?? parent.content.slice(0, 60),
+      message: `💬 ${reply.author_name} a répondu à une note`,
+      read: false,
+    }
+  })
+
+  const { error } = await supabase.from('notifications').insert(inserts)
+  if (error) console.warn('notif insert (reply)', error)
+}
+
 function isLate(n: Note): boolean {
   if (!n.due_date) return false
   if (n.status === 'resolu' || n.status === 'termine') return false
@@ -624,6 +677,8 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
       onError?.(msg)
       return
     }
+    // Fire-and-forget in-app notifications
+    notifyForNewNote(data as Note, companies).catch(e => console.warn('notif', e))
     onCreated?.(data as Note)
     onClose()
   }
@@ -938,11 +993,15 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
       intervention_id: note.intervention_id,
       zone_ids: [], company_codes: [], trade_codes: [], attachments: [],
     }
-    const { error: err } = await supabase.from('notes').insert([payload])
+    const { data: insertedReply, error: err } = await supabase.from('notes').insert([payload]).select().single()
     setSaving(false)
     if (err) { onToast(err.message, 'error'); return }
     setReply('')
+    // Bump parent updated_at + notify
     await supabase.from('notes').update({ updated_at: new Date().toISOString() }).eq('id', note.id)
+    if (insertedReply) {
+      notifyForReply(insertedReply as Note, note, thread, companies).catch(e => console.warn('notif', e))
+    }
   }
 
   async function changeStatus(newStatus: NoteStatus) {
