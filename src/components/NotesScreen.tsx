@@ -768,7 +768,13 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
       const clocheLines = enabledLines.filter(l => l.channel === 'cloche')
       // Pattern aligned with TaskDetail.tsx — no `read` field (DB default), no null fields
       for (const l of clocheLines) {
-        const payload: Record<string, unknown> = {
+        const isExternal = !!l.email
+        const payload: Record<string, unknown> = isExternal ? {
+          recipient_role: 'external',
+          recipient_email: l.email,
+          task_name: noteRecord.title?.slice(0, 80) ?? noteRecord.content.slice(0, 60) ?? '—',
+          message: `📝 Nouvelle note de ${noteRecord.author_name}`,
+        } : {
           recipient_role: 'company',
           recipient_company: l.companyName ?? '',
           task_name: noteRecord.title?.slice(0, 80) ?? noteRecord.content.slice(0, 60) ?? '—',
@@ -779,7 +785,7 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
         await supabase.from('note_send_log').insert([{
           note_id: noteRecord.id,
           channel: 'cloche',
-          recipient_label: l.companyName ?? l.label,
+          recipient_label: isExternal ? (l.label.replace(/^🔔 Notif Planify → /, '')) : (l.companyName ?? l.label),
           recipient_company: l.companyName ?? null,
           recipient_phone: null,
           status: r.error ? 'failed' : 'sent',
@@ -1030,7 +1036,8 @@ interface NotifLine {
   key: string
   label: string             // displayed in the checkbox row
   channel: 'cloche' | 'whatsapp'
-  companyName?: string      // for cloche → recipient_company
+  companyName?: string      // for cloche → recipient_company (company users)
+  email?: string            // for cloche → recipient_email (external users)
   phone?: string            // for whatsapp
   enabled: boolean
   source: 'attributed' | 'added'
@@ -1930,17 +1937,38 @@ function RecipientPickerModal({ companies, externalContacts, excludeCompanies, e
           {visibleExternal.length > 0 && (
             <div>
               <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>👤 Contacts externes</div>
-              {visibleExternal.map(c => (
-                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: 'var(--surface-2)', borderRadius: 6, marginBottom: 4 }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{c.name}{c.role ? ` (${c.role})` : ''}</div>
-                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>{c.phone ?? 'pas de tél'}</div>
+              {visibleExternal.map(c => {
+                const clocheKey = `add-ext-cloche-${c.email ?? c.id}`
+                const hasCloche = !!c.email && !existingKeys.has(clocheKey)
+                function pickExternalCloche() {
+                  if (!c.email) return
+                  onPick({
+                    key: clocheKey,
+                    label: `🔔 Notif Planify → ${c.name}${c.role ? ` (${c.role})` : ''}`,
+                    channel: 'cloche',
+                    email: c.email,
+                  })
+                }
+                return (
+                  <div key={c.id} style={{ padding: '6px 8px', background: 'var(--surface-2)', borderRadius: 6, marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{c.name}{c.role ? ` (${c.role})` : ''}</div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>{c.email ?? 'pas d\'email'}{c.phone ? ` · ${c.phone}` : ''}</div>
+                      </div>
+                      <button onClick={pickExternalCloche} disabled={!hasCloche} title={c.email ? undefined : 'Pas d\'email — donne-lui accès Planify d\'abord'} style={{
+                        ...addPickBtnStyle, opacity: hasCloche ? 1 : .4, cursor: hasCloche ? 'pointer' : 'not-allowed',
+                      }}>+ 🔔 cloche</button>
+                    </div>
+                    {c.phone && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}</span>
+                        <button onClick={() => pickContactWa(undefined, c.name, c.phone!)} style={addPickBtnStyle}>+ 💬 WhatsApp</button>
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => c.phone && pickContactWa(undefined, c.name, c.phone)} disabled={!c.phone} style={{
-                    ...addPickBtnStyle, opacity: c.phone ? 1 : .4, cursor: c.phone ? 'pointer' : 'not-allowed',
-                  }}>+ 💬 WhatsApp</button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 

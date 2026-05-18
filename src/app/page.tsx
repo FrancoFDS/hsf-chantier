@@ -38,6 +38,7 @@ interface AppNotification {
   id: string
   recipient_role: string
   recipient_company: string | null
+  recipient_email: string | null
   intervention_id: string | null
   task_name: string | null
   message: string
@@ -93,25 +94,41 @@ export default function PlanifyApp() {
   // Fetch notifications once role is known
   useEffect(() => {
     if (loading) return
-    const query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)
-    const q = userRole === 'company' && userCompany
-      ? query.eq('recipient_role', 'company').eq('recipient_company', userCompany)
-      : query.eq('recipient_role', 'admin')
-    q.then(({ data }) => { if (data) setNotifications(data as AppNotification[]) })
+    let cancelled = false
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const email = user?.email ?? ''
+      const query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)
+      const q = userRole === 'company' && userCompany
+        ? query.eq('recipient_role', 'company').eq('recipient_company', userCompany)
+        : userRole === 'external' && email
+          ? query.eq('recipient_role', 'external').eq('recipient_email', email)
+          : query.eq('recipient_role', 'admin')
+      const { data } = await q
+      if (!cancelled && data) setNotifications(data as AppNotification[])
+    })()
+    return () => { cancelled = true }
   }, [loading, userRole, userCompany])
 
   // Realtime subscription with proper cleanup
   useEffect(() => {
     if (loading) return
-    const filter = userRole === 'company' && userCompany
-      ? `recipient_company=eq.${userCompany}`
-      : `recipient_role=eq.admin`
-    const channel = supabase.channel(`notifs-${userRole}-${userCompany ?? 'admin'}-${Date.now()}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter }, payload => {
-        setNotifications(prev => [payload.new as AppNotification, ...prev])
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const email = user?.email ?? ''
+      const filter = userRole === 'company' && userCompany
+        ? `recipient_company=eq.${userCompany}`
+        : userRole === 'external' && email
+          ? `recipient_email=eq.${email}`
+          : `recipient_role=eq.admin`
+      channel = supabase.channel(`notifs-${userRole}-${userCompany ?? email ?? 'admin'}-${Date.now()}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter }, payload => {
+          setNotifications(prev => [payload.new as AppNotification, ...prev])
+        })
+        .subscribe()
+    })()
+    return () => { if (channel) supabase.removeChannel(channel) }
   }, [loading, userRole, userCompany])
 
   // Notes unread count (realtime)
