@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Note, NoteScope, NoteStatus, NoteCategory, NoteAttachment, Intervention, Zone, Trade, Company } from '@/types/database'
+import type { Note, NoteScope, NoteStatus, NoteCategory, NoteAttachment, NoteSendChannel, Intervention, Zone, Trade, Company, ExternalContact } from '@/types/database'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -636,6 +636,37 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
+  // ── Notifications ──
+  const [externalContacts, setExternalContacts] = useState<ExternalContact[]>([])
+  const [notifLines,       setNotifLines]       = useState<NotifLine[]>(() => buildAttributedLines(coCodes, companies))
+  const [showRecipientPicker, setShowRecipientPicker] = useState(false)
+  const [sendQueue,        setSendQueue]        = useState<{ noteId: string; lines: NotifLine[]; text: string } | null>(null)
+
+  useEffect(() => {
+    supabase.from('external_contacts').select('*').then(({ data }) => {
+      setExternalContacts((data ?? []) as ExternalContact[])
+    })
+  }, [])
+
+  // Regenerate attributed lines when coCodes change; preserve user-added lines
+  useEffect(() => {
+    setNotifLines(prev => {
+      const added = prev.filter(l => l.source === 'added')
+      const generated = buildAttributedLines(coCodes, companies)
+      return [...generated, ...added]
+    })
+  }, [coCodes, companies])
+
+  function toggleLine(key: string, on: boolean) {
+    setNotifLines(prev => prev.map(l => l.key === key ? { ...l, enabled: on } : l))
+  }
+  function addLine(line: Omit<NotifLine, 'enabled' | 'source'>) {
+    setNotifLines(prev => prev.some(l => l.key === line.key) ? prev : [...prev, { ...line, enabled: true, source: 'added' }])
+  }
+  function removeLine(key: string) {
+    setNotifLines(prev => prev.filter(l => l.key !== key))
+  }
+
   function addFiles(files: FileList | null) {
     if (!files) return
     const allowed = ['image/jpeg', 'image/png', 'application/pdf']
@@ -712,8 +743,51 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
       onError?.(msg)
       return
     }
-    // Fire-and-forget in-app notifications
-    notifyForNewNote(data as Note, companies).catch(e => console.warn('notif', e))
+    // Process notification lines
+    const enabledLines = notifLines.filter(l => l.enabled)
+    if (enabledLines.length > 0) {
+      const noteRecord = data as Note
+      const noteText   = buildShareText({
+        title: noteRecord.title, content: noteRecord.content,
+        category: noteRecord.category, due_date: noteRecord.due_date,
+        author_name: noteRecord.author_name,
+      }, uploaded)
+
+      // 1) Cloche notifications (immediate INSERT in notifications + send_log)
+      const clocheLines = enabledLines.filter(l => l.channel === 'cloche')
+      const notifInserts = clocheLines.map(l => ({
+        recipient_role: 'company',
+        recipient_company: l.companyName ?? null,
+        intervention_id: noteRecord.intervention_id,
+        task_name: noteRecord.title?.slice(0, 80) ?? noteRecord.content.slice(0, 60),
+        message: `📝 Nouvelle note de ${noteRecord.author_name}`,
+        read: false,
+      }))
+      if (notifInserts.length > 0) {
+        const r = await supabase.from('notifications').insert(notifInserts)
+        for (const l of clocheLines) {
+          await supabase.from('note_send_log').insert([{
+            note_id: noteRecord.id,
+            channel: 'cloche',
+            recipient_label: l.companyName ?? l.label,
+            recipient_company: l.companyName ?? null,
+            recipient_phone: null,
+            status: r.error ? 'failed' : 'sent',
+            reason: r.error?.message ?? null,
+            sent_by: authorName,
+          }]).then(() => {}, () => {}) // ignore log errors silently
+        }
+      }
+
+      // 2) WhatsApp queue (sequential, user clicks each)
+      const waLines = enabledLines.filter(l => l.channel === 'whatsapp' && cleanPhone(l.phone))
+      if (waLines.length > 0) {
+        setSendQueue({ noteId: noteRecord.id, lines: waLines, text: noteText })
+        // Don't close yet — modal stays for queue
+        onCreated?.(noteRecord)
+        return
+      }
+    }
     onCreated?.(data as Note)
     onClose()
   }
@@ -790,6 +864,56 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
             <input type="date" style={inp} value={dueDate} onChange={e => setDueDate(e.target.value)} />
           </div>
 
+          {/* Notifications */}
+          <div>
+            <label style={lbl}>📢 Notifier à la sauvegarde</label>
+            {notifLines.length === 0 ? (
+              <div style={{ fontSize: 11, color: 'var(--muted)', padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 6 }}>
+                Aucun destinataire. Sélectionne une entreprise au-dessus ou ajoute-en un.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {notifLines.map(line => (
+                  <label key={line.key} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                    background: line.enabled ? 'var(--surface-2)' : 'transparent',
+                    border: `1px solid ${line.enabled ? 'var(--border)' : 'var(--border)'}`,
+                    borderRadius: 6, cursor: 'pointer', fontSize: 11.5,
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={line.enabled}
+                      onChange={e => toggleLine(line.key, e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <span style={{ flex: 1, color: line.enabled ? 'var(--text)' : 'var(--muted)' }}>{line.label}</span>
+                    {line.source === 'added' && (
+                      <button
+                        type="button"
+                        onClick={e => { e.preventDefault(); removeLine(line.key) }}
+                        style={{
+                          width: 18, height: 18, borderRadius: '50%', border: 'none',
+                          background: '#DC262615', color: '#DC2626', fontSize: 12, fontWeight: 700,
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                        }}
+                        title="Retirer ce destinataire"
+                      >×</button>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowRecipientPicker(true)}
+              style={{
+                marginTop: 6, padding: '6px 10px', borderRadius: 6,
+                border: '1.5px dashed var(--primary)', background: 'transparent',
+                color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              }}
+            >+ Ajouter un destinataire</button>
+          </div>
+
           {/* Attachments */}
           <div>
             <label style={lbl}>📎 Pièces jointes <span style={{ color: 'var(--xmuted)', fontWeight: 400 }}>(JPG/PNG/PDF, 10 Mo max)</span></label>
@@ -864,11 +988,112 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
           }}>{saving ? 'Création…' : 'Créer la note'}</button>
         </div>
       </div>
+
+      {/* Recipient picker overlay */}
+      {showRecipientPicker && (
+        <RecipientPickerModal
+          companies={companies}
+          externalContacts={externalContacts}
+          excludeCompanies={coCodes}
+          existingKeys={new Set(notifLines.map(l => l.key))}
+          onClose={() => setShowRecipientPicker(false)}
+          onPick={(line) => addLine(line)}
+        />
+      )}
+
+      {/* Sequential WhatsApp send queue */}
+      {sendQueue && (
+        <SendQueueModal
+          noteId={sendQueue.noteId}
+          lines={sendQueue.lines}
+          text={sendQueue.text}
+          sentBy={authorName}
+          onDone={() => { setSendQueue(null); onClose() }}
+        />
+      )}
     </>
   )
 }
 
 // ─── Mention textarea (autocomplete @entreprise) ───────────────────────────
+
+// ─── Notification lines (recipients × channels) ────────────────────────────
+
+interface NotifLine {
+  key: string
+  label: string             // displayed in the checkbox row
+  channel: 'cloche' | 'whatsapp'
+  companyName?: string      // for cloche → recipient_company
+  phone?: string            // for whatsapp
+  enabled: boolean
+  source: 'attributed' | 'added'
+}
+
+function cleanPhone(p: string | null | undefined): string {
+  if (!p) return ''
+  const digits = p.replace(/[^\d]/g, '')
+  // FR default: replace leading 0 by 33
+  return digits.startsWith('0') ? '33' + digits.slice(1) : digits
+}
+
+function buildAttributedLines(codes: string[], companies: Company[]): NotifLine[] {
+  const lines: NotifLine[] = []
+  for (const code of codes) {
+    const co = companies.find(c => c.name === code)
+    // Cloche line for the company (always when known)
+    if (co) {
+      lines.push({
+        key: `att-cloche-${code}`,
+        label: `🔔 Notif Planify → ${code}`,
+        channel: 'cloche',
+        companyName: code,
+        enabled: true,
+        source: 'attributed',
+      })
+    }
+    // WhatsApp lines for each contact with phone
+    const contacts: { name: string; phone: string | null }[] = co ? [
+      { name: co.contact_name || co.name, phone: co.phone ?? null },
+      ...((co.contacts ?? []) as { name: string; phone: string; email: string }[]).map(c => ({ name: c.name || co.name, phone: c.phone ?? null })),
+    ] : []
+    const seen = new Set<string>()
+    for (const c of contacts) {
+      if (!c.phone || !c.phone.trim()) continue
+      const k = `${c.name}|${c.phone}`
+      if (seen.has(k)) continue
+      seen.add(k)
+      lines.push({
+        key: `att-wa-${code}-${c.name}-${c.phone}`,
+        label: `💬 WhatsApp → ${c.name}${c.name !== code ? ` (${code})` : ''} · ${c.phone}`,
+        channel: 'whatsapp',
+        companyName: code,
+        phone: c.phone,
+        enabled: true,
+        source: 'attributed',
+      })
+    }
+  }
+  return lines
+}
+
+function buildShareText(note: Pick<Note, 'title' | 'content' | 'category' | 'due_date' | 'author_name'>, attachments: NoteAttachment[]): string {
+  const lines: string[] = []
+  lines.push(`📝 Note Planify — ${note.author_name}`)
+  if (note.category) lines.push(`Catégorie : ${note.category}`)
+  if (note.due_date) lines.push(`Échéance : ${note.due_date}`)
+  lines.push('')
+  if (note.title) { lines.push(note.title); lines.push('') }
+  lines.push(note.content)
+  if (attachments.length > 0) {
+    lines.push('')
+    lines.push('📎 Pièces jointes :')
+    for (const a of attachments) lines.push(`- ${a.name} : ${a.url}`)
+  }
+  lines.push('')
+  const url = typeof window !== 'undefined' ? window.location.origin : 'https://hsf-chantier.vercel.app'
+  lines.push(`Voir / répondre : ${url}`)
+  return lines.join('\n')
+}
 
 function parseMentions(text: string, companies: Company[]): string[] {
   const found = new Set<string>()
@@ -1049,7 +1274,6 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
   const [editDue,       setEditDue]       = useState(note.due_date ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [pendingProof,  setPendingProof]  = useState(false)
-  const [showShare,     setShowShare]     = useState(false)
   const [attachments,   setAttachments]   = useState<NoteAttachment[]>(note.attachments ?? [])
   const [uploading,     setUploading]     = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1185,9 +1409,6 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
             }}>{cat.icon} {cat.label}</span>
             <span style={{ fontSize: 11, color: 'var(--xmuted)' }}>{note.scope === 'intervention' ? '📅 Liée au planning' : '📌 Libre'}</span>
             <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-              {!editing && (
-                <button onClick={() => setShowShare(true)} title="Partager par WhatsApp / Email" style={iconBtnStyle}>📤</button>
-              )}
               {!editing && isAuthor && (
                 <>
                   <button onClick={() => setEditing(true)} title="Éditer" style={iconBtnStyle}>✎</button>
@@ -1279,6 +1500,9 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
           )}
         </div>
 
+        {/* Send history */}
+        <SendHistorySection noteId={note.id} />
+
         {/* Thread */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', minHeight: 80, maxHeight: '32vh' }}>
           {thread.length === 0 ? (
@@ -1337,10 +1561,6 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
         />
       )}
 
-      {/* Share modal */}
-      {showShare && (
-        <ShareModal note={note} companies={companies} attachments={attachments} onClose={() => setShowShare(false)} />
-      )}
     </>
   )
 }
@@ -1479,117 +1699,330 @@ const iconBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
 
-// ─── Share modal (WhatsApp / Email) ─────────────────────────────────────────
+// ─── Send history (notifications log) in NoteDetail ──────────────────────
 
-function buildShareText(note: Note, attachments: NoteAttachment[]): string {
-  const lines: string[] = []
-  lines.push(`📝 Note de ${note.author_name}`)
-  if (note.category) lines.push(`Catégorie : ${note.category}`)
-  if (note.due_date) lines.push(`Échéance : ${note.due_date}`)
-  lines.push('')
-  if (note.title) { lines.push(note.title); lines.push('') }
-  lines.push(note.content)
-  if (attachments.length > 0) {
-    lines.push('')
-    lines.push('📎 Pièces jointes :')
-    for (const a of attachments) lines.push(`- ${a.name} : ${a.url}`)
+function SendHistorySection({ noteId }: { noteId: string }) {
+  const [logs, setLogs] = useState<NoteSendLogRow[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [missing, setMissing] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    supabase.from('note_send_log').select('*').eq('note_id', noteId).order('sent_at', { ascending: false }).then(({ data, error }) => {
+      if (!mounted) return
+      if (error) {
+        if ((error as { code?: string }).code === 'PGRST205') setMissing(true)
+        setLoaded(true)
+        return
+      }
+      setLogs((data ?? []) as NoteSendLogRow[])
+      setLoaded(true)
+    })
+    const ch = supabase.channel('send-log-' + noteId)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'note_send_log', filter: `note_id=eq.${noteId}` }, payload => {
+        if (!mounted) return
+        setLogs(prev => [payload.new as NoteSendLogRow, ...prev])
+      })
+      .subscribe()
+    return () => { mounted = false; supabase.removeChannel(ch) }
+  }, [noteId])
+
+  if (!loaded) return null
+  if (missing) {
+    return (
+      <div style={{ padding: '8px 16px', fontSize: 10.5, color: '#DC2626', background: '#FEF2F2', borderTop: '1px solid var(--border)' }}>
+        ⚠ Table <code>note_send_log</code> absente — lance <code>notes_v4_send_log.sql</code> dans Supabase.
+      </div>
+    )
   }
-  lines.push('')
-  const url = typeof window !== 'undefined' ? window.location.origin : 'https://hsf-chantier.vercel.app'
-  lines.push(`Voir / répondre : ${url}`)
-  return lines.join('\n')
+  if (logs.length === 0) return null
+
+  return (
+    <div style={{ padding: '8px 16px 10px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
+        📜 Historique des notifications ({logs.length})
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {logs.slice(0, 8).map(l => {
+          const t = new Date(l.sent_at)
+          const when = t.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+          const icon = l.channel === 'cloche' ? '🔔' : '💬'
+          const color = l.status === 'sent' ? '#15803D' : l.status === 'skipped' ? '#D97706' : '#DC2626'
+          return (
+            <div key={l.id} style={{ fontSize: 10.5, color: 'var(--text)', lineHeight: 1.35 }}>
+              <span style={{ color: 'var(--xmuted)' }}>{when}</span>
+              {' — '}
+              <strong>{l.sent_by}</strong> → {l.recipient_label}
+              {' '}
+              <span style={{ color }}>{icon} {l.channel === 'cloche' ? 'cloche' : 'WhatsApp'} {l.status === 'sent' ? '✓' : l.status === 'skipped' ? '⤳ skip' : '⨯ échec'}</span>
+              {l.reason && <span style={{ color: 'var(--muted)' }}> ({l.reason})</span>}
+            </div>
+          )
+        })}
+        {logs.length > 8 && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>+ {logs.length - 8} de plus…</div>}
+      </div>
+    </div>
+  )
 }
 
-function cleanPhone(p: string | null | undefined): string {
-  if (!p) return ''
-  return p.replace(/[^\d]/g, '').replace(/^0/, '33') // FR default
+interface NoteSendLogRow {
+  id: string
+  note_id: string
+  channel: 'cloche' | 'whatsapp'
+  recipient_label: string
+  recipient_company: string | null
+  recipient_phone: string | null
+  status: 'sent' | 'skipped' | 'failed'
+  reason: string | null
+  sent_by: string
+  sent_at: string
 }
 
-function ShareModal({ note, companies, attachments, onClose }: {
-  note: Note; companies: Company[]; attachments: NoteAttachment[]; onClose: () => void
+// ─── Recipient picker (add a notif line to a NoteFormModal) ──────────────
+
+function RecipientPickerModal({ companies, externalContacts, excludeCompanies, existingKeys, onClose, onPick }: {
+  companies: Company[]
+  externalContacts: ExternalContact[]
+  excludeCompanies: string[]
+  existingKeys: Set<string>
+  onClose: () => void
+  onPick: (line: Omit<NotifLine, 'enabled' | 'source'>) => void
 }) {
-  const text     = buildShareText(note, attachments)
-  const encoded  = encodeURIComponent(text)
-  const subject  = encodeURIComponent(`📝 ${note.title ?? note.content.slice(0, 60)} — Planify`)
-  const targets  = (note.company_codes.length > 0 ? note.company_codes : []).concat(note.mentioned_companies ?? [])
-  const uniqueT  = [...new Set(targets)]
-  const cos      = uniqueT.map(name => companies.find(c => c.name === name) ?? { id: name, name, phone: null, email: null, contacts: [] as Company['contacts'] })
+  const [q, setQ] = useState('')
+  const [freeName,  setFreeName]  = useState('')
+  const [freePhone, setFreePhone] = useState('')
+  const ql = q.trim().toLowerCase()
+  const excluded = new Set(excludeCompanies)
+
+  const otherCompanies = useMemo(() => companies.filter(c => !excluded.has(c.name) && (!ql || c.name.toLowerCase().includes(ql))), [companies, excluded, ql])
+  const visibleExternal = useMemo(() => externalContacts.filter(c => !ql || (c.name?.toLowerCase().includes(ql) || (c.role ?? '').toLowerCase().includes(ql))), [externalContacts, ql])
+
+  function pickCompanyCloche(co: Company) {
+    const k = `add-cloche-${co.name}`
+    if (existingKeys.has(k)) return
+    onPick({ key: k, label: `🔔 Notif Planify → ${co.name}`, channel: 'cloche', companyName: co.name })
+  }
+  function pickContactWa(coName: string | undefined, contactName: string, phone: string) {
+    const k = `add-wa-${coName ?? '_'}-${contactName}-${phone}`
+    if (existingKeys.has(k)) return
+    onPick({
+      key: k,
+      label: `💬 WhatsApp → ${contactName}${coName ? ` (${coName})` : ''} · ${phone}`,
+      channel: 'whatsapp',
+      companyName: coName,
+      phone,
+    })
+  }
+  function pickFree() {
+    if (!freeName.trim() || !freePhone.trim()) return
+    const phone = freePhone.trim()
+    const name  = freeName.trim()
+    pickContactWa(undefined, name, phone)
+    setFreeName(''); setFreePhone('')
+  }
 
   return (
     <>
-      <div onClick={onClose} style={{ ...modalBackdrop, zIndex: 150 }} />
+      <div onClick={onClose} style={{ ...modalBackdrop, zIndex: 200 }} />
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        background: 'var(--surface)', borderRadius: 12, padding: '16px 18px',
-        maxWidth: 440, width: '94%', maxHeight: '85vh', overflowY: 'auto',
-        boxShadow: '0 10px 40px rgba(0,0,0,.25)', zIndex: 151,
+        background: 'var(--surface)', borderRadius: 12, padding: '14px 16px',
+        maxWidth: 460, width: '94%', maxHeight: '88vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 10px 40px rgba(0,0,0,.25)', zIndex: 201,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>📤 Partager cette note</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', flex: 1 }}>+ Ajouter un destinataire</div>
           <button onClick={onClose} style={iconBtnStyle}>✕</button>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14 }}>
-          Le message s&apos;ouvre pré-rempli dans WhatsApp ou Mail. Reste à appuyer sur Envoyer.
-        </div>
+        <input
+          autoFocus value={q} onChange={e => setQ(e.target.value)}
+          placeholder="Rechercher entreprise ou contact…"
+          style={{ ...inp, marginBottom: 10 }}
+        />
 
-        {cos.length === 0 ? (
-          <div style={{ padding: 18, textAlign: 'center', color: 'var(--muted)', fontSize: 12, background: 'var(--surface-2)', borderRadius: 8 }}>
-            Aucune entreprise destinataire dans cette note.
-          </div>
-        ) : cos.map(co => {
-          const allContacts: { name: string; phone: string | null; email: string | null }[] = [
-            { name: co.name, phone: co.phone ?? null, email: co.email ?? null },
-            ...((co.contacts as Company['contacts'] | undefined) ?? []).map(c => ({ name: c.name || co.name, phone: c.phone ?? null, email: c.email ?? null })),
-          ].filter(c => c.phone || c.email)
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          return (
-            <div key={co.id} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>🏢 {co.name}</div>
-              {allContacts.length === 0 ? (
-                <div style={{ fontSize: 11, color: '#DC2626', background: '#FEE2E2', padding: '6px 10px', borderRadius: 6 }}>
-                  ⚠ Aucun téléphone ni email configuré. Renseigne-les dans <strong>Réglages → Entreprises</strong>.
-                </div>
-              ) : allContacts.map((c, idx) => {
-                const waPhone = cleanPhone(c.phone)
+          {otherCompanies.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>🏢 Autres entreprises</div>
+              {otherCompanies.map(co => {
+                const contacts: { name: string; phone: string | null }[] = [
+                  { name: co.contact_name || co.name, phone: co.phone ?? null },
+                  ...((co.contacts ?? []) as { name: string; phone: string; email: string }[]).map(c => ({ name: c.name || co.name, phone: c.phone ?? null })),
+                ]
+                const withPhone = contacts.filter(c => c.phone && c.phone.trim())
                 return (
-                  <div key={idx} style={{ marginBottom: 8, padding: '6px 10px', background: 'var(--surface-2)', borderRadius: 8 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)', marginBottom: 5 }}>
-                      {c.name}{c.phone ? ` · ${c.phone}` : ''}{c.email ? ` · ${c.email}` : ''}
+                  <div key={co.id} style={{ marginBottom: 4, padding: '6px 8px', background: 'var(--surface-2)', borderRadius: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{co.name}</span>
+                      <button onClick={() => pickCompanyCloche(co)} style={addPickBtnStyle}>+ 🔔 cloche</button>
                     </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <a
-                        href={waPhone ? `https://wa.me/${waPhone}?text=${encoded}` : '#'}
-                        target="_blank" rel="noreferrer"
-                        onClick={e => { if (!waPhone) { e.preventDefault(); alert('Pas de téléphone'); } }}
-                        style={{
-                          flex: 1, padding: '8px 0', textAlign: 'center', borderRadius: 6, textDecoration: 'none',
-                          background: waPhone ? '#25D366' : 'var(--border)',
-                          color: '#fff', fontSize: 11.5, fontWeight: 700,
-                          opacity: waPhone ? 1 : .5, cursor: waPhone ? 'pointer' : 'not-allowed',
-                        }}
-                      >💬 WhatsApp</a>
-                      <a
-                        href={c.email ? `mailto:${c.email}?subject=${subject}&body=${encoded}` : '#'}
-                        onClick={e => { if (!c.email) { e.preventDefault(); alert('Pas d\'email'); } }}
-                        style={{
-                          flex: 1, padding: '8px 0', textAlign: 'center', borderRadius: 6, textDecoration: 'none',
-                          background: c.email ? '#2152C8' : 'var(--border)',
-                          color: '#fff', fontSize: 11.5, fontWeight: 700,
-                          opacity: c.email ? 1 : .5, cursor: c.email ? 'pointer' : 'not-allowed',
-                        }}
-                      >✉ Email</a>
-                    </div>
+                    {withPhone.length === 0 ? (
+                      <div style={{ fontSize: 10, color: 'var(--xmuted)' }}>Aucun téléphone configuré</div>
+                    ) : withPhone.map((c, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{c.name} · {c.phone}</span>
+                        <button onClick={() => pickContactWa(co.name, c.name, c.phone!)} style={addPickBtnStyle}>+ 💬 WhatsApp</button>
+                      </div>
+                    ))}
                   </div>
                 )
               })}
             </div>
+          )}
+
+          {visibleExternal.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>👤 Contacts externes</div>
+              {visibleExternal.map(c => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: 'var(--surface-2)', borderRadius: 6, marginBottom: 4 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{c.name}{c.role ? ` (${c.role})` : ''}</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>{c.phone ?? 'pas de tél'}</div>
+                  </div>
+                  <button onClick={() => c.phone && pickContactWa(undefined, c.name, c.phone)} disabled={!c.phone} style={{
+                    ...addPickBtnStyle, opacity: c.phone ? 1 : .4, cursor: c.phone ? 'pointer' : 'not-allowed',
+                  }}>+ 💬 WhatsApp</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>✏️ Saisie libre</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input style={{ ...inp, flex: 1 }} placeholder="Nom" value={freeName} onChange={e => setFreeName(e.target.value)} />
+              <input style={{ ...inp, flex: 1 }} placeholder="06 12 34 56 78" value={freePhone} onChange={e => setFreePhone(e.target.value)} />
+              <button onClick={pickFree} disabled={!freeName.trim() || !freePhone.trim()} style={{
+                padding: '0 12px', borderRadius: 6, border: 'none',
+                background: (freeName.trim() && freePhone.trim()) ? 'var(--primary)' : 'var(--border)',
+                color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              }}>+</button>
+            </div>
+          </div>
+
+        </div>
+
+        <button onClick={onClose} style={{
+          marginTop: 10, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)',
+          background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+        }}>Fermer</button>
+      </div>
+    </>
+  )
+}
+
+const addPickBtnStyle: React.CSSProperties = {
+  padding: '2px 8px', borderRadius: 4, border: '1px solid var(--primary)',
+  background: 'var(--primary-l)', color: 'var(--primary)', fontSize: 10, fontWeight: 700, cursor: 'pointer',
+}
+
+// ─── Send queue (sequential WhatsApp opener with logging) ────────────────
+
+function SendQueueModal({ noteId, lines, text, sentBy, onDone }: {
+  noteId: string
+  lines: NotifLine[]
+  text: string
+  sentBy: string
+  onDone: () => void
+}) {
+  const encoded = encodeURIComponent(text)
+  const [sentKeys, setSentKeys] = useState<Set<string>>(new Set())
+
+  async function handleSend(line: NotifLine) {
+    const phone = cleanPhone(line.phone)
+    if (!phone) return
+    const url = `https://wa.me/${phone}?text=${encoded}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+    setSentKeys(prev => new Set(prev).add(line.key))
+    await supabase.from('note_send_log').insert([{
+      note_id: noteId,
+      channel: 'whatsapp',
+      recipient_label: line.label.replace(/^💬 WhatsApp → /, ''),
+      recipient_company: line.companyName ?? null,
+      recipient_phone: phone,
+      status: 'sent',
+      reason: null,
+      sent_by: sentBy,
+    }]).then(() => {}, () => {})
+  }
+
+  async function skip(line: NotifLine) {
+    setSentKeys(prev => new Set(prev).add(line.key))
+    await supabase.from('note_send_log').insert([{
+      note_id: noteId,
+      channel: 'whatsapp',
+      recipient_label: line.label.replace(/^💬 WhatsApp → /, ''),
+      recipient_company: line.companyName ?? null,
+      recipient_phone: line.phone ?? null,
+      status: 'skipped',
+      reason: 'utilisateur',
+      sent_by: sentBy,
+    }]).then(() => {}, () => {})
+  }
+
+  const remaining = lines.filter(l => !sentKeys.has(l.key))
+  const done = lines.length - remaining.length
+
+  return (
+    <>
+      <div style={{ ...modalBackdrop, zIndex: 200 }} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        background: 'var(--surface)', borderRadius: 12, padding: '16px 18px',
+        maxWidth: 440, width: '94%', maxHeight: '85vh', overflowY: 'auto',
+        boxShadow: '0 10px 40px rgba(0,0,0,.25)', zIndex: 201,
+      }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
+          📤 {remaining.length} message{remaining.length > 1 ? 's' : ''} WhatsApp à envoyer
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 12 }}>
+          Clique <strong>Envoyer</strong> pour ouvrir WhatsApp avec le message pré-rempli. Reste à appuyer sur la flèche bleue dans WhatsApp.
+        </div>
+
+        {/* Progress */}
+        {done > 0 && (
+          <div style={{ marginBottom: 10, padding: '4px 10px', background: 'var(--primary-l)', borderRadius: 6, fontSize: 11, color: 'var(--primary)', fontWeight: 700 }}>
+            ✓ {done} envoyé{done > 1 ? 's' : ''}
+          </div>
+        )}
+
+        {lines.map(line => {
+          const sent = sentKeys.has(line.key)
+          return (
+            <div key={line.key} style={{
+              padding: '8px 10px', marginBottom: 5,
+              background: sent ? 'var(--surface-2)' : 'var(--primary-l)',
+              borderRadius: 8, border: `1px solid ${sent ? 'var(--border)' : 'var(--primary)'}`,
+              opacity: sent ? .55 : 1,
+            }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)', marginBottom: 5 }}>
+                {sent && '✓ '}{line.label}
+              </div>
+              {!sent && (
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <button onClick={() => handleSend(line)} style={{
+                    flex: 2, padding: '7px 0', borderRadius: 6, border: 'none',
+                    background: '#25D366', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  }}>Envoyer →</button>
+                  <button onClick={() => skip(line)} style={{
+                    flex: 1, padding: '7px 0', borderRadius: 6, border: '1px solid var(--border)',
+                    background: 'var(--surface-2)', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  }}>Skip</button>
+                </div>
+              )}
+            </div>
           )
         })}
 
-        <button onClick={onClose} style={{
-          width: '100%', padding: '10px 0', borderRadius: 8, border: '1px solid var(--border)',
-          background: 'var(--surface-2)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-        }}>Fermer</button>
+        <button onClick={onDone} style={{
+          marginTop: 12, width: '100%', padding: '10px 0', borderRadius: 8, border: 'none',
+          background: remaining.length === 0 ? 'var(--primary)' : 'var(--surface-2)',
+          color: remaining.length === 0 ? '#fff' : 'var(--muted)',
+          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+        }}>
+          {remaining.length === 0 ? '✓ Terminé' : 'Tout fermer (skip le reste)'}
+        </button>
       </div>
     </>
   )

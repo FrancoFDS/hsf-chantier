@@ -144,3 +144,19 @@ export interface CompanyNotifPrefs {
   email_immediate: boolean
   updated_at?: string
 }
+
+export type NoteSendChannel = 'cloche' | 'whatsapp'
+export type NoteSendStatus  = 'sent' | 'skipped' | 'failed'
+
+export interface NoteSendLog {
+  id: string
+  note_id: string
+  channel: NoteSendChannel
+  recipient_label: string
+  recipient_company: string | null
+  recipient_phone: string | null
+  status: NoteSendStatus
+  reason: string | null
+  sent_by: string
+  sent_at: string
+}
