@@ -404,7 +404,7 @@ export default function ExportPlanningPage() {
                 const fc = getZoneFloorColor(zones, floor)
 
                 return (
-                  <div key={floor}>
+                  <div key={floor} style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                     {/* Floor header */}
                     <div style={{
                       display: 'grid', gridTemplateColumns: `88px repeat(${weekDays.length}, 1fr)`,
@@ -436,6 +436,8 @@ export default function ExportPlanningPage() {
                           display: 'grid',
                           gridTemplateColumns: '88px 1fr',
                           borderBottom: zi < floorZones.length - 1 ? '1px solid #EEEBE4' : `1px solid ${fc}30`,
+                          breakInside: 'avoid',
+                          pageBreakInside: 'avoid',
                         }}>
                           {/* Zone label */}
                           <div style={{

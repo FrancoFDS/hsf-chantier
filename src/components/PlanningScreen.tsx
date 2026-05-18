@@ -869,11 +869,9 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
                 {bar.iv.company}
                 {isAlert && <span style={{ marginLeft: 4, fontSize: isMulti ? 6.5 : 8, opacity: .85 }}>· {sm.label}</span>}
               </div>
-              {!isMulti && (
-                <div style={{ fontSize: 8.5, color: '#2A2A2A', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', fontWeight: 500 }}>
-                  {bar.iv.task}
-                </div>
-              )}
+              <div style={{ fontSize: isMulti ? 7.5 : 8.5, color: '#2A2A2A', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: isMulti ? 2 : 1, WebkitBoxOrient: 'vertical', fontWeight: 500 }}>
+                {bar.iv.task}
+              </div>
             </div>
           </div>
         )]
