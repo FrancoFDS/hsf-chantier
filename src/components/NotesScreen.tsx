@@ -101,6 +101,7 @@ export default function NotesScreen({ interventions, zones, trades, companies, a
   const [fabOpen,      setFabOpen]      = useState(false)
   const [showIvPicker, setShowIvPicker] = useState(false)
   const [quickView,    setQuickView]    = useState<'all' | 'mine' | 'unread' | 'late' | 'thisweek'>('all')
+  const [exportOpen,   setExportOpen]   = useState(false)
 
   function showToast(msg: string, kind: 'success' | 'error' = 'success') {
     setToast({ msg, kind })
@@ -200,8 +201,55 @@ export default function NotesScreen({ interventions, zones, trades, companies, a
 
       {/* Toolbar */}
       <div style={{ padding: '10px 12px 6px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, position: 'relative' }}>
           <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)', flex: 1 }}>Notes</div>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setExportOpen(o => !o)} style={{
+              padding: '7px 11px', borderRadius: 8, border: '1px solid var(--border)',
+              background: 'var(--surface-2)', color: 'var(--muted)', fontWeight: 700, fontSize: 11,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              📄 Exports <span style={{ opacity: .6, fontSize: 9 }}>▾</span>
+            </button>
+            {exportOpen && (
+              <>
+                <div onClick={() => setExportOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 91, minWidth: 240,
+                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
+                  boxShadow: 'var(--shadow-md)', overflow: 'hidden',
+                }}>
+                  <a href="/export/notes/cr" target="_blank" rel="noreferrer" onClick={() => setExportOpen(false)} style={exportItemStyle}>
+                    <div style={{ fontSize: 16 }}>📅</div>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>CR de réunion hebdo</div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)' }}>Notes de la semaine, groupées par entreprise</div>
+                    </div>
+                  </a>
+                  <a href="/export/notes/reserves" target="_blank" rel="noreferrer" onClick={() => setExportOpen(false)} style={{ ...exportItemStyle, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 16 }}>📋</div>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>Cahier de réserves</div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)' }}>Réserves ouvertes, par zone ou entreprise</div>
+                    </div>
+                  </a>
+                  <div style={{ borderTop: '1px solid var(--border)', padding: '8px 12px 4px', fontSize: 9.5, color: 'var(--xmuted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>
+                    Fiche entreprise
+                  </div>
+                  <div style={{ maxHeight: 200, overflowY: 'auto', padding: '0 4px 4px' }}>
+                    {companies.length === 0 ? (
+                      <div style={{ padding: 8, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>Aucune entreprise</div>
+                    ) : companies.map(c => (
+                      <a key={c.id} href={`/export/notes/entreprise/${encodeURIComponent(c.name)}`} target="_blank" rel="noreferrer" onClick={() => setExportOpen(false)} style={{
+                        display: 'block', padding: '6px 10px', fontSize: 11.5, color: 'var(--text)',
+                        textDecoration: 'none', borderRadius: 5, marginBottom: 1,
+                      }}>🏢 {c.name}</a>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <button onClick={() => setFabOpen(o => !o)} style={{
             padding: '7px 14px', borderRadius: 8, border: 'none', background: 'var(--primary)',
             color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
@@ -541,6 +589,7 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
 
     setSaving(true)
     setError(null)
+    const mentions = parseMentions(trimmed, companies)
     const payload = {
       author_name: authorName,
       title: title.trim() || null,
@@ -555,6 +604,7 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
       due_date: dueDate || null,
       parent_id: null,
       attachments: [],
+      mentioned_companies: mentions,
     }
     const { data, error: err } = await supabase.from('notes').insert([payload]).select().single()
     setSaving(false)
@@ -594,9 +644,13 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
 
           {/* Content */}
           <div>
-            <label style={lbl}>Contenu <span style={{ color: 'var(--danger)' }}>*</span></label>
-            <textarea
-              value={content} onChange={e => setContent(e.target.value)}
+            <label style={lbl}>
+              Contenu <span style={{ color: 'var(--danger)' }}>*</span>
+              <span style={{ color: 'var(--xmuted)', fontWeight: 400, marginLeft: 8 }}>tapez @ pour mentionner une entreprise</span>
+            </label>
+            <MentionTextarea
+              value={content} onChange={setContent}
+              companies={companies}
               rows={4} autoFocus
               style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }}
               placeholder="Décrivez la note…"
@@ -656,6 +710,93 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
         </div>
       </div>
     </>
+  )
+}
+
+// ─── Mention textarea (autocomplete @entreprise) ───────────────────────────
+
+function parseMentions(text: string, companies: Company[]): string[] {
+  const found = new Set<string>()
+  for (const c of companies) {
+    // Match @CompanyName as whole token (word boundary or end)
+    const pattern = new RegExp(`(^|[^\\w])@${c.name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}(?=[^\\w]|$)`, 'g')
+    if (pattern.test(text)) found.add(c.name)
+  }
+  return [...found]
+}
+
+function MentionTextarea({ value, onChange, companies, ...rest }: {
+  value: string
+  onChange: (next: string) => void
+  companies: Company[]
+} & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange'>) {
+  const [popup, setPopup] = useState<{ query: string; tokenStart: number } | null>(null)
+  const [picked, setPicked] = useState(0)
+  const taRef = useRef<HTMLTextAreaElement>(null)
+
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    onChange(e.target.value)
+    const cur   = e.target.selectionStart ?? e.target.value.length
+    const before = e.target.value.slice(0, cur)
+    const m = /(?:^|\s)@([\wÀ-ÿ-]*)$/.exec(before)
+    if (m) setPopup({ query: m[1].toLowerCase(), tokenStart: before.length - m[1].length - 1 })
+    else setPopup(null)
+    setPicked(0)
+  }
+
+  const candidates = popup
+    ? companies.filter(c => !popup.query || c.name.toLowerCase().includes(popup.query)).slice(0, 6)
+    : []
+
+  function pick(c: Company) {
+    if (!popup || !taRef.current) return
+    const before = value.slice(0, popup.tokenStart)
+    const after  = value.slice((taRef.current.selectionStart ?? value.length))
+    const inserted = `${before}@${c.name} ${after}`
+    onChange(inserted)
+    setPopup(null)
+    setTimeout(() => {
+      if (taRef.current) {
+        const pos = before.length + c.name.length + 2
+        taRef.current.focus()
+        taRef.current.setSelectionRange(pos, pos)
+      }
+    }, 0)
+  }
+
+  function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!popup || candidates.length === 0) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setPicked(p => (p + 1) % candidates.length) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setPicked(p => (p - 1 + candidates.length) % candidates.length) }
+    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pick(candidates[picked]) }
+    else if (e.key === 'Escape') { e.preventDefault(); setPopup(null) }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <textarea ref={taRef} value={value} onChange={handleChange} onKeyDown={handleKey} {...rest} />
+      {popup && candidates.length > 0 && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 2px)', left: 0, right: 0, zIndex: 50,
+          background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 8,
+          boxShadow: 'var(--shadow-md)', overflow: 'hidden', maxHeight: 220, overflowY: 'auto',
+        }}>
+          <div style={{ padding: '4px 10px', fontSize: 9.5, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', background: 'var(--surface-2)' }}>
+            Mentionner une entreprise
+          </div>
+          {candidates.map((c, i) => (
+            <div key={c.id} onMouseDown={e => { e.preventDefault(); pick(c) }} style={{
+              padding: '6px 10px', fontSize: 12, cursor: 'pointer',
+              background: i === picked ? 'var(--primary-l)' : 'transparent',
+              color: i === picked ? 'var(--primary)' : 'var(--text)',
+              fontWeight: i === picked ? 700 : 500,
+            }}>
+              @{c.name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1252,6 +1393,11 @@ function InterventionPicker({ interventions, zones, companies, onClose, onPick }
 const fabItemStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
   background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
+}
+
+const exportItemStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+  background: 'transparent', textDecoration: 'none', cursor: 'pointer',
 }
 
 const modalBackdrop: React.CSSProperties = {
