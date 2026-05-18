@@ -959,6 +959,7 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
   const [editDue,       setEditDue]       = useState(note.due_date ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [pendingProof,  setPendingProof]  = useState(false)
+  const [showShare,     setShowShare]     = useState(false)
   const [attachments,   setAttachments]   = useState<NoteAttachment[]>(note.attachments ?? [])
   const [uploading,     setUploading]     = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1094,6 +1095,9 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
             }}>{cat.icon} {cat.label}</span>
             <span style={{ fontSize: 11, color: 'var(--xmuted)' }}>{note.scope === 'intervention' ? '📅 Liée au planning' : '📌 Libre'}</span>
             <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+              {!editing && (
+                <button onClick={() => setShowShare(true)} title="Partager par WhatsApp / Email" style={iconBtnStyle}>📤</button>
+              )}
               {!editing && isAuthor && (
                 <>
                   <button onClick={() => setEditing(true)} title="Éditer" style={iconBtnStyle}>✎</button>
@@ -1242,6 +1246,11 @@ function NoteDetail({ note, thread, zones, trades, companies, interventions, aut
           onToast={onToast}
         />
       )}
+
+      {/* Share modal */}
+      {showShare && (
+        <ShareModal note={note} companies={companies} attachments={attachments} onClose={() => setShowShare(false)} />
+      )}
     </>
   )
 }
@@ -1378,6 +1387,122 @@ const iconBtnStyle: React.CSSProperties = {
   width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)',
   background: 'var(--surface-2)', cursor: 'pointer', fontSize: 13,
   display: 'flex', alignItems: 'center', justifyContent: 'center',
+}
+
+// ─── Share modal (WhatsApp / Email) ─────────────────────────────────────────
+
+function buildShareText(note: Note, attachments: NoteAttachment[]): string {
+  const lines: string[] = []
+  lines.push(`📝 Note de ${note.author_name}`)
+  if (note.category) lines.push(`Catégorie : ${note.category}`)
+  if (note.due_date) lines.push(`Échéance : ${note.due_date}`)
+  lines.push('')
+  if (note.title) { lines.push(note.title); lines.push('') }
+  lines.push(note.content)
+  if (attachments.length > 0) {
+    lines.push('')
+    lines.push('📎 Pièces jointes :')
+    for (const a of attachments) lines.push(`- ${a.name} : ${a.url}`)
+  }
+  lines.push('')
+  const url = typeof window !== 'undefined' ? window.location.origin : 'https://hsf-chantier.vercel.app'
+  lines.push(`Voir / répondre : ${url}`)
+  return lines.join('\n')
+}
+
+function cleanPhone(p: string | null | undefined): string {
+  if (!p) return ''
+  return p.replace(/[^\d]/g, '').replace(/^0/, '33') // FR default
+}
+
+function ShareModal({ note, companies, attachments, onClose }: {
+  note: Note; companies: Company[]; attachments: NoteAttachment[]; onClose: () => void
+}) {
+  const text     = buildShareText(note, attachments)
+  const encoded  = encodeURIComponent(text)
+  const subject  = encodeURIComponent(`📝 ${note.title ?? note.content.slice(0, 60)} — Planify`)
+  const targets  = (note.company_codes.length > 0 ? note.company_codes : []).concat(note.mentioned_companies ?? [])
+  const uniqueT  = [...new Set(targets)]
+  const cos      = uniqueT.map(name => companies.find(c => c.name === name) ?? { id: name, name, phone: null, email: null, contacts: [] as Company['contacts'] })
+
+  return (
+    <>
+      <div onClick={onClose} style={{ ...modalBackdrop, zIndex: 150 }} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        background: 'var(--surface)', borderRadius: 12, padding: '16px 18px',
+        maxWidth: 440, width: '94%', maxHeight: '85vh', overflowY: 'auto',
+        boxShadow: '0 10px 40px rgba(0,0,0,.25)', zIndex: 151,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>📤 Partager cette note</div>
+          <button onClick={onClose} style={iconBtnStyle}>✕</button>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14 }}>
+          Le message s&apos;ouvre pré-rempli dans WhatsApp ou Mail. Reste à appuyer sur Envoyer.
+        </div>
+
+        {cos.length === 0 ? (
+          <div style={{ padding: 18, textAlign: 'center', color: 'var(--muted)', fontSize: 12, background: 'var(--surface-2)', borderRadius: 8 }}>
+            Aucune entreprise destinataire dans cette note.
+          </div>
+        ) : cos.map(co => {
+          const allContacts: { name: string; phone: string | null; email: string | null }[] = [
+            { name: co.name, phone: co.phone ?? null, email: co.email ?? null },
+            ...((co.contacts as Company['contacts'] | undefined) ?? []).map(c => ({ name: c.name || co.name, phone: c.phone ?? null, email: c.email ?? null })),
+          ].filter(c => c.phone || c.email)
+
+          return (
+            <div key={co.id} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>🏢 {co.name}</div>
+              {allContacts.length === 0 ? (
+                <div style={{ fontSize: 11, color: '#DC2626', background: '#FEE2E2', padding: '6px 10px', borderRadius: 6 }}>
+                  ⚠ Aucun téléphone ni email configuré. Renseigne-les dans <strong>Réglages → Entreprises</strong>.
+                </div>
+              ) : allContacts.map((c, idx) => {
+                const waPhone = cleanPhone(c.phone)
+                return (
+                  <div key={idx} style={{ marginBottom: 8, padding: '6px 10px', background: 'var(--surface-2)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)', marginBottom: 5 }}>
+                      {c.name}{c.phone ? ` · ${c.phone}` : ''}{c.email ? ` · ${c.email}` : ''}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <a
+                        href={waPhone ? `https://wa.me/${waPhone}?text=${encoded}` : '#'}
+                        target="_blank" rel="noreferrer"
+                        onClick={e => { if (!waPhone) { e.preventDefault(); alert('Pas de téléphone'); } }}
+                        style={{
+                          flex: 1, padding: '8px 0', textAlign: 'center', borderRadius: 6, textDecoration: 'none',
+                          background: waPhone ? '#25D366' : 'var(--border)',
+                          color: '#fff', fontSize: 11.5, fontWeight: 700,
+                          opacity: waPhone ? 1 : .5, cursor: waPhone ? 'pointer' : 'not-allowed',
+                        }}
+                      >💬 WhatsApp</a>
+                      <a
+                        href={c.email ? `mailto:${c.email}?subject=${subject}&body=${encoded}` : '#'}
+                        onClick={e => { if (!c.email) { e.preventDefault(); alert('Pas d\'email'); } }}
+                        style={{
+                          flex: 1, padding: '8px 0', textAlign: 'center', borderRadius: 6, textDecoration: 'none',
+                          background: c.email ? '#2152C8' : 'var(--border)',
+                          color: '#fff', fontSize: 11.5, fontWeight: 700,
+                          opacity: c.email ? 1 : .5, cursor: c.email ? 'pointer' : 'not-allowed',
+                        }}
+                      >✉ Email</a>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+
+        <button onClick={onClose} style={{
+          width: '100%', padding: '10px 0', borderRadius: 8, border: '1px solid var(--border)',
+          background: 'var(--surface-2)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>Fermer</button>
+      </div>
+    </>
+  )
 }
 
 // ─── Intervention picker (anchored note creation) ──────────────────────────
