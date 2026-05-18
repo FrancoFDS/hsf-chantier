@@ -629,9 +629,24 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
   const [dueDate,  setDueDate]  = useState<string>('')
   const [coCodes,  setCoCodes]  = useState<string[]>(iv?.company ? [iv.company] : [])
   const [trCodes,  setTrCodes]  = useState<string[]>(iv?.trade   ? [iv.trade]   : [])
-  const [zoneIds,  setZoneIds]  = useState<string[]>(iv?.zone    ? [iv.zone]    : [])
-  const [saving,   setSaving]   = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [zoneIds,    setZoneIds]    = useState<string[]>(iv?.zone    ? [iv.zone]    : [])
+  const [saving,     setSaving]     = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  function addFiles(files: FileList | null) {
+    if (!files) return
+    const allowed = ['image/jpeg', 'image/png', 'application/pdf']
+    const next: File[] = []
+    for (const f of Array.from(files)) {
+      if (f.size > 10 * 1024 * 1024) { onError?.(`${f.name} > 10 Mo`); continue }
+      if (!allowed.includes(f.type)) { onError?.(`${f.name} : format non supporté`); continue }
+      next.push(f)
+    }
+    if (next.length) setPendingFiles(prev => [...prev, ...next])
+  }
 
   async function submit() {
     const trimmed = content.trim()
@@ -642,6 +657,26 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
 
     setSaving(true)
     setError(null)
+    // Upload pending files first
+    const uploaded: NoteAttachment[] = []
+    if (pendingFiles.length > 0) {
+      const noteScope = `temp-${Date.now()}`
+      for (const f of pendingFiles) {
+        const path = `${noteScope}/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        const { error: upErr } = await supabase.storage.from('notes-attachments').upload(path, f)
+        if (upErr) {
+          setSaving(false)
+          const msg = upErr.message?.toLowerCase().includes('bucket')
+            ? 'Bucket « notes-attachments » à créer dans Supabase Storage (Réglages → Storage)'
+            : `Upload ${f.name} : ${upErr.message}`
+          setError(msg)
+          onError?.(msg)
+          return
+        }
+        const { data: { publicUrl } } = supabase.storage.from('notes-attachments').getPublicUrl(path)
+        uploaded.push({ url: publicUrl, name: f.name, type: f.type, size: f.size })
+      }
+    }
     const mentions = parseMentions(trimmed, companies)
     const basePayload = {
       author_name: authorName,
@@ -656,7 +691,7 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
       status:   'ouvert' as NoteStatus,
       due_date: dueDate || null,
       parent_id: null,
-      attachments: [],
+      attachments: uploaded,
     }
     const payload: Record<string, unknown> = { ...basePayload, mentioned_companies: mentions }
     let { data, error: err } = await supabase.from('notes').insert([payload]).select().single()
@@ -753,6 +788,61 @@ export function NoteFormModal({ mode, iv, zones, trades, companies, authorName, 
           <div>
             <label style={lbl}>Échéance <span style={{ color: 'var(--xmuted)', fontWeight: 400 }}>(optionnel)</span></label>
             <input type="date" style={inp} value={dueDate} onChange={e => setDueDate(e.target.value)} />
+          </div>
+
+          {/* Attachments */}
+          <div>
+            <label style={lbl}>📎 Pièces jointes <span style={{ color: 'var(--xmuted)', fontWeight: 400 }}>(JPG/PNG/PDF, 10 Mo max)</span></label>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <button type="button" onClick={() => cameraInputRef.current?.click()} style={{
+                flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)',
+                background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              }}>📷 Photo</button>
+              <button type="button" onClick={() => fileInputRef.current?.click()} style={{
+                flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)',
+                background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              }}>📁 Fichier</button>
+              <input
+                ref={cameraInputRef} type="file" hidden multiple
+                accept="image/*"
+                capture="environment"
+                onChange={e => { addFiles(e.target.files); e.target.value = '' }}
+              />
+              <input
+                ref={fileInputRef} type="file" hidden multiple
+                accept="image/jpeg,image/png,application/pdf"
+                onChange={e => { addFiles(e.target.files); e.target.value = '' }}
+              />
+            </div>
+            {pendingFiles.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {pendingFiles.map((f, i) => {
+                  const isImg = f.type.startsWith('image/')
+                  const url = isImg ? URL.createObjectURL(f) : ''
+                  return (
+                    <div key={i} style={{ position: 'relative', display: 'inline-block' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                        background: 'var(--surface-2)', border: '1px solid var(--border)',
+                        borderRadius: 6, fontSize: 11, fontWeight: 600, maxWidth: 200,
+                      }}>
+                        {isImg ? (
+                          <img src={url} alt="" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 3, flexShrink: 0 }} />
+                        ) : <span style={{ fontSize: 16 }}>📄</span>}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      </div>
+                      <button type="button" onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))} style={{
+                        position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: '50%',
+                        background: '#DC2626', color: '#fff', border: 'none', cursor: 'pointer',
+                        fontSize: 10, fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }} title="Retirer">×</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {error && (
