@@ -231,6 +231,7 @@ function AddTaskModal({ zones, trades, companies, defaultZone, defaultDate, onCl
     setSaving(true)
     setError(null)
     const newIv = {
+      id:         `iv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       trade:      tradeId,
       company,
       task:       task.trim(),
