@@ -857,7 +857,7 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
       {segs.flatMap((seg, i) => {
         if (seg.type === 'empty') {
           return Array.from({ length: seg.span }, (_, j) => (
-            <div key={`e-${i}-${j}`} style={{ gridColumn: seg.col + j + 1, minHeight: isMulti ? 30 : 38 }} />
+            <div key={`e-${i}-${j}`} style={{ gridColumn: seg.col + j + 1, minHeight: isMulti ? 30 : 38, pointerEvents: 'none' }} />
           ))
         }
         const { bar } = seg
