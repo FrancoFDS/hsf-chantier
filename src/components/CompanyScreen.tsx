@@ -353,6 +353,8 @@ export default function CompanyScreen({ companyName, interventions, zones, trade
           userRole="company"
           userCompany={companyName}
           onOpenNote={onOpenNote}
+          onOpenTask={(id) => setSelectedId(id)}
+          onUpdateOther={onUpdate}
           onClose={() => setSelectedId(null)}
           onUpdate={(patch) => { onUpdate(selectedIv.id, patch); setSelectedId(null) }}
         />

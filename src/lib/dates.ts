@@ -25,6 +25,12 @@ export function addDays(dateStr: string, n: number): string {
   return localStr(d)
 }
 
+export function daysBetween(fromStr: string, toStr: string): number {
+  const a = new Date(fromStr + 'T12:00:00').getTime()
+  const b = new Date(toStr   + 'T12:00:00').getTime()
+  return Math.round((b - a) / 86400000)
+}
+
 // Returns the 7 days of the week containing offset (0 = current week), starting Monday
 export function weekDays(offset = 0): string[] {
   const today = new Date(); today.setHours(12, 0, 0, 0)

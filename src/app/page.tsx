@@ -875,6 +875,8 @@ function DashboardScreen({ zones, interventions, trades, companies, authorName, 
           onClose={() => setSelectedId(null)}
           onUpdate={(patch) => { onUpdate(selectedIv.id, patch); setSelectedId(null) }}
           onOpenNote={onOpenNote}
+          onOpenTask={(id) => setSelectedId(id)}
+          onUpdateOther={onUpdate}
         />
       )}
 

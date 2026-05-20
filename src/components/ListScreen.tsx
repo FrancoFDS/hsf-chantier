@@ -204,6 +204,8 @@ export default function ListScreen({ interventions, zones, trades, onUpdate, onO
           allInterventions={interventions}
           userRole="admin"
           onOpenNote={onOpenNote}
+          onOpenTask={(id) => setSelectedId(id)}
+          onUpdateOther={onUpdate}
           onClose={() => setSelectedId(null)}
           onUpdate={(patch) => {
             onUpdate(selectedIv.id, patch)

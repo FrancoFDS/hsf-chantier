@@ -434,8 +434,83 @@ export default function PlanningScreen({ interventions, zones, trades, companies
   const [showAdd, setShowAdd]       = useState(false)
   const [addDefaults, setAddDefaults] = useState<{ zone?: string; date?: string }>({})
   const [moveMode, setMoveMode]     = useState<MoveMode>(null)
+  const [highlightLinkedIds, setHighlightLinkedIds] = useState<Set<string>>(new Set())
+  const [highlightSourceId, setHighlightSourceId]   = useState<string | null>(null)
+  const [linkPickMode, setLinkPickMode] = useState<{ kind: 'predecessor' | 'successor'; sourceTaskId: string } | null>(null)
+  const [linkPickBusy, setLinkPickBusy] = useState(false)
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dropRef = useRef<HTMLTableCellElement>(null)
   const today   = todayStr()
+
+  function clearHighlight() {
+    if (highlightTimer.current) { clearTimeout(highlightTimer.current); highlightTimer.current = null }
+    setHighlightLinkedIds(new Set())
+    setHighlightSourceId(null)
+  }
+
+  function triggerHighlight(iv: Intervention) {
+    // Toggle off if clicking the same source again
+    if (highlightSourceId === iv.id) { clearHighlight(); return }
+
+    // BFS over predecessor + successor graph to compute the full critical chain
+    const ivById = new Map(interventions.map(t => [t.id, t]))
+    const visited = new Set<string>([iv.id])
+    const chain   = new Set<string>([iv.id])
+    const queue: Intervention[] = [iv]
+    while (queue.length > 0) {
+      const cur = queue.shift()!
+      const linked = [
+        ...(cur.predecessor_ids ?? []),
+        ...(cur.successor_ids   ?? []),
+        ...(cur.predecessor_id ? [cur.predecessor_id] : []),
+      ]
+      for (const id of linked) {
+        if (visited.has(id)) continue
+        visited.add(id)
+        const next = ivById.get(id)
+        if (next) { chain.add(id); queue.push(next) }
+      }
+    }
+    if (chain.size <= 1) return
+
+    setHighlightLinkedIds(chain)
+    setHighlightSourceId(iv.id)
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+    highlightTimer.current = setTimeout(() => clearHighlight(), 20000)
+  }
+
+  async function completeLinkPick(targetIv: Intervention) {
+    if (!linkPickMode) return
+    const { kind, sourceTaskId } = linkPickMode
+    if (targetIv.id === sourceTaskId) return
+    const sourceIv = interventions.find(t => t.id === sourceTaskId)
+    if (!sourceIv) { setLinkPickMode(null); return }
+    setLinkPickBusy(true)
+    try {
+      const sourceList = kind === 'predecessor'
+        ? Array.from(new Set([...(sourceIv.predecessor_ids ?? []), targetIv.id]))
+        : Array.from(new Set([...(sourceIv.successor_ids   ?? []), targetIv.id]))
+      const sourcePatch: Partial<Intervention> = kind === 'predecessor'
+        ? { predecessor_ids: sourceList }
+        : { successor_ids:   sourceList }
+      const { error: e1 } = await supabase.from('interventions').update(sourcePatch).eq('id', sourceTaskId)
+      if (!e1) onUpdate(sourceTaskId, sourcePatch)
+
+      const targetList = kind === 'predecessor'
+        ? Array.from(new Set([...(targetIv.successor_ids   ?? []), sourceTaskId]))
+        : Array.from(new Set([...(targetIv.predecessor_ids ?? []), sourceTaskId]))
+      const targetPatch: Partial<Intervention> = kind === 'predecessor'
+        ? { successor_ids:   targetList }
+        : { predecessor_ids: targetList }
+      const { error: e2 } = await supabase.from('interventions').update(targetPatch).eq('id', targetIv.id)
+      if (!e2) onUpdate(targetIv.id, targetPatch)
+    } finally {
+      setLinkPickBusy(false)
+      setLinkPickMode(null)
+      // Re-open the source task to show the new link
+      setSelectedId(sourceTaskId)
+    }
+  }
 
   const [showWeekend, setShowWeekend] = useState(false)
 
@@ -487,8 +562,35 @@ export default function PlanningScreen({ interventions, zones, trades, companies
     setShowAdd(true)
   }
 
+  const linkPickSourceIv = linkPickMode ? interventions.find(t => t.id === linkPickMode.sourceTaskId) : null
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }} onClick={() => { if (dropOpen) setDropOpen(false) }}>
+
+      {/* Link pick banner */}
+      {linkPickMode && linkPickSourceIv && (
+        <div style={{
+          padding: '8px 12px', background: '#F5F3FF',
+          borderBottom: '1px solid #C4B5FD', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        }}>
+          <div style={{ fontSize: 12, color: '#5B21B6', lineHeight: 1.4 }}>
+            <b>🔗 Cliquez sur la tâche</b> à lier comme {linkPickMode.kind === 'predecessor' ? 'prédécesseur' : 'successeur'} de{' '}
+            <b>{linkPickSourceIv.task_number ?? linkPickSourceIv.task}</b>
+          </div>
+          <button
+            onClick={() => setLinkPickMode(null)}
+            disabled={linkPickBusy}
+            style={{
+              padding: '5px 10px', borderRadius: 'var(--r-xs)',
+              border: '1px solid #C4B5FD', background: '#fff', color: '#5B21B6',
+              fontSize: 12, fontWeight: 700, cursor: linkPickBusy ? 'wait' : 'pointer',
+            }}
+          >
+            Annuler
+          </button>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div style={{ padding: '8px 12px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -771,7 +873,9 @@ export default function PlanningScreen({ interventions, zones, trades, companies
                               isMulti={isMulti}
                               moveMode={!!moveMode}
                               highlightCompany={highlightCompany}
-                              onClickTask={iv => setSelectedId(iv.id)}
+                              highlightedIds={highlightLinkedIds}
+                              onClickTask={iv => linkPickMode ? completeLinkPick(iv) : setSelectedId(iv.id)}
+                              onClickLinks={iv => triggerHighlight(iv)}
                             />
                           ))}
                         </div>
@@ -801,6 +905,9 @@ export default function PlanningScreen({ interventions, zones, trades, companies
           userRole={userRole}
           userCompany={userCompany}
           onOpenNote={onOpenNote}
+          onOpenTask={(id) => setSelectedId(id)}
+          onUpdateOther={onUpdate}
+          onStartPlanningPick={(kind) => { setLinkPickMode({ kind, sourceTaskId: selectedIv.id }); setSelectedId(null) }}
           onClose={() => setSelectedId(null)}
           onUpdate={(patch) => {
             onUpdate(selectedIv.id, patch)
@@ -835,7 +942,7 @@ export default function PlanningScreen({ interventions, zones, trades, companies
 
 // ─── Gantt lane row (planning view) ──────────────────────────────────────────
 
-function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, highlightCompany, onClickTask }: {
+function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, highlightCompany, highlightedIds, onClickTask, onClickLinks }: {
   bars: PlanGanttBar[]
   days: string[]
   today: string
@@ -844,8 +951,11 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
   isMulti: boolean
   moveMode: boolean
   highlightCompany?: string
+  highlightedIds?: Set<string>
   onClickTask: (iv: Intervention) => void
+  onClickLinks?: (iv: Intervention) => void
 }) {
+  void today
   const n = days.length
   type Seg = { type: 'empty'; col: number; span: number } | { type: 'task'; bar: PlanGanttBar; span: number }
   const segs: Seg[] = []
@@ -878,6 +988,10 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
         const bg      = isAlert ? sm.bg  : tc.bg
         const dimmed  = !!highlightCompany && bar.iv.company !== highlightCompany
 
+        const linkCount = (bar.iv.predecessor_ids?.length ?? 0)
+                        + (bar.iv.successor_ids?.length   ?? 0)
+                        + ((bar.iv.predecessor_ids?.length ?? 0) === 0 && bar.iv.predecessor_id ? 1 : 0)
+        const isHighlighted = !!highlightedIds?.has(bar.iv.id)
         return [(
           <div
             key={`t-${bar.iv.id}`}
@@ -894,10 +1008,19 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
               height: '100%',
               background: bg,
               borderRadius: bar.startsBeforeRange ? '0 4px 4px 0' : bar.endsAfterRange ? '4px 0 0 4px' : 4,
-              borderLeft: `2.5px solid ${accent}`,
-              border: `1px solid ${accent}25`,
-              borderLeftWidth: '2.5px',
-              borderLeftColor: accent,
+              borderTopWidth: isHighlighted ? 2 : 1,
+              borderTopStyle: 'solid',
+              borderTopColor: isHighlighted ? '#F59E0B' : `${accent}25`,
+              borderRightWidth: isHighlighted ? 2 : 1,
+              borderRightStyle: 'solid',
+              borderRightColor: isHighlighted ? '#F59E0B' : `${accent}25`,
+              borderBottomWidth: isHighlighted ? 2 : 1,
+              borderBottomStyle: 'solid',
+              borderBottomColor: isHighlighted ? '#F59E0B' : `${accent}25`,
+              borderLeftWidth: 2.5,
+              borderLeftStyle: 'solid',
+              borderLeftColor: isHighlighted ? '#F59E0B' : accent,
+              boxShadow: isHighlighted ? '0 0 0 2px rgba(245,158,11,.35)' : undefined,
               padding: isMulti ? '2px 5px' : '3px 7px',
               cursor: moveMode ? 'crosshair' : 'pointer',
               overflow: 'hidden',
@@ -906,10 +1029,31 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
               flexDirection: 'column',
               justifyContent: 'center',
               gap: 1,
+              transition: 'border-color .2s, box-shadow .2s',
             }}>
-              <div style={{ fontSize: isMulti ? 8 : 9.5, fontWeight: 800, color: accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
-                {bar.iv.company}
-                {isAlert && <span style={{ marginLeft: 4, fontSize: isMulti ? 6.5 : 8, opacity: .85 }}>· {sm.label}</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <div style={{ flex: 1, minWidth: 0, fontSize: isMulti ? 8 : 9.5, fontWeight: 800, color: accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
+                  {bar.iv.company}
+                  {isAlert && <span style={{ marginLeft: 4, fontSize: isMulti ? 6.5 : 8, opacity: .85 }}>· {sm.label}</span>}
+                </div>
+                {linkCount > 0 && onClickLinks && (
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); onClickLinks(bar.iv) }}
+                    title={`${linkCount} dépendance${linkCount > 1 ? 's' : ''} — cliquer pour mettre en évidence`}
+                    style={{
+                      flexShrink: 0,
+                      display: 'inline-flex', alignItems: 'center', gap: 1,
+                      padding: '0 4px', borderRadius: 999,
+                      border: '1px solid #C4B5FD',
+                      background: '#F5F3FF', color: '#5B21B6',
+                      fontSize: isMulti ? 7 : 8, fontWeight: 800,
+                      lineHeight: 1.4, cursor: 'pointer',
+                    }}
+                  >
+                    🔗{linkCount}
+                  </button>
+                )}
               </div>
               <div style={{ fontSize: isMulti ? 7.5 : 8.5, color: '#2A2A2A', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: isMulti ? 2 : 1, WebkitBoxOrient: 'vertical', fontWeight: 500 }}>
                 {bar.iv.task}
