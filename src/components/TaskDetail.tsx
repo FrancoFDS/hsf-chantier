@@ -348,7 +348,10 @@ export default function TaskDetail({ iv, zones, trades, companies = [], allInter
   const [pendingCascade, setPendingCascade] = useState<{ delta: number; patch: Partial<Intervention> } | null>(null)
   const [cascadeBusy, setCascadeBusy] = useState(false)
 
+  const [justSaved, setJustSaved] = useState(false)
+
   async function handleSave() {
+    if (!hasChanges) return
     setSaving(true)
     const patch: Partial<Intervention> = editing
       ? {
@@ -375,7 +378,9 @@ export default function TaskDetail({ iv, zones, trades, companies = [], allInter
       return
     }
     setEditing(false)
-    onUpdate(patch)
+    setJustSaved(true)
+    onUpdateOther?.(iv.id, patch)
+    setTimeout(() => onClose(), 800)
   }
 
   async function applyCascade(delta: number) {
@@ -820,15 +825,16 @@ export default function TaskDetail({ iv, zones, trades, companies = [], allInter
               </button>
               <button
                 onClick={handleSave}
-                disabled={!hasChanges || saving}
+                disabled={!hasChanges || saving || justSaved}
                 style={{
                   flex: 2, padding: '11px 0', borderRadius: 'var(--r-sm)', border: 'none',
-                  background: hasChanges ? 'var(--primary)' : 'var(--border)',
-                  color: hasChanges ? '#fff' : 'var(--muted)',
-                  fontSize: 14, fontWeight: 700, cursor: hasChanges ? 'pointer' : 'default',
+                  background: justSaved ? 'var(--success, #16A34A)' : hasChanges ? 'var(--primary)' : 'var(--border)',
+                  color: justSaved || hasChanges ? '#fff' : 'var(--muted)',
+                  fontSize: 14, fontWeight: 700,
+                  cursor: (saving || justSaved || !hasChanges) ? 'default' : 'pointer',
                   transition: 'background .15s',
                 }}
-              >{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+              >{justSaved ? '✓ Enregistré' : saving ? 'Enregistrement…' : 'Enregistrer'}</button>
             </div>
           )}
         </div>
