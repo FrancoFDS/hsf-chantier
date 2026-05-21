@@ -105,15 +105,17 @@ function buildGanttBars(ivs: Intervention[], weekDays: string[]): { bars: GanttB
   return { bars: withSpans, laneCount: laneEnds.length }
 }
 
-// Renders one Gantt lane row (fills all 5 columns, tasks span their columns)
-function LaneRow({ bars, weekDays, today, trades, companies }: {
+// Renders one Gantt lane row (fills all columns, tasks span their columns)
+function LaneRow({ bars, weekDays, today, trades, companies, compact, weekLength }: {
   bars: GanttBar[]
   weekDays: string[]
   today: string
   trades: Trade[]
   companies: Company[]
+  compact?: boolean
+  weekLength?: number
 }) {
-  // Build 5-column grid: each segment is either a task bar or an empty cell
+  const n = weekDays.length
   type Seg = { type: 'task'; bar: GanttBar; span: number } | { type: 'empty'; col: number; span: number }
   const segs: Seg[] = []
   let cursor = 0
@@ -126,7 +128,13 @@ function LaneRow({ bars, weekDays, today, trades, companies }: {
     segs.push({ type: 'task', bar, span: bar.endCol - bar.startCol + 1 })
     cursor = bar.endCol + 1
   }
-  if (cursor < 5) segs.push({ type: 'empty', col: cursor, span: 5 - cursor })
+  if (cursor < n) segs.push({ type: 'empty', col: cursor, span: n - cursor })
+
+  function colRightExtras(col: number, isLastCol: boolean): React.CSSProperties {
+    const isLastOfWeek = !!weekLength && !isLastCol && (col + 1) % weekLength === 0
+    if (isLastOfWeek) return { borderRight: '2px solid #B0ABA3' }
+    return isLastCol ? { borderRight: 'none' } : { borderRight: '1px solid #EEEBE4' }
+  }
 
   return (
     <div style={{
@@ -136,22 +144,20 @@ function LaneRow({ bars, weekDays, today, trades, companies }: {
     }}>
       {segs.map((seg, i) => {
         if (seg.type === 'empty') {
-          // Render empty cells (one per column so borders appear)
           return Array.from({ length: seg.span }, (_, j) => {
             const col = seg.col + j
             const isToday = weekDays[col] === today
             return (
               <div key={`e-${i}-${j}`} style={{
                 gridColumn: col + 1,
-                borderRight: col < weekDays.length - 1 ? '1px solid #EEEBE4' : 'none',
                 background: isToday ? 'rgba(33,82,200,.03)' : 'transparent',
                 minHeight: 30,
+                ...colRightExtras(col, col === n - 1),
               }} />
             )
           })
         }
 
-        // Task bar
         const { bar } = seg
         const co = companies.find(c => c.name === bar.iv.company)
         const tr = trades.find(t => t.id === displayTradeId(co, bar.iv.trade))
@@ -165,9 +171,9 @@ function LaneRow({ bars, weekDays, today, trades, companies }: {
         return (
           <div key={`t-${bar.iv.id}`} style={{
             gridColumn: `${bar.startCol + 1} / ${bar.endCol + 2}`,
-            padding: '3px 3px',
-            borderRight: bar.endCol < weekDays.length - 1 ? '1px solid #EEEBE4' : 'none',
+            padding: compact ? '2px 2px' : '3px 3px',
             background: weekDays[bar.startCol] === today ? 'rgba(33,82,200,.03)' : 'transparent',
+            ...colRightExtras(bar.endCol, bar.endCol === n - 1),
           }}>
             <div style={{
               height: '100%',
@@ -177,22 +183,31 @@ function LaneRow({ bars, weekDays, today, trades, companies }: {
               borderTop:   `1px solid ${accent}25`,
               borderBottom:`1px solid ${accent}25`,
               borderRight: `1px solid ${accent}25`,
-              padding: '3px 6px',
+              padding: compact ? '2px 4px' : '3px 6px',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
               gap: 1,
+              overflow: 'hidden',
             }}>
-              <div style={{ fontSize: 8.5, fontWeight: 800, color: accent, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {bar.iv.company}
-                {isAlert && <span style={{ marginLeft: 5, fontSize: 7, opacity: .85 }}>· {sm.label}</span>}
-              </div>
-              <div style={{ fontSize: 8, color: '#2A2A2A', lineHeight: 1.3, wordBreak: 'break-word' }}>
-                {bar.iv.task_number
-                  ? <span style={{ fontFamily: 'DM Mono, monospace', color: '#999', marginRight: 3 }}>[{bar.iv.task_number}]</span>
-                  : null}
-                {bar.iv.task}
-              </div>
+              {compact ? (
+                <div style={{ fontSize: 7.5, fontWeight: 800, color: accent, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {bar.iv.company}
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 8.5, fontWeight: 800, color: accent, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {bar.iv.company}
+                    {isAlert && <span style={{ marginLeft: 5, fontSize: 7, opacity: .85 }}>· {sm.label}</span>}
+                  </div>
+                  <div style={{ fontSize: 8, color: '#2A2A2A', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                    {bar.iv.task_number
+                      ? <span style={{ fontFamily: 'DM Mono, monospace', color: '#999', marginRight: 3 }}>[{bar.iv.task_number}]</span>
+                      : null}
+                    {bar.iv.task}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )
@@ -209,7 +224,7 @@ export default function ExportPlanningPage() {
   const [companies, setCompanies]       = useState<Company[]>([])
   const [interventions, setInterventions] = useState<Intervention[]>([])
   const [loading, setLoading]           = useState(true)
-  const [weekCount, setWeekCount]       = useState<1 | 2 | 3>(1)
+  const [weekCount, setWeekCount]       = useState<number>(1)
   const [startOffset, setStartOffset]   = useState(0)
   const [showWeekend, setShowWeekend]   = useState(false)
   const [singlePage, setSinglePage]     = useState(false)
@@ -231,6 +246,10 @@ export default function ExportPlanningPage() {
 
   const weeksAll = Array.from({ length: weekCount }, (_, i) => getWeekDays(startOffset + i, showWeekend))
   const weeks    = singlePage && weekCount > 1 ? [weeksAll.flat()] : weeksAll
+  const isFused  = singlePage && weekCount > 1
+  const weekLen  = showWeekend ? 7 : 5
+  // Ultra-compact (company only) only when there are too many columns to fit details
+  const ultraCompact = isFused && weekCount > 3
   const today   = localStr(new Date())
   const floors  = [...new Set(zones.map(z => z.floor).filter(Boolean))].sort()
   const printedAt = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -262,7 +281,13 @@ export default function ExportPlanningPage() {
           page-break-after: always;
           page-break-inside: avoid;
         }
+        .print-page.fused {
+          page-break-after: auto;
+          page-break-inside: auto;
+        }
         .print-page:last-child { page-break-after: auto; }
+        .floor-block-avoid { page-break-inside: avoid; break-inside: avoid; }
+        .print-page.fused .floor-block-avoid { page-break-inside: auto; break-inside: auto; }
         @media print {
           @page { size: A4 landscape; margin: 0.7cm 1cm; }
           html, body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -273,8 +298,8 @@ export default function ExportPlanningPage() {
 
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="no-print" style={{
-        background: '#1A1A1A', color: '#fff', padding: '0 20px',
-        height: 50, display: 'flex', alignItems: 'center', gap: 14,
+        background: '#1A1A1A', color: '#fff', padding: '8px 16px',
+        minHeight: 50, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
         fontFamily: 'DM Sans, sans-serif', position: 'sticky', top: 0, zIndex: 10,
       }}>
         <span style={{ fontWeight: 900, fontSize: 11, letterSpacing: '.1em', opacity: .4 }}>PLANIFY</span>
@@ -283,13 +308,33 @@ export default function ExportPlanningPage() {
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 10, opacity: .45, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Durée</span>
-            {([1, 2, 3] as const).map(n => (
+            {[1, 2, 3].map(n => (
               <button key={n} onClick={() => setWeekCount(n)} style={{
                 padding: '5px 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
                 background: weekCount === n ? '#2152C8' : 'rgba(255,255,255,.1)',
                 color: weekCount === n ? '#fff' : 'rgba(255,255,255,.5)',
               }}>{n} sem.</button>
             ))}
+            <input
+              type="number"
+              min={1}
+              max={26}
+              value={weekCount > 3 ? weekCount : ''}
+              placeholder="N"
+              onChange={e => {
+                const v = parseInt(e.target.value, 10)
+                if (!isNaN(v) && v >= 1) setWeekCount(Math.min(v, 26))
+              }}
+              title="Nombre de semaines à afficher"
+              style={{
+                width: 48, padding: '5px 6px', borderRadius: 6, border: 'none',
+                background: weekCount > 3 ? '#2152C8' : 'rgba(255,255,255,.1)',
+                color: weekCount > 3 ? '#fff' : 'rgba(255,255,255,.7)',
+                fontSize: 12, fontWeight: 700, textAlign: 'center',
+                fontFamily: 'inherit',
+              }}
+            />
+            <span style={{ fontSize: 10, opacity: .45 }}>sem.</span>
           </div>
           <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,.12)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -321,13 +366,14 @@ export default function ExportPlanningPage() {
             <>
               <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,.12)' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 10, opacity: .45, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Mise en page</span>
+                <span style={{ fontSize: 10, opacity: .45, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Format</span>
                 {([false, true] as const).map(sp => (
                   <button key={String(sp)} onClick={() => setSinglePage(sp)} style={{
                     padding: '5px 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
                     background: singlePage === sp ? '#2152C8' : 'rgba(255,255,255,.1)',
                     color: singlePage === sp ? '#fff' : 'rgba(255,255,255,.5)',
-                  }}>{sp ? 'Tout sur 1 page' : '1 page / sem.'}</button>
+                    whiteSpace: 'nowrap',
+                  }}>{sp ? '1 page' : 'Multi-pages'}</button>
                 ))}
               </div>
             </>
@@ -357,7 +403,7 @@ export default function ExportPlanningPage() {
           )
 
           return (
-            <div key={wi} className="print-page">
+            <div key={wi} className={`print-page${isFused ? ' fused' : ''}`}>
 
               {/* Page header */}
               <div style={{
@@ -392,21 +438,23 @@ export default function ExportPlanningPage() {
                 <div style={{ padding: '7px 8px', borderRight: '1px solid #E2DDD6', display: 'flex', alignItems: 'flex-end' }}>
                   <span style={{ fontSize: 7.5, fontWeight: 800, color: '#B0ABA3', textTransform: 'uppercase', letterSpacing: '.08em' }}>Zone</span>
                 </div>
-                {weekDays.map(ds => {
+                {weekDays.map((ds, dIdx) => {
                   const { short, num, month } = fmtDayLabel(ds)
                   const isToday = ds === today
+                  const isLastOfWeek = isFused && (dIdx + 1) % weekLen === 0 && dIdx < weekDays.length - 1
                   const cnt = totalIvs.filter(iv => {
                     const s = iv.start_date ?? '', e = iv.end_date ?? s
                     return s <= ds && e >= ds
                   }).length
                   return (
                     <div key={ds} style={{
-                      padding: '7px 6px 5px', textAlign: 'center', borderRight: '1px solid #E2DDD6',
+                      padding: isFused ? '5px 4px 4px' : '7px 6px 5px', textAlign: 'center',
+                      borderRight: isLastOfWeek ? '2px solid #B0ABA3' : '1px solid #E2DDD6',
                       borderTop: `3px solid ${isToday ? '#2152C8' : 'transparent'}`,
                       background: isToday ? '#EEF2FC' : 'transparent',
                     }}>
                       <div style={{ fontSize: 7.5, fontWeight: 800, color: isToday ? '#2152C8' : '#B0ABA3', textTransform: 'uppercase', letterSpacing: '.08em' }}>{short}</div>
-                      <div style={{ fontSize: 19, fontWeight: 900, color: isToday ? '#2152C8' : '#1A1A1A', lineHeight: 1.05 }}>{num}</div>
+                      <div style={{ fontSize: isFused ? 14 : 19, fontWeight: 900, color: isToday ? '#2152C8' : '#1A1A1A', lineHeight: 1.05 }}>{num}</div>
                       <div style={{ fontSize: 7.5, color: '#B0ABA3', marginBottom: 4 }}>{month}</div>
                       <div style={{
                         fontSize: 8, fontWeight: 700, display: 'inline-block',
@@ -425,7 +473,7 @@ export default function ExportPlanningPage() {
                 const fc = getZoneFloorColor(zones, floor)
 
                 return (
-                  <div key={floor} style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                  <div key={floor} className="floor-block-avoid">
                     {/* Floor header */}
                     <div style={{
                       display: 'grid', gridTemplateColumns: `88px repeat(${weekDays.length}, 1fr)`,
@@ -435,11 +483,15 @@ export default function ExportPlanningPage() {
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: fc, flexShrink: 0, display: 'inline-block' }} />
                         <span style={{ fontSize: 8.5, fontWeight: 900, color: fc, textTransform: 'uppercase', letterSpacing: '.07em' }}>{floor}</span>
                       </div>
-                      {weekDays.map(ds => {
+                      {weekDays.map((ds, dIdx) => {
+                        const isLastOfWeek = isFused && (dIdx + 1) % weekLen === 0 && dIdx < weekDays.length - 1
                         const cnt = floorZones.reduce((acc, z) =>
                           acc + totalIvs.filter(iv => iv.zone === z.id && (iv.start_date ?? '') <= ds && (iv.end_date ?? iv.start_date ?? '') >= ds).length, 0)
                         return (
-                          <div key={ds} style={{ padding: '3px 6px', textAlign: 'center', borderLeft: `1px solid ${fc}20` }}>
+                          <div key={ds} style={{
+                            padding: '3px 6px', textAlign: 'center',
+                            borderRight: isLastOfWeek ? '2px solid #B0ABA3' : `1px solid ${fc}20`,
+                          }}>
                             {cnt > 0 && <span style={{ fontSize: 7.5, color: fc, fontWeight: 700 }}>{cnt} int.</span>}
                           </div>
                         )
@@ -453,12 +505,10 @@ export default function ExportPlanningPage() {
                       if (bars.length === 0) return null
 
                       return (
-                        <div key={zone.id} style={{
+                        <div key={zone.id} className="floor-block-avoid" style={{
                           display: 'grid',
                           gridTemplateColumns: '88px 1fr',
-                          borderBottom: zi < floorZones.length - 1 ? '1px solid #EEEBE4' : `1px solid ${fc}30`,
-                          breakInside: 'avoid',
-                          pageBreakInside: 'avoid',
+                          borderBottom: zi < floorZones.length - 1 ? `1.5px solid ${fc}55` : `2px solid ${fc}80`,
                         }}>
                           {/* Zone label */}
                           <div style={{
@@ -479,6 +529,8 @@ export default function ExportPlanningPage() {
                                 today={today}
                                 trades={trades}
                                 companies={companies}
+                                compact={ultraCompact}
+                                weekLength={isFused ? weekLen : undefined}
                               />
                             ))}
                           </div>

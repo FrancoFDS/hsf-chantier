@@ -10,7 +10,6 @@ import { supabase } from '@/lib/supabase'
 import { companyTradeIds, displayTradeId } from '@/lib/company'
 import TaskDetail from './TaskDetail'
 
-type ViewMode = '1s' | '2s' | '3s'
 
 interface Props {
   interventions: Intervention[]
@@ -427,7 +426,7 @@ type MoveMode = { iv: Intervention; mode: 'move' | 'dup' } | null
 
 export default function PlanningScreen({ interventions, zones, trades, companies, highlightCompany, readOnly, authorName, userRole = 'admin', userCompany = null, onUpdate, onAdd, onOpenNote }: Props) {
   const [weekOffset, setWeekOffset] = useState(0)
-  const [viewMode, setViewMode]     = useState<ViewMode>('1s')
+  const [weeks, setWeeks]           = useState<number>(1)
   const [zoneFilter, setZoneFilter] = useState<string[]>([])
   const [dropOpen, setDropOpen]     = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -514,7 +513,6 @@ export default function PlanningScreen({ interventions, zones, trades, companies
 
   const [showWeekend, setShowWeekend] = useState(false)
 
-  const weeks      = viewMode === '3s' ? 3 : viewMode === '2s' ? 2 : 1
   const isMulti    = weeks > 1
   const allDays    = multiWeekDays(weekOffset, weeks)
   const days       = showWeekend ? allDays : allDays.filter(d => { const w = new Date(d + 'T12:00:00').getDay(); return w !== 0 && w !== 6 })
@@ -604,17 +602,37 @@ export default function PlanningScreen({ interventions, zones, trades, companies
         <button onClick={() => setWeekOffset(w => w + 1)} style={navBtnStyle}>›</button>
 
         {/* View mode */}
-        <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
-          {(['1s', '2s', '3s'] as ViewMode[]).map(m => (
-            <button key={m} onClick={() => setViewMode(m)} style={{
+        <div style={{ display: 'flex', gap: 4, marginLeft: 8, alignItems: 'center' }}>
+          {[1, 2, 3].map(n => (
+            <button key={n} onClick={() => setWeeks(n)} style={{
               padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              border: `1px solid ${viewMode === m ? 'var(--primary)' : 'var(--border)'}`,
-              background: viewMode === m ? 'var(--primary-l)' : 'var(--surface-2)',
-              color: viewMode === m ? 'var(--primary)' : 'var(--muted)',
+              border: `1px solid ${weeks === n ? 'var(--primary)' : 'var(--border)'}`,
+              background: weeks === n ? 'var(--primary-l)' : 'var(--surface-2)',
+              color: weeks === n ? 'var(--primary)' : 'var(--muted)',
             }}>
-              {m === '1s' ? '1 sem.' : m === '2s' ? '2 sem.' : '3 sem.'}
+              {n} sem.
             </button>
           ))}
+          <input
+            type="number"
+            min={1}
+            max={26}
+            value={weeks > 3 ? weeks : ''}
+            placeholder="N"
+            onChange={e => {
+              const v = parseInt(e.target.value, 10)
+              if (!isNaN(v) && v >= 1) setWeeks(Math.min(v, 26))
+            }}
+            title="Nombre de semaines à afficher"
+            style={{
+              width: 42, padding: '4px 6px', borderRadius: 999,
+              border: `1px solid ${weeks > 3 ? 'var(--primary)' : 'var(--border)'}`,
+              background: weeks > 3 ? 'var(--primary-l)' : 'var(--surface-2)',
+              color: weeks > 3 ? 'var(--primary)' : 'var(--muted)',
+              fontSize: 11, fontWeight: 700, textAlign: 'center',
+              fontFamily: 'inherit',
+            }}
+          />
         </div>
 
         {/* Weekend toggle */}
@@ -1049,9 +1067,9 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
               transition: 'border-color .2s, box-shadow .2s, opacity .2s',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <div style={{ flex: 1, minWidth: 0, fontSize: isMulti ? 8 : 9.5, fontWeight: 800, color: accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
+                <div style={{ flex: 1, minWidth: 0, fontSize: isMulti ? 9 : 9.5, fontWeight: 800, color: accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
                   {bar.iv.company}
-                  {isAlert && <span style={{ marginLeft: 4, fontSize: isMulti ? 6.5 : 8, opacity: .85 }}>· {sm.label}</span>}
+                  {isAlert && <span style={{ marginLeft: 4, fontSize: isMulti ? 7 : 8, opacity: .85 }}>· {sm.label}</span>}
                 </div>
                 {onStartMove && !moveMode && (
                   <button
@@ -1090,7 +1108,12 @@ function PlanLaneRow({ bars, days, today, trades, companies, isMulti, moveMode, 
                   </button>
                 )}
               </div>
-              <div style={{ fontSize: isMulti ? 7.5 : 8.5, color: '#2A2A2A', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: isMulti ? 2 : 1, WebkitBoxOrient: 'vertical', fontWeight: 500 }}>
+              {bar.iv.task_number && (
+                <div style={{ fontSize: isMulti ? 7 : 8, color: '#999', fontFamily: "'DM Mono', monospace", lineHeight: 1.2 }}>
+                  [{bar.iv.task_number}]
+                </div>
+              )}
+              <div style={{ fontSize: isMulti ? 8.5 : 8.5, color: '#2A2A2A', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: isMulti ? 3 : 1, WebkitBoxOrient: 'vertical', fontWeight: 500 }}>
                 {bar.iv.task}
               </div>
             </div>
