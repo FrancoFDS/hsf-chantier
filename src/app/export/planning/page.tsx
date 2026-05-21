@@ -143,7 +143,7 @@ function LaneRow({ bars, weekDays, today, trades, companies }: {
             return (
               <div key={`e-${i}-${j}`} style={{
                 gridColumn: col + 1,
-                borderRight: col < 4 ? '1px solid #EEEBE4' : 'none',
+                borderRight: col < weekDays.length - 1 ? '1px solid #EEEBE4' : 'none',
                 background: isToday ? 'rgba(33,82,200,.03)' : 'transparent',
                 minHeight: 30,
               }} />
@@ -166,7 +166,7 @@ function LaneRow({ bars, weekDays, today, trades, companies }: {
           <div key={`t-${bar.iv.id}`} style={{
             gridColumn: `${bar.startCol + 1} / ${bar.endCol + 2}`,
             padding: '3px 3px',
-            borderRight: bar.endCol < 4 ? '1px solid #EEEBE4' : 'none',
+            borderRight: bar.endCol < weekDays.length - 1 ? '1px solid #EEEBE4' : 'none',
             background: weekDays[bar.startCol] === today ? 'rgba(33,82,200,.03)' : 'transparent',
           }}>
             <div style={{
@@ -212,6 +212,7 @@ export default function ExportPlanningPage() {
   const [weekCount, setWeekCount]       = useState<1 | 2 | 3>(1)
   const [startOffset, setStartOffset]   = useState(0)
   const [showWeekend, setShowWeekend]   = useState(false)
+  const [singlePage, setSinglePage]     = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -228,7 +229,8 @@ export default function ExportPlanningPage() {
     })
   }, [])
 
-  const weeks   = Array.from({ length: weekCount }, (_, i) => getWeekDays(startOffset + i, showWeekend))
+  const weeksAll = Array.from({ length: weekCount }, (_, i) => getWeekDays(startOffset + i, showWeekend))
+  const weeks    = singlePage && weekCount > 1 ? [weeksAll.flat()] : weeksAll
   const today   = localStr(new Date())
   const floors  = [...new Set(zones.map(z => z.floor).filter(Boolean))].sort()
   const printedAt = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -315,6 +317,21 @@ export default function ExportPlanningPage() {
               }}>{wk ? '7j' : '5j'}</button>
             ))}
           </div>
+          {weekCount > 1 && (
+            <>
+              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,.12)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 10, opacity: .45, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Mise en page</span>
+                {([false, true] as const).map(sp => (
+                  <button key={String(sp)} onClick={() => setSinglePage(sp)} style={{
+                    padding: '5px 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                    background: singlePage === sp ? '#2152C8' : 'rgba(255,255,255,.1)',
+                    color: singlePage === sp ? '#fff' : 'rgba(255,255,255,.5)',
+                  }}>{sp ? 'Tout sur 1 page' : '1 page / sem.'}</button>
+                ))}
+              </div>
+            </>
+          )}
           <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,.12)' }} />
           <button onClick={() => window.print()} style={{
             padding: '7px 16px', borderRadius: 7, border: 'none', cursor: 'pointer',
@@ -331,7 +348,7 @@ export default function ExportPlanningPage() {
           const totalIvs   = interventions.filter(iv => {
             if (iv.status === 'termine') return false
             const s = iv.start_date ?? '', e = iv.end_date ?? s
-            return s && s <= weekDays[4] && e >= weekDays[0]
+            return s && s <= weekDays[weekDays.length - 1] && e >= weekDays[0]
           })
 
           // Only floors/zones with tasks this week
@@ -357,8 +374,11 @@ export default function ExportPlanningPage() {
                     <div style={{ fontSize: 8, opacity: .4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' }}>Planning</div>
                     <div style={{ fontSize: 14, fontWeight: 700 }}>{weekRange}</div>
                   </div>
-                  {weekCount > 1 && (
+                  {weekCount > 1 && !singlePage && (
                     <span style={{ fontSize: 10, opacity: .45 }}>· semaine {wi + 1}/{weekCount}</span>
+                  )}
+                  {weekCount > 1 && singlePage && (
+                    <span style={{ fontSize: 10, opacity: .45 }}>· {weekCount} semaines</span>
                   )}
                 </div>
                 <div style={{ textAlign: 'right', fontSize: 9, opacity: .4 }}>
